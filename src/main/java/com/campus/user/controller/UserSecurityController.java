@@ -1,6 +1,7 @@
 package com.campus.user.controller;
 
 import com.campus.core.common.Result;
+import com.campus.core.common.ResultCode;
 import com.campus.user.dto.ResetPasswordRequest;
 import com.campus.user.dto.SecurityQuestion;
 import com.campus.user.dto.SetSecurityRequest;
@@ -46,7 +47,7 @@ public class UserSecurityController {
     public Result<SecurityQuestion> getUserSecurityQuestion(@PathVariable Long userId) {
         SecurityQuestion question = userSecurityService.getSecurityQuestionByUserId(userId);
         if (question == null) {
-            return Result.error(404, "该用户未设置密保问题");
+            return Result.error(ResultCode.SECURITY_QUESTION_NOT_SET);
         }
         return Result.success(question);
     }
@@ -57,12 +58,8 @@ public class UserSecurityController {
     @GetMapping("/username/{username}")
     @ApiOperation("根据用户名获取密保问题")
     public Result<SecurityQuestion> getSecurityQuestionByUsername(@PathVariable String username) {
-        try {
-            SecurityQuestion question = userSecurityService.getSecurityQuestionByUsername(username);
-            return Result.success(question);
-        } catch (RuntimeException e) {
-            return Result.error(404, e.getMessage());
-        }
+        SecurityQuestion question = userSecurityService.getSecurityQuestionByUsername(username);
+        return Result.success(question);
     }
 
     /**
@@ -71,16 +68,12 @@ public class UserSecurityController {
     @PostMapping("/set")
     @ApiOperation("设置密保问题")
     public Result<Void> setSecurity(@Valid @RequestBody SetSecurityRequest request) {
-        try {
-            userSecurityService.setSecurity(
-                request.getUserId(),
-                request.getSecurityQuestionId(),
-                request.getSecurityAnswer()
-            );
-            return Result.success();
-        } catch (RuntimeException e) {
-            return Result.error(400, e.getMessage());
-        }
+        userSecurityService.setSecurity(
+            request.getUserId(),
+            request.getSecurityQuestionId(),
+            request.getSecurityAnswer()
+        );
+        return Result.success(null, "密保设置成功");
     }
 
     /**
@@ -89,19 +82,15 @@ public class UserSecurityController {
     @PostMapping("/verify")
     @ApiOperation("验证密保答案")
     public Result<Void> verifySecurityAnswer(@Valid @RequestBody VerifySecurityRequest request) {
-        try {
-            var user = userMapper.selectByUsername(request.getUsername());
-            if (user == null) {
-                return Result.error(404, "用户不存在");
-            }
-            boolean verified = userSecurityService.verifyAnswer(user.getId(), request.getSecurityAnswer());
-            if (verified) {
-                return Result.success();
-            } else {
-                return Result.error(401, "密保答案错误");
-            }
-        } catch (RuntimeException e) {
-            return Result.error(400, e.getMessage());
+        var user = userMapper.selectByUsername(request.getUsername());
+        if (user == null) {
+            return Result.error(ResultCode.USER_NOT_FOUND);
+        }
+        boolean verified = userSecurityService.verifyAnswer(user.getId(), request.getSecurityAnswer());
+        if (verified) {
+            return Result.success(null, "验证成功");
+        } else {
+            return Result.error(ResultCode.SECURITY_ANSWER_ERROR);
         }
     }
 
@@ -111,15 +100,11 @@ public class UserSecurityController {
     @PostMapping("/reset-password")
     @ApiOperation("重置密码")
     public Result<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
-        try {
-            userSecurityService.resetPassword(
-                request.getUsername(),
-                request.getSecurityAnswer(),
-                request.getNewPassword()
-            );
-            return Result.success();
-        } catch (RuntimeException e) {
-            return Result.error(400, e.getMessage());
-        }
+        userSecurityService.resetPassword(
+            request.getUsername(),
+            request.getSecurityAnswer(),
+            request.getNewPassword()
+        );
+        return Result.success(null, "密码重置成功");
     }
 }

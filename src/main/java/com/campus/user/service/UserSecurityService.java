@@ -1,5 +1,7 @@
 package com.campus.user.service;
 
+import com.campus.core.common.BusinessException;
+import com.campus.core.common.ResultCode;
 import com.campus.user.dto.SecurityQuestion;
 import com.campus.user.entity.UserSecurity;
 import com.campus.user.mapper.UserSecurityMapper;
@@ -62,10 +64,10 @@ public class UserSecurityService {
      */
     public void setSecurity(Long userId, Integer securityQuestionId, String securityAnswer) {
         if (userId == null || securityQuestionId == null || securityAnswer == null) {
-            throw new RuntimeException("参数不能为空");
+            throw new BusinessException(ResultCode.BAD_REQUEST, "参数不能为空");
         }
         if (securityQuestionId < 1 || securityQuestionId > 8) {
-            throw new RuntimeException("无效的密保问题编号");
+            throw new BusinessException(ResultCode.SECURITY_QUESTION_INVALID);
         }
 
         UserSecurity existingSecurity = userSecurityMapper.selectByUserId(userId);
@@ -90,7 +92,7 @@ public class UserSecurityService {
     public boolean verifyAnswer(Long userId, String answer) {
         UserSecurity userSecurity = userSecurityMapper.selectByUserId(userId);
         if (userSecurity == null) {
-            throw new RuntimeException("该用户未设置密保问题");
+            throw new BusinessException(ResultCode.SECURITY_QUESTION_NOT_SET);
         }
         String hashedAnswer = hashAnswer(answer);
         return hashedAnswer.equals(userSecurity.getSecurityAnswer());
@@ -102,7 +104,7 @@ public class UserSecurityService {
     public SecurityQuestion getSecurityQuestionByUsername(String username) {
         var user = userMapper.selectByUsername(username);
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         return getSecurityQuestionByUserId(user.getId());
     }
@@ -113,14 +115,14 @@ public class UserSecurityService {
     public void resetPassword(String username, String securityAnswer, String newPassword) {
         var user = userMapper.selectByUsername(username);
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
 
         if (!verifyAnswer(user.getId(), securityAnswer)) {
-            throw new RuntimeException("密保答案错误");
+            throw new BusinessException(ResultCode.SECURITY_ANSWER_ERROR);
         }
 
-        String hashedPassword = hashAnswer(newPassword);
+        String hashedPassword = hashPassword(newPassword);
         user.setPassword(hashedPassword);
         userMapper.updateById(user);
     }
@@ -134,7 +136,7 @@ public class UserSecurityService {
             byte[] hash = digest.digest(answer.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("加密失败", e);
+            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
         }
     }
 }

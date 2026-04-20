@@ -1,6 +1,9 @@
 package com.campus.core.common;
 
 import com.campus.core.common.Result;
+import com.campus.core.common.ResultCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
@@ -18,6 +21,18 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    /**
+     * 处理业务异常
+     */
+    @ExceptionHandler(BusinessException.class)
+    @ResponseStatus(HttpStatus.OK)
+    public Result<Void> handleBusinessException(BusinessException e) {
+        logger.warn("业务异常: {}", e.getMessage());
+        return Result.error(e.getCode(), e.getMessage());
+    }
+
     /**
      * 处理参数校验异常（请求体）
      */
@@ -28,7 +43,8 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
-        return Result.error(400, message);
+        logger.warn("参数校验异常: {}", message);
+        return Result.error(ResultCode.VALIDATION_ERROR, message);
     }
 
     /**
@@ -41,7 +57,8 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
-        return Result.error(400, message);
+        logger.warn("绑定异常: {}", message);
+        return Result.error(ResultCode.VALIDATION_ERROR, message);
     }
 
     /**
@@ -54,6 +71,17 @@ public class GlobalExceptionHandler {
                 .stream()
                 .map(violation -> violation.getMessage())
                 .collect(Collectors.joining(", "));
-        return Result.error(400, message);
+        logger.warn("约束违反异常: {}", message);
+        return Result.error(ResultCode.VALIDATION_ERROR, message);
+    }
+
+    /**
+     * 处理未知异常
+     */
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public Result<Void> handleException(Exception e) {
+        logger.error("系统异常: ", e);
+        return Result.error(ResultCode.INTERNAL_SERVER_ERROR);
     }
 }
