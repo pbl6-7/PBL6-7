@@ -1,5 +1,8 @@
 package com.campus.user.service;
 
+import com.campus.core.common.BusinessException;
+import com.campus.core.common.JwtUtils;
+import com.campus.core.common.ResultCode;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
 import com.campus.user.entity.User;
@@ -18,17 +21,18 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final UserSecurityService userSecurityService;
+    private final JwtUtils jwtUtils;
 
     public LoginResponse login(LoginRequest request) {
         User user = userMapper.selectByUsername(request.getUsername());
         if (user == null) {
-            throw new RuntimeException("用户不存在");
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         String hashedPassword = hashPassword(request.getPassword());
         if (!hashedPassword.equals(user.getPassword())) {
-            throw new RuntimeException("密码错误");
+            throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
-        String token = generateToken(user);
+        String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
         return new LoginResponse(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), token);
     }
 
@@ -39,18 +43,16 @@ public class UserService {
     public void register(User user, Integer securityQuestionId, String securityAnswer) {
         User existUser = userMapper.selectByUsername(user.getUsername());
         if (existUser != null) {
-            throw new RuntimeException("用户名已存在");
+            throw new BusinessException(ResultCode.USER_ALREADY_EXISTS);
         }
         if (securityQuestionId == null || securityAnswer == null || securityAnswer.trim().isEmpty()) {
-            throw new RuntimeException("请设置密保问题");
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "请设置密保问题");
         }
         if (securityQuestionId < 1 || securityQuestionId > 8) {
-            throw new RuntimeException("无效的密保问题编号");
+            throw new BusinessException(ResultCode.SECURITY_QUESTION_INVALID);
         }
         user.setPassword(hashPassword(user.getPassword()));
-        if (user.getRole() == null) {
-            user.setRole("user");
-        }
+        user.setRole("user");
         userMapper.insert(user);
 
         userSecurityService.setSecurity(user.getId(), securityQuestionId, securityAnswer);
@@ -62,12 +64,7 @@ public class UserService {
             byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("密码加密失败", e);
+            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
         }
-    }
-
-    private String generateToken(User user) {
-        String data = user.getId() + ":" + user.getUsername() + ":" + System.currentTimeMillis();
-        return Base64.getEncoder().encodeToString(data.getBytes(StandardCharsets.UTF_8));
     }
 }
