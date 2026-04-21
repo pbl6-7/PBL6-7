@@ -128,36 +128,6 @@ public class UserSecurityService {
     }
 
     /**
-<<<<<<< HEAD
-=======
-     * 重置密码
-     */
-    private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
-        }
-    }
-
-    /**
->>>>>>> DLC
-     * 密保答案加密
-     */
-    private String hashAnswer(String answer) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(answer.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
-        }
-    }
-<<<<<<< HEAD
-
-    /**
      * 密码加密
      */
     private String hashPassword(String password) {
@@ -169,6 +139,17 @@ public class UserSecurityService {
             throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
         }
     }
-=======
->>>>>>> DLC
+
+    /**
+     * 密保答案加密
+     */
+    private String hashAnswer(String answer) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(answer.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
+        }
+    }
 }
