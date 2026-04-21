@@ -60,7 +60,9 @@ public class UserSecurityService {
     }
 
     /**
-     * 设置密保问题
+     * @param userId 用户ID
+     * @param securityQuestionId 密保问题ID
+     * @param securityAnswer 密保答案
      */
     public void setSecurity(Long userId, Integer securityQuestionId, String securityAnswer) {
         if (userId == null || securityQuestionId == null || securityAnswer == null) {
@@ -128,7 +130,8 @@ public class UserSecurityService {
     }
 
     /**
-     * 密保答案加密
+     * @param answer 原始密保答案
+     * @return 加密后的密保答案
      */
     private String hashAnswer(String answer) {
         try {
@@ -137,6 +140,19 @@ public class UserSecurityService {
             return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
+        }
+    }
+
+    /**
+     * 密码哈希
+     */
+    private String hashPassword(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
         }
     }
 }
