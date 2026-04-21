@@ -128,6 +128,19 @@ public class UserSecurityService {
     }
 
     /**
+     * 重置密码
+     */
+    private String hashPassword(String password) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            return Base64.getEncoder().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
+        }
+    }
+
+    /**
      * 密保答案加密
      */
     private String hashAnswer(String answer) {
