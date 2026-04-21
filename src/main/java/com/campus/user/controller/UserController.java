@@ -1,6 +1,7 @@
 package com.campus.user.controller;
 
-import com.campus.common.Result;
+import com.campus.core.common.Result;
+import com.campus.core.common.ResultCode;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
 import com.campus.user.entity.User;
@@ -21,12 +22,8 @@ public class UserController {
     @PostMapping("/login")
     @ApiOperation("用户登录")
     public Result<LoginResponse> login(@RequestBody LoginRequest request) {
-        try {
-            LoginResponse response = userService.login(request);
-            return Result.success(response);
-        } catch (RuntimeException e) {
-            return Result.error(401, e.getMessage());
-        }
+        LoginResponse response = userService.login(request);
+        return Result.success(response);
     }
 
     @GetMapping("/{id}")
@@ -34,7 +31,7 @@ public class UserController {
     public Result<User> getUserById(@PathVariable Long id) {
         User user = userService.getUserById(id);
         if (user == null) {
-            return Result.error(404, "用户不存在");
+            return Result.error(ResultCode.USER_NOT_FOUND);
         }
         user.setPassword(null);
         return Result.success(user);
@@ -43,11 +40,7 @@ public class UserController {
     @PostMapping("/register")
     @ApiOperation("用户注册")
     public Result<Void> register(@RequestBody User user) {
-        try {
-            userService.register(user);
-            return Result.success();
-        } catch (RuntimeException e) {
-            return Result.error(400, e.getMessage());
-        }
+        userService.register(user, user.getSecurityQuestionId(), user.getSecurityAnswer());
+        return Result.success(null, "注册成功");
     }
 }
