@@ -32,3 +32,8 @@ logs/
 
 .github/
 .trae/
+
+pom.xml
+*.xlsx
+*.xls
+*.md

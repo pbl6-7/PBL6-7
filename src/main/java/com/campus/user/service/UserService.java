@@ -15,6 +15,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 
+/**
+ * 用户服务
+ */
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -66,5 +69,24 @@ public class UserService {
         } catch (NoSuchAlgorithmException e) {
             throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
         }
+    }
+
+    /**
+     * 修改密码
+     * @param userId 用户ID
+     * @param oldPassword 旧密码
+     * @param newPassword 新密码
+     */
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        String hashedOldPassword = hashPassword(oldPassword);
+        if (!hashedOldPassword.equals(user.getPassword())) {
+            throw new BusinessException(ResultCode.PASSWORD_ERROR, "旧密码错误");
+        }
+        user.setPassword(hashPassword(newPassword));
+        userMapper.updateById(user);
     }
 }

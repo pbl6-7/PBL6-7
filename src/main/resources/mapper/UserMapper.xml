@@ -26,6 +26,15 @@
         AND deleted_at IS NULL
     </select>
 
+    <select id="selectBatchIds" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted_at IS NULL
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO user_info (username, password, real_name, role, contact, created_at, updated_at)
         VALUES (#{username}, #{password}, #{realName}, #{role}, #{contact}, NOW(), NOW())
