@@ -4,6 +4,8 @@ import com.campus.user.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 @Mapper
 public interface UserMapper {
     /**
@@ -18,6 +20,12 @@ public interface UserMapper {
      * @return 用户
      */ 
     User selectById(@Param("id") Long id);
+    /**
+     * 批量查询用户
+     * @param ids 用户ID列表
+     * @return 用户列表
+     */
+    List<User> selectBatchIds(@Param("ids") List<Long> ids);
     /**
      * 插入用户
      * @param user 用户

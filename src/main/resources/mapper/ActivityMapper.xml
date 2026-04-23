@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.ActivityMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.activity.entity.Activity">
+        <id column="id" property="id"/>
+        <result column="title" property="title"/>
+        <result column="publisher_id" property="publisherId"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="location" property="location"/>
+        <result column="description" property="description"/>
+        <result column="status" property="status"/>
+        <result column="approval_status" property="approvalStatus"/>
+        <result column="max_participants" property="maxParticipants"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="deleted_at" property="deletedAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO activity (title, publisher_id, start_time, end_time, location, description, status, approval_status, max_participants, created_at, updated_at)
+        VALUES (#{title}, #{publisherId}, #{startTime}, #{endTime}, #{location}, #{description}, #{status}, #{approvalStatus}, #{maxParticipants}, NOW(), NOW())
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE id = #{id}
+        AND deleted_at IS NULL
+    </select>
+
+    <select id="selectByPublisherId" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE publisher_id = #{publisherId}
+        AND deleted_at IS NULL
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="updateById">
+        UPDATE activity
+        <set>
+            <if test="title != null">title = #{title},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="location != null">location = #{location},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="approvalStatus != null">approval_status = #{approvalStatus},</if>
+            <if test="maxParticipants != null">max_participants = #{maxParticipants},</if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="deleteById">
+        UPDATE activity SET deleted_at = NOW() WHERE id = #{id}
+    </update>
+
+    <select id="selectList" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE deleted_at IS NULL
+        <if test="publisherId != null">
+            AND publisher_id = #{publisherId}
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        <if test="approvalStatus != null and approvalStatus != ''">
+            AND approval_status = #{approvalStatus}
+        </if>
+        ORDER BY
+        <choose>
+            <when test="sortBy == 'startTime'">start_time</when>
+            <when test="sortBy == 'endTime'">end_time</when>
+            <when test="sortBy == 'createdAt'">created_at</when>
+            <otherwise>created_at</otherwise>
+        </choose>
+        <choose>
+            <when test="sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE deleted_at IS NULL
+        <if test="publisherId != null">
+            AND publisher_id = #{publisherId}
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        <if test="approvalStatus != null and approvalStatus != ''">
+            AND approval_status = #{approvalStatus}
+        </if>
+    </select>
+
+</mapper>
