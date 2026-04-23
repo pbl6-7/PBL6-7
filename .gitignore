@@ -28,7 +28,11 @@ logs/
 *环境配置*.md
 *测试用例*.xlsx
 *敏捷开发Sprint*.xlsx
+*.md
 ~$*
 
 .github/
 .trae/
+
+# Test files
+src/test/
