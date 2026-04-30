@@ -76,4 +76,6 @@ public interface ActivityMapper {
             @Param("status") String status,
             @Param("approvalStatus") String approvalStatus
     );
+
+    List<Activity> selectByIds(@Param("ids") List<Long> ids);
 }
