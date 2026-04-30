@@ -62,6 +62,9 @@
         <if test="publisherId != null">
             AND publisher_id = #{publisherId}
         </if>
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%') OR location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
         <if test="status != null and status != ''">
             AND status = #{status}
         </if>
@@ -87,6 +90,9 @@
         WHERE deleted_at IS NULL
         <if test="publisherId != null">
             AND publisher_id = #{publisherId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%') OR location LIKE CONCAT('%', #{keyword}, '%'))
         </if>
         <if test="status != null and status != ''">
             AND status = #{status}

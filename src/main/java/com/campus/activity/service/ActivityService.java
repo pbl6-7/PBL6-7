@@ -242,6 +242,7 @@ public class ActivityService {
 
         List<Activity> activities = activityMapper.selectList(
                 publisherId,
+                request.getKeyword(),
                 request.getStatus(),
                 request.getApprovalStatus(),
                 sortBy,
@@ -252,6 +253,7 @@ public class ActivityService {
 
         Long total = activityMapper.count(
                 publisherId,
+                request.getKeyword(),
                 request.getStatus(),
                 request.getApprovalStatus()
         );

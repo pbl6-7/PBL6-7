@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class ActivityQueryRequest {
+    private String keyword;
     private String status;
     private String approvalStatus;
     private String sortBy;

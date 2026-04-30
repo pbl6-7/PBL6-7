@@ -46,6 +46,7 @@ public interface ActivityMapper {
     /**
      * 查询活动列表（带筛选和分页）
      * @param publisherId 发布者ID
+     * @param keyword 关键词
      * @param status 活动状态
      * @param approvalStatus 审核状态
      * @param sortBy 排序字段
@@ -56,6 +57,7 @@ public interface ActivityMapper {
      */
     List<Activity> selectList(
             @Param("publisherId") Long publisherId,
+            @Param("keyword") String keyword,
             @Param("status") String status,
             @Param("approvalStatus") String approvalStatus,
             @Param("sortBy") String sortBy,
@@ -67,12 +69,14 @@ public interface ActivityMapper {
     /**
      * 查询活动总数（带筛选条件）
      * @param publisherId 发布者ID
+     * @param keyword 关键词
      * @param status 活动状态
      * @param approvalStatus 审核状态
      * @return 活动总数
      */
     Long count(
             @Param("publisherId") Long publisherId,
+            @Param("keyword") String keyword,
             @Param("status") String status,
             @Param("approvalStatus") String approvalStatus
     );
