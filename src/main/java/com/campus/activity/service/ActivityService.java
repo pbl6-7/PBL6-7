@@ -245,6 +245,10 @@ public class ActivityService {
                 request.getKeyword(),
                 request.getStatus(),
                 request.getApprovalStatus(),
+                request.getActivityType(),
+                request.getLocation(),
+                request.getStartTimeFrom(),
+                request.getStartTimeTo(),
                 sortBy,
                 sortOrder,
                 offset,
@@ -255,7 +259,11 @@ public class ActivityService {
                 publisherId,
                 request.getKeyword(),
                 request.getStatus(),
-                request.getApprovalStatus()
+                request.getApprovalStatus(),
+                request.getActivityType(),
+                request.getLocation(),
+                request.getStartTimeFrom(),
+                request.getStartTimeTo()
         );
 
         Set<Long> userIds = activities.stream()

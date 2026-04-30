@@ -71,6 +71,18 @@
         <if test="approvalStatus != null and approvalStatus != ''">
             AND approval_status = #{approvalStatus}
         </if>
+        <if test="activityType != null and activityType != ''">
+            AND activity_type = #{activityType}
+        </if>
+        <if test="location != null and location != ''">
+            AND location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        <if test="startTimeFrom != null">
+            AND start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND start_time &lt;= #{startTimeTo}
+        </if>
         ORDER BY
         <choose>
             <when test="sortBy == 'startTime'">start_time</when>
@@ -99,6 +111,18 @@
         </if>
         <if test="approvalStatus != null and approvalStatus != ''">
             AND approval_status = #{approvalStatus}
+        </if>
+        <if test="activityType != null and activityType != ''">
+            AND activity_type = #{activityType}
+        </if>
+        <if test="location != null and location != ''">
+            AND location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        <if test="startTimeFrom != null">
+            AND start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND start_time &lt;= #{startTimeTo}
         </if>
     </select>
 
