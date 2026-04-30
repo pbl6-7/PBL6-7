@@ -4,6 +4,7 @@ import com.campus.activity.entity.Activity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -44,10 +45,15 @@ public interface ActivityMapper {
     int deleteById(@Param("id") Long id);
 
     /**
-     * 查询活动列表（带筛选和分页）
+     * 查询活动列表（带多维度筛选和分页）
      * @param publisherId 发布者ID
+     * @param keyword 关键词
      * @param status 活动状态
      * @param approvalStatus 审核状态
+     * @param activityType 活动类型
+     * @param location 活动地点
+     * @param startTimeFrom 开始时间从
+     * @param startTimeTo 开始时间至
      * @param sortBy 排序字段
      * @param sortOrder 排序方向
      * @param offset 偏移量
@@ -56,8 +62,13 @@ public interface ActivityMapper {
      */
     List<Activity> selectList(
             @Param("publisherId") Long publisherId,
+            @Param("keyword") String keyword,
             @Param("status") String status,
             @Param("approvalStatus") String approvalStatus,
+            @Param("activityType") String activityType,
+            @Param("location") String location,
+            @Param("startTimeFrom") LocalDateTime startTimeFrom,
+            @Param("startTimeTo") LocalDateTime startTimeTo,
             @Param("sortBy") String sortBy,
             @Param("sortOrder") String sortOrder,
             @Param("offset") Integer offset,
@@ -65,15 +76,25 @@ public interface ActivityMapper {
     );
 
     /**
-     * 查询活动总数（带筛选条件）
+     * 查询活动总数（带多维度筛选条件）
      * @param publisherId 发布者ID
+     * @param keyword 关键词
      * @param status 活动状态
      * @param approvalStatus 审核状态
+     * @param activityType 活动类型
+     * @param location 活动地点
+     * @param startTimeFrom 开始时间从
+     * @param startTimeTo 开始时间至
      * @return 活动总数
      */
     Long count(
             @Param("publisherId") Long publisherId,
+            @Param("keyword") String keyword,
             @Param("status") String status,
-            @Param("approvalStatus") String approvalStatus
+            @Param("approvalStatus") String approvalStatus,
+            @Param("activityType") String activityType,
+            @Param("location") String location,
+            @Param("startTimeFrom") LocalDateTime startTimeFrom,
+            @Param("startTimeTo") LocalDateTime startTimeTo
     );
 }

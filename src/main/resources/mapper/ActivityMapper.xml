@@ -62,11 +62,26 @@
         <if test="publisherId != null">
             AND publisher_id = #{publisherId}
         </if>
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%') OR location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
         <if test="status != null and status != ''">
             AND status = #{status}
         </if>
         <if test="approvalStatus != null and approvalStatus != ''">
             AND approval_status = #{approvalStatus}
+        </if>
+        <if test="activityType != null and activityType != ''">
+            AND activity_type = #{activityType}
+        </if>
+        <if test="location != null and location != ''">
+            AND location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        <if test="startTimeFrom != null">
+            AND start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND start_time &lt;= #{startTimeTo}
         </if>
         ORDER BY
         <choose>
@@ -88,11 +103,26 @@
         <if test="publisherId != null">
             AND publisher_id = #{publisherId}
         </if>
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%') OR location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
         <if test="status != null and status != ''">
             AND status = #{status}
         </if>
         <if test="approvalStatus != null and approvalStatus != ''">
             AND approval_status = #{approvalStatus}
+        </if>
+        <if test="activityType != null and activityType != ''">
+            AND activity_type = #{activityType}
+        </if>
+        <if test="location != null and location != ''">
+            AND location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        <if test="startTimeFrom != null">
+            AND start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND start_time &lt;= #{startTimeTo}
         </if>
     </select>
 
