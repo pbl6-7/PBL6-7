@@ -89,4 +89,24 @@ public class UserService {
         user.setPassword(hashPassword(newPassword));
         userMapper.updateById(user);
     }
+
+    /**
+     * 更新个人资料
+     * @param userId 用户ID
+     * @param realName 真实姓名
+     * @param contact 联系方式
+     */
+    public void updateProfile(Long userId, String realName, String contact) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        if (realName != null && !realName.trim().isEmpty()) {
+            user.setRealName(realName.trim());
+        }
+        if (contact != null) {
+            user.setContact(contact.trim());
+        }
+        userMapper.updateById(user);
+    }
 }

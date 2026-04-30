@@ -242,8 +242,13 @@ public class ActivityService {
 
         List<Activity> activities = activityMapper.selectList(
                 publisherId,
+                request.getKeyword(),
                 request.getStatus(),
                 request.getApprovalStatus(),
+                request.getActivityType(),
+                request.getLocation(),
+                request.getStartTimeFrom(),
+                request.getStartTimeTo(),
                 sortBy,
                 sortOrder,
                 offset,
@@ -252,8 +257,13 @@ public class ActivityService {
 
         Long total = activityMapper.count(
                 publisherId,
+                request.getKeyword(),
                 request.getStatus(),
-                request.getApprovalStatus()
+                request.getApprovalStatus(),
+                request.getActivityType(),
+                request.getLocation(),
+                request.getStartTimeFrom(),
+                request.getStartTimeTo()
         );
 
         Set<Long> userIds = activities.stream()
