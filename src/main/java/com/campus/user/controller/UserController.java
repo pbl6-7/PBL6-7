@@ -65,4 +65,28 @@ public class UserController {
         userService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
         return Result.success(null, "密码修改成功");
     }
+
+    /**
+     * 获取当前用户个人信息
+     * 根据用户故事1.2.1 - 查看个人信息
+     */
+    @GetMapping("/profile")
+    @ApiOperation("获取当前用户个人信息")
+    public Result<User> getCurrentUserProfile(
+            @RequestHeader(value = "Authorization", required = false) String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            return Result.error(ResultCode.UNAUTHORIZED);
+        }
+        String token = authorization.substring(7);
+        if (!jwtUtils.validateToken(token)) {
+            return Result.error(ResultCode.TOKEN_INVALID);
+        }
+        Long userId = jwtUtils.getUserIdFromToken(token);
+        User user = userService.getUserById(userId);
+        if (user == null) {
+            return Result.error(ResultCode.USER_NOT_FOUND);
+        }
+        user.setPassword(null);
+        return Result.success(user);
+    }
 }
