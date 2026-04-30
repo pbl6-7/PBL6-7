@@ -97,4 +97,6 @@ public interface ActivityMapper {
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
             @Param("startTimeTo") LocalDateTime startTimeTo
     );
+
+    List<Activity> selectByIds(@Param("ids") List<Long> ids);
 }
