@@ -156,17 +156,4 @@ public class UserSecurityService {
             throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
         }
     }
-
-    /**
-     * 密码哈希
-     */
-    private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
-        }
-    }
 }
