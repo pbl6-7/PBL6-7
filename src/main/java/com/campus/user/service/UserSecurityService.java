@@ -60,7 +60,9 @@ public class UserSecurityService {
     }
 
     /**
-     * 设置密保问题
+     * @param userId 用户ID
+     * @param securityQuestionId 密保问题ID
+     * @param securityAnswer 密保答案
      */
     public void setSecurity(Long userId, Integer securityQuestionId, String securityAnswer) {
         if (userId == null || securityQuestionId == null || securityAnswer == null) {
@@ -128,6 +130,8 @@ public class UserSecurityService {
     }
 
     /**
+     * @param answer 原始密保答案
+     * @return 加密后的密保答案
      * 密码加密
      */
     private String hashPassword(String password) {

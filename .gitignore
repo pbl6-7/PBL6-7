@@ -36,3 +36,11 @@ logs/
 
 # Test files
 src/test/
+
+# Excel files
+*.xlsx
+*.xls
+
+web/node_modules/
+web/dist/
+web/*.local
