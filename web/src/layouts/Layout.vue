@@ -15,7 +15,9 @@
           <el-menu-item index="home" @click="router.push('/home')">首页</el-menu-item>
           <el-menu-item index="my-activities" @click="router.push('/my-activities')">我的活动</el-menu-item>
           <el-menu-item index="my-registrations" @click="router.push('/my-registrations')">我的报名</el-menu-item>
+          <el-menu-item index="my-subscriptions" @click="router.push('/my-subscriptions')">我的订阅</el-menu-item>
           <el-menu-item index="my-collections" @click="router.push('/my-collections')">我的收藏</el-menu-item>
+          <el-menu-item index="my-notifications" @click="router.push('/my-notifications')">我的通知</el-menu-item>
         </el-menu>
         <div class="header-actions">
           <el-button type="primary" @click="router.push('/publish')">
