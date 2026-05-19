@@ -34,6 +34,7 @@ public class ActivityService {
 
     private final ActivityMapper activityMapper;
     private final UserMapper userMapper;
+    private final NotificationService notificationService;
 
     /**
      * 校验活动状态是否允许编辑
@@ -199,6 +200,12 @@ public class ActivityService {
 
         activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
         activityMapper.updateById(activity);
+
+        notificationService.notifySubscribersWithTitle(
+                activityId,
+                NotificationService.TYPE_ACTIVITY_UPDATE,
+                "活动信息已更新，请查看最新信息"
+        );
 
         ActivityResponse response = ActivityResponse.fromEntity(activity);
         User publisher = userMapper.selectById(activity.getPublisherId());

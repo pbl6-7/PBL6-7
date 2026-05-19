@@ -148,10 +148,24 @@
                 <el-icon><Star /></el-icon>
                 {{ isCollected ? '已收藏' : '收藏' }}
               </el-button>
+              <el-button
+                v-if="!isPublisher"
+                :type="isSubscribed ? 'primary' : 'default'"
+                size="large"
+                class="action-button"
+                :loading="subscriptionLoading"
+                @click="handleSubscribe"
+              >
+                <el-icon><Bell /></el-icon>
+                {{ isSubscribed ? '已订阅' : '订阅' }}
+              </el-button>
             </div>
-            <div class="collect-stat">
+            <div v-if="!isPublisher" class="collect-stat">
               <el-icon><Star /></el-icon>
               <span>{{ collectCount }} 人收藏</span>
+              <el-divider direction="vertical" />
+              <el-icon><Bell /></el-icon>
+              <span>{{ subscriptionCount }} 人订阅</span>
             </div>
           </el-card>
 
@@ -217,12 +231,13 @@ import { useRouter, useRoute } from 'vue-router'
 import { getActivityDetail } from '@/api/activity'
 import { getCommentList, publishComment, deleteComment as deleteCommentApi } from '@/api/comment'
 import { collectActivity, cancelCollect, checkCollectStatus } from '@/api/collect'
+import { subscribeActivity, cancelSubscription, checkSubscriptionStatus } from '@/api/subscription'
 import { registerActivity, cancelRegistration, getActivityRegistrations, updateRegistrationStatus as updateRegistrationStatusApi } from '@/api/registration'
 import { useUserStore } from '@/stores/user'
 import type { Activity } from '@/types/activity'
 import type { Comment } from '@/types/comment'
 import type { Registration } from '@/types/registration'
-import { Calendar, LocationInformation, User, Clock, Star } from '@element-plus/icons-vue'
+import { Calendar, LocationInformation, User, Clock, Star, Bell } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -240,6 +255,10 @@ const submitting = ref(false)
 const isCollected = ref(false)
 const collectCount = ref(0)
 const collectLoading = ref(false)
+
+const isSubscribed = ref(false)
+const subscriptionCount = ref(0)
+const subscriptionLoading = ref(false)
 
 const registerLoading = ref(false)
 const isRegistered = ref(false)
@@ -265,6 +284,10 @@ const loadActivity = async () => {
     const statusRes = await checkCollectStatus(id)
     isCollected.value = statusRes.data.collected
     collectCount.value = statusRes.data.collectCount
+
+    const subRes = await checkSubscriptionStatus(id)
+    isSubscribed.value = subRes.data.subscribed
+    subscriptionCount.value = subRes.data.subscriptionCount
 
     const regRes = await getActivityRegistrations(id, 1, 5)
     registrations.value = regRes.data.records
@@ -338,6 +361,28 @@ const handleCollect = async () => {
     ElMessage.error('操作失败')
   } finally {
     collectLoading.value = false
+  }
+}
+
+const handleSubscribe = async () => {
+  if (!activity.value) return
+  subscriptionLoading.value = true
+  try {
+    if (isSubscribed.value) {
+      await cancelSubscription(activity.value.id)
+      ElMessage.success('取消订阅成功')
+      isSubscribed.value = false
+      subscriptionCount.value--
+    } else {
+      await subscribeActivity(activity.value.id)
+      ElMessage.success('订阅成功')
+      isSubscribed.value = true
+      subscriptionCount.value++
+    }
+  } catch {
+    ElMessage.error('操作失败')
+  } finally {
+    subscriptionLoading.value = false
   }
 }
 
