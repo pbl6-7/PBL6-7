@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.ActivityPhotoMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.activity.entity.ActivityPhoto">
+        <id column="id" property="id"/>
+        <result column="activity_id" property="activityId"/>
+        <result column="photo_url" property="photoUrl"/>
+        <result column="photo_name" property="photoName"/>
+        <result column="uploaded_by" property="uploadedBy"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO activity_photo (activity_id, photo_url, photo_name, uploaded_by, created_at)
+        VALUES (#{activityId}, #{photoUrl}, #{photoName}, #{uploadedBy}, NOW())
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM activity_photo WHERE id = #{id}
+    </select>
+
+    <select id="selectByActivityId" resultMap="BaseResultMap">
+        SELECT * FROM activity_photo WHERE activity_id = #{activityId} ORDER BY created_at DESC
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM activity_photo WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByActivityId">
+        DELETE FROM activity_photo WHERE activity_id = #{activityId}
+    </delete>
+
+</mapper>

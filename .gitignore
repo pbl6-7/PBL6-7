@@ -36,6 +36,7 @@ logs/
 
 # Test files
 src/test/
+web/tests/
 
 # Excel files
 *.xlsx

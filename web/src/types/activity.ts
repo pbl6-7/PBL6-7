@@ -40,3 +40,12 @@ export interface PageResponse<T> {
   page: number
   size: number
 }
+
+export interface ActivityPhoto {
+  id: number
+  activityId: number
+  photoUrl: string
+  photoName: string
+  uploadedBy: number
+  createdAt: string
+}

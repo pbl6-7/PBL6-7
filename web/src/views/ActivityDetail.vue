@@ -56,6 +56,27 @@
             </div>
           </el-card>
 
+          <el-card class="photos-card">
+            <template #header>
+              <div class="card-header-title">
+                <el-icon><Image /></el-icon>
+                <span>活动相册</span>
+                <span class="comment-count">({{ photos.length }})</span>
+              </div>
+            </template>
+            <div v-if="photos.length === 0" class="no-photos">
+              暂无照片
+            </div>
+            <div v-else class="photo-grid">
+              <div v-for="photo in photos" :key="photo.id" class="photo-item">
+                <img :src="photo.photoUrl" :alt="photo.photoName" @click="openPhotoPreview(photo.photoUrl)" />
+                <div v-if="isPublisher" class="photo-actions">
+                  <el-button type="danger" size="small" icon="Trash" @click="handleDeletePhoto(photo.id)" />
+                </div>
+              </div>
+            </div>
+          </el-card>
+
           <el-card class="comments-card">
             <template #header>
               <div class="card-header-title">
@@ -104,6 +125,12 @@
             </div>
           </el-card>
         </div>
+
+        <Teleport to="body">
+          <el-dialog v-model="showPreview" title="照片预览" width="80%" :close-on-click-modal="true">
+            <img :src="previewPhoto" style="width: 100%;" />
+          </el-dialog>
+        </Teleport>
 
         <div class="side-content">
           <el-card class="action-card">
@@ -218,11 +245,12 @@ import { getActivityDetail } from '@/api/activity'
 import { getCommentList, publishComment, deleteComment as deleteCommentApi } from '@/api/comment'
 import { collectActivity, cancelCollect, checkCollectStatus } from '@/api/collect'
 import { registerActivity, cancelRegistration, getActivityRegistrations, updateRegistrationStatus as updateRegistrationStatusApi } from '@/api/registration'
+import { getActivityPhotos, deletePhoto } from '@/api/photo'
 import { useUserStore } from '@/stores/user'
-import type { Activity } from '@/types/activity'
+import type { Activity, ActivityPhoto } from '@/types/activity'
 import type { Comment } from '@/types/comment'
 import type { Registration } from '@/types/registration'
-import { Calendar, LocationInformation, User, Clock, Star } from '@element-plus/icons-vue'
+import { Calendar, LocationInformation, User, Clock, Star, Image, Trash } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -233,6 +261,9 @@ const loading = ref(false)
 const activity = ref<Activity | null>(null)
 const comments = ref<Comment[]>([])
 const registrations = ref<Registration[]>([])
+const photos = ref<ActivityPhoto[]>([])
+const previewPhoto = ref<string>('')
+const showPreview = ref(false)
 
 const commentContent = ref('')
 const submitting = ref(false)
@@ -268,6 +299,9 @@ const loadActivity = async () => {
 
     const regRes = await getActivityRegistrations(id, 1, 5)
     registrations.value = regRes.data.records
+
+    const photoRes = await getActivityPhotos(id)
+    photos.value = photoRes.data
   } catch {
     ElMessage.error('加载活动详情失败')
   } finally {
@@ -377,6 +411,31 @@ const updateRegistrationStatus = async (registrationId: number, status: string) 
     loadActivity()
   } catch {
     ElMessage.error('状态更新失败')
+  }
+}
+
+const openPhotoPreview = (url: string) => {
+  previewPhoto.value = url
+  showPreview.value = true
+}
+
+const closePhotoPreview = () => {
+  showPreview.value = false
+  previewPhoto.value = ''
+}
+
+const handleDeletePhoto = async (photoId: number) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这张照片吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deletePhoto(photoId)
+    ElMessage.success('照片删除成功')
+    photos.value = photos.value.filter(p => p.id !== photoId)
+  } catch {
+    // 用户取消
   }
 }
 
@@ -536,6 +595,11 @@ onMounted(() => {
   color: #909399;
 }
 
+.photos-card {
+  border-radius: 12px;
+  margin-top: 20px;
+}
+
 .comments-card {
   border-radius: 12px;
   margin-top: 20px;
@@ -544,6 +608,54 @@ onMounted(() => {
 .card-header-title {
   font-size: 16px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-header-title .el-icon {
+  color: #409eff;
+}
+
+.no-photos {
+  text-align: center;
+  padding: 40px;
+  color: #909399;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.photo-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+
+.photo-item:hover img {
+  transform: scale(1.05);
+}
+
+.photo-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+.photo-actions .el-button {
+  opacity: 0.8;
 }
 
 .comment-count {
