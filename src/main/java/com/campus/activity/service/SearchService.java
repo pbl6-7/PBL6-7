@@ -51,6 +51,7 @@ public class SearchService {
                 null,
                 null,
                 null,
+                null,
                 "createdAt",
                 "desc",
                 0,

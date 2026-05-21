@@ -249,6 +249,7 @@ public class ActivityService {
                 request.getLocation(),
                 request.getStartTimeFrom(),
                 request.getStartTimeTo(),
+                request.getTagId(),
                 sortBy,
                 sortOrder,
                 offset,
@@ -263,7 +264,8 @@ public class ActivityService {
                 request.getActivityType(),
                 request.getLocation(),
                 request.getStartTimeFrom(),
-                request.getStartTimeTo()
+                request.getStartTimeTo(),
+                request.getTagId()
         );
 
         Set<Long> userIds = activities.stream()
