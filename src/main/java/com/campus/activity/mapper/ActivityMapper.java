@@ -69,6 +69,7 @@ public interface ActivityMapper {
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
             @Param("startTimeTo") LocalDateTime startTimeTo,
+            @Param("tagId") Long tagId,
             @Param("sortBy") String sortBy,
             @Param("sortOrder") String sortOrder,
             @Param("offset") Integer offset,
@@ -95,7 +96,8 @@ public interface ActivityMapper {
             @Param("activityType") String activityType,
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
-            @Param("startTimeTo") LocalDateTime startTimeTo
+            @Param("startTimeTo") LocalDateTime startTimeTo,
+            @Param("tagId") Long tagId
     );
 
     List<Activity> selectByIds(@Param("ids") List<Long> ids);

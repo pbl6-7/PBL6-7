@@ -14,6 +14,7 @@ public class ActivityQueryRequest {
     private LocalDateTime startTimeTo;
     private Integer minParticipants;
     private Integer maxParticipants;
+    private Long tagId;
     private String sortBy;
     private String sortOrder;
     private Integer page;

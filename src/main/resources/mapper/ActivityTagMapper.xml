@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.ActivityTagMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.activity.entity.ActivityTag">
+        <id column="id" property="id"/>
+        <result column="name" property="name"/>
+        <result column="color" property="color"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO activity_tag (name, color, created_at, updated_at)
+        VALUES (#{name}, #{color}, NOW(), NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE activity_tag
+        <set>
+            <if test="name != null">name = #{name},</if>
+            <if test="color != null">color = #{color},</if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM activity_tag WHERE id = #{id}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM activity_tag WHERE id = #{id}
+    </select>
+
+    <select id="selectByName" resultMap="BaseResultMap">
+        SELECT * FROM activity_tag WHERE name = #{name}
+    </select>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM activity_tag ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByActivityId" resultMap="BaseResultMap">
+        SELECT t.* FROM activity_tag t
+        INNER JOIN activity_tag_relation r ON t.id = r.tag_id
+        WHERE r.activity_id = #{activityId}
+        ORDER BY r.created_at DESC
+    </select>
+
+    <insert id="insertRelation">
+        INSERT INTO activity_tag_relation (activity_id, tag_id, created_at)
+        VALUES (#{activityId}, #{tagId}, NOW())
+    </insert>
+
+    <delete id="deleteRelationByActivityId">
+        DELETE FROM activity_tag_relation WHERE activity_id = #{activityId}
+    </delete>
+
+    <delete id="deleteRelation">
+        DELETE FROM activity_tag_relation WHERE activity_id = #{activityId} AND tag_id = #{tagId}
+    </delete>
+
+    <select id="selectByActivityIdAndTagIds" resultMap="BaseResultMap">
+        SELECT t.* FROM activity_tag t
+        INNER JOIN activity_tag_relation r ON t.id = r.tag_id
+        WHERE r.activity_id = #{activityId}
+        <if test="tagIds != null and tagIds.size() > 0">
+            AND r.tag_id IN
+            <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+                #{tagId}
+            </foreach>
+        </if>
+        ORDER BY r.created_at DESC
+    </select>
+
+</mapper>
