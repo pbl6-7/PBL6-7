@@ -61,6 +61,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/MyRegistrations.vue')
       },
       {
+        path: 'my-subscriptions',
+        name: 'MySubscriptions',
+        component: () => import('@/views/MySubscriptions.vue')
+      },
+      {
+        path: 'my-notifications',
+        name: 'MyNotifications',
+        component: () => import('@/views/MyNotifications.vue')
+      },
+      {
         path: 'activity-registrations/:id',
         name: 'ActivityRegistrations',
         component: () => import('@/views/ActivityRegistrations.vue')
