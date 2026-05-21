@@ -12,8 +12,8 @@
           <el-card class="activity-card">
             <div class="card-header">
               <el-tag :type="getStatusType(activity.status)">{{ getStatusLabel(activity.status) }}</el-tag>
-              <el-tag v-if="activity.approvalStatus === 'PENDING'" type="warning">待审核</el-tag>
-              <el-tag v-else-if="activity.approvalStatus === 'APPROVED'" type="success">已通过</el-tag>
+              <el-tag v-if="activity.approvalStatus === 'pending'" type="warning">待审核</el-tag>
+              <el-tag v-else-if="activity.approvalStatus === 'approved'" type="success">已通过</el-tag>
               <el-tag v-else type="danger">已拒绝</el-tag>
             </div>
             <h1 class="activity-title">{{ activity.title }}</h1>
@@ -196,7 +196,7 @@
             </div>
           </el-card>
 
-          <el-card v-if="isPublisher" class="registrations-card">
+          <el-card v-if="isPublisher && registrations.length > 0" class="registrations-card">
             <template #header>
               <div class="card-header-title">
                 <span>报名管理</span>
@@ -215,20 +215,20 @@
                 <el-table-column label="操作" width="120">
                   <template #default="{ row }">
                     <el-button
-                      v-if="row.status === 'PENDING'"
+                      v-if="row.status === 'pending'"
                       type="success"
                       size="small"
                       link
-                      @click="updateRegistrationStatus(row.id, 'APPROVED')"
+                      @click="updateRegistrationStatus(row.id, 'confirmed')"
                     >
                       通过
                     </el-button>
                     <el-button
-                      v-if="row.status === 'PENDING'"
+                      v-if="row.status === 'pending'"
                       type="danger"
                       size="small"
                       link
-                      @click="updateRegistrationStatus(row.id, 'REJECTED')"
+                      @click="updateRegistrationStatus(row.id, 'cancelled')"
                     >
                       拒绝
                     </el-button>
@@ -505,6 +505,9 @@ const getStatusLabel = (status: string) => {
 
 const getRegistrationStatusType = (status: string) => {
   const types: Record<string, any> = {
+    pending: 'warning',
+    confirmed: 'success',
+    cancelled: 'info',
     PENDING: 'warning',
     APPROVED: 'success',
     REJECTED: 'danger',
@@ -515,6 +518,9 @@ const getRegistrationStatusType = (status: string) => {
 
 const getRegistrationStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
+    pending: '待审核',
+    confirmed: '已通过',
+    cancelled: '已取消',
     PENDING: '待审核',
     APPROVED: '已通过',
     REJECTED: '已拒绝',

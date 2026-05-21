@@ -22,26 +22,26 @@
         <el-table-column label="操作" width="180">
           <template #default="{ row }">
             <el-button
-              v-if="row.status === 'PENDING'"
+              v-if="row.status === 'pending'"
               type="success"
               size="small"
-              @click="updateStatus(row.id, 'APPROVED')"
+              @click="updateStatus(row.id, 'confirmed')"
             >
               通过
             </el-button>
             <el-button
-              v-if="row.status === 'PENDING'"
+              v-if="row.status === 'pending'"
               type="danger"
               size="small"
-              @click="updateStatus(row.id, 'REJECTED')"
+              @click="updateStatus(row.id, 'cancelled')"
             >
               拒绝
             </el-button>
             <el-button
-              v-if="row.status === 'APPROVED'"
+              v-if="row.status === 'confirmed'"
               type="warning"
               size="small"
-              @click="updateStatus(row.id, 'CANCELLED')"
+              @click="updateStatus(row.id, 'cancelled')"
             >
               取消
             </el-button>
@@ -111,6 +111,9 @@ const formatDate = (dateStr: string) => {
 
 const getStatusType = (status: string) => {
   const types: Record<string, any> = {
+    pending: 'warning',
+    confirmed: 'success',
+    cancelled: 'info',
     PENDING: 'warning',
     APPROVED: 'success',
     REJECTED: 'danger',
@@ -121,6 +124,9 @@ const getStatusType = (status: string) => {
 
 const getStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
+    pending: '待审核',
+    confirmed: '已通过',
+    cancelled: '已取消',
     PENDING: '待审核',
     APPROVED: '已通过',
     REJECTED: '已拒绝',

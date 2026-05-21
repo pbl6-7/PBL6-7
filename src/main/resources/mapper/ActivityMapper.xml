@@ -141,4 +141,42 @@
         AND deleted_at IS NULL
     </select>
 
+    <select id="selectPendingActivities" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE approval_status = 'pending'
+        AND deleted_at IS NULL
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="selectByApprovalStatus" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE approval_status = #{approvalStatus}
+        AND deleted_at IS NULL
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="countByApprovalStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE approval_status = #{approvalStatus}
+        AND deleted_at IS NULL
+    </select>
+
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE deleted_at IS NULL
+    </select>
+
+    <select id="countCreatedAfterDays" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        AND deleted_at IS NULL
+    </select>
+
+    <select id="selectRecentActivities" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

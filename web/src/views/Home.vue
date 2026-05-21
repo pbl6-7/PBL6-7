@@ -78,8 +78,8 @@
         >
           <div class="card-header">
             <el-tag :type="getStatusType(item.status)">{{ getStatusLabel(item.status) }}</el-tag>
-            <el-tag v-if="item.approvalStatus === 'PENDING'" type="warning">待审核</el-tag>
-            <el-tag v-else-if="item.approvalStatus === 'APPROVED'" type="success">已通过</el-tag>
+            <el-tag v-if="item.approvalStatus === 'pending'" type="warning">待审核</el-tag>
+            <el-tag v-else-if="item.approvalStatus === 'approved'" type="success">已通过</el-tag>
             <el-tag v-else type="danger">已拒绝</el-tag>
           </div>
           <div class="card-body">

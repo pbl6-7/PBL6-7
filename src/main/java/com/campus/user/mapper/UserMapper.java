@@ -44,4 +44,46 @@ public interface UserMapper {
      * @return 删除的用户ID
      */ 
     int deleteById(@Param("id") Long id);
+    /**
+     * 查询所有用户（管理员功能）
+     * @return 用户列表
+     */
+    List<User> selectAllUsers();
+    /**
+     * 按角色查询用户
+     * @param role 用户角色
+     * @return 用户列表
+     */
+    List<User> selectUsersByRole(@Param("role") String role);
+    /**
+     * 分页查询用户
+     * @param keyword 关键词
+     * @param role 角色
+     * @param offset 偏移量
+     * @param size 每页数量
+     * @return 用户列表
+     */
+    List<User> selectUserPageList(
+        @Param("keyword") String keyword,
+        @Param("role") String role,
+        @Param("offset") Integer offset,
+        @Param("size") Integer size
+    );
+    /**
+     * 统计用户总数
+     * @param keyword 关键词
+     * @param role 角色
+     * @return 用户总数
+     */
+    Long countUsers(
+        @Param("keyword") String keyword,
+        @Param("role") String role
+    );
+    /**
+     * 更新用户角色
+     * @param id 用户ID
+     * @param role 新角色
+     * @return 更新的记录数
+     */
+    int updateUserRole(@Param("id") Long id, @Param("role") String role);
 }

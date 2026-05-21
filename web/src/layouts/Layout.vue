@@ -18,6 +18,35 @@
           <el-menu-item index="my-subscriptions" @click="router.push('/my-subscriptions')">我的订阅</el-menu-item>
           <el-menu-item index="my-collections" @click="router.push('/my-collections')">我的收藏</el-menu-item>
           <el-menu-item index="my-notifications" @click="router.push('/my-notifications')">我的通知</el-menu-item>
+          <el-menu-item v-if="userStore.userInfo?.role === 'admin'" index="admin" :popper-append-to-body="false">
+            <el-dropdown @command="handleAdminCommand">
+              <span class="admin-menu-item">
+                <el-icon><Setting /></el-icon>
+                <span>管理</span>
+                <el-icon><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="users">
+                    <el-icon><User /></el-icon>
+                    用户管理
+                  </el-dropdown-item>
+                  <el-dropdown-item command="approval">
+                    <el-icon><Document /></el-icon>
+                    活动审核
+                  </el-dropdown-item>
+                  <el-dropdown-item command="monitor">
+                    <el-icon><Monitor /></el-icon>
+                    系统监控
+                  </el-dropdown-item>
+                  <el-dropdown-item command="statistics">
+                    <el-icon><DataAnalysis /></el-icon>
+                    数据统计
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </el-menu-item>
         </el-menu>
         <div class="header-actions">
           <el-button type="primary" @click="router.push('/publish')">
@@ -56,7 +85,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { School, Plus, User, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
+import { School, Plus, User, ArrowDown, SwitchButton, Setting, Document, Monitor, DataAnalysis } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -79,6 +108,18 @@ const handleCommand = (command: string) => {
     }).catch(() => {})
   } else if (command === 'profile') {
     router.push('/profile')
+  }
+}
+
+const handleAdminCommand = (command: string) => {
+  if (command === 'users') {
+    router.push('/admin/users')
+  } else if (command === 'approval') {
+    router.push('/admin/activities/approval')
+  } else if (command === 'monitor') {
+    router.push('/admin/monitor')
+  } else if (command === 'statistics') {
+    router.push('/admin/statistics')
   }
 }
 
@@ -140,6 +181,17 @@ userStore.initUser()
 .header-menu :deep(.el-menu-item.is-active) {
   color: white;
   border-bottom: 2px solid white;
+}
+
+.admin-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-menu-item:hover {
+  color: white;
 }
 
 .header-actions {

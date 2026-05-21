@@ -104,6 +104,9 @@ const formatDate = (dateStr: string) => {
 
 const getStatusType = (status: string) => {
   const types: Record<string, any> = {
+    pending: 'warning',
+    confirmed: 'success',
+    cancelled: 'info',
     PENDING: 'warning',
     APPROVED: 'success',
     REJECTED: 'danger',
@@ -114,6 +117,9 @@ const getStatusType = (status: string) => {
 
 const getStatusLabel = (status: string) => {
   const labels: Record<string, string> = {
+    pending: '待审核',
+    confirmed: '已通过',
+    cancelled: '已取消',
     PENDING: '待审核',
     APPROVED: '已通过',
     REJECTED: '已拒绝',

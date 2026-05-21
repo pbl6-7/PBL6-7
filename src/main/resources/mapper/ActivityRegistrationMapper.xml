@@ -85,4 +85,13 @@
         WHERE user_id = #{userId}
     </select>
 
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+    </select>
+
+    <select id="countRecentRegistrations" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+    </select>
+
 </mapper>
