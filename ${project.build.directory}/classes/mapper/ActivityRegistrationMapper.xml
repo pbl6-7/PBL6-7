@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.ActivityRegistrationMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.activity.entity.ActivityRegistration">
+        <id column="id" property="id"/>
+        <result column="activity_id" property="activityId"/>
+        <result column="user_id" property="userId"/>
+        <result column="registration_time" property="registrationTime"/>
+        <result column="status" property="status"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO activity_registration (activity_id, user_id, registration_time, status, created_at, updated_at)
+        VALUES (#{activityId}, #{userId}, #{registrationTime}, #{status}, NOW(), NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE activity_registration
+        <set>
+            <if test="status != null">status = #{status},</if>
+            <if test="registrationTime != null">registration_time = #{registrationTime},</if>
+            updated_at = NOW()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM activity_registration WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteByActivityIdAndUserId">
+        DELETE FROM activity_registration WHERE activity_id = #{activityId} AND user_id = #{userId}
+    </delete>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectByActivityIdAndUserId" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE activity_id = #{activityId} AND user_id = #{userId}
+    </select>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE user_id = #{userId}
+        ORDER BY registration_time DESC
+    </select>
+
+    <select id="selectByActivityId" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE activity_id = #{activityId}
+        ORDER BY registration_time DESC
+    </select>
+
+    <select id="selectByActivityIdAndStatus" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE activity_id = #{activityId} AND status = #{status}
+        ORDER BY registration_time DESC
+    </select>
+
+    <select id="countByActivityId" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE activity_id = #{activityId}
+    </select>
+
+    <select id="countByActivityIdAndStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE activity_id = #{activityId} AND status = #{status}
+    </select>
+
+    <select id="selectByUserIdWithPage" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE user_id = #{userId}
+        ORDER BY registration_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countByUserId" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE user_id = #{userId}
+    </select>
+
+</mapper>

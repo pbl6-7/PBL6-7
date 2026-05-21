@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.user.mapper.UserSecurityMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.user.entity.UserSecurity">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId"/>
+        <result column="security_question_id" property="securityQuestionId"/>
+        <result column="security_answer" property="securityAnswer"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <select id="selectByUserId" resultMap="BaseResultMap">
+        SELECT * FROM user_security
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_security (user_id, security_question_id, security_answer, created_at, updated_at)
+        VALUES (#{userId}, #{securityQuestionId}, #{securityAnswer}, NOW(), NOW())
+    </insert>
+
+    <update id="updateByUserId">
+        UPDATE user_security
+        <set>
+            <if test="securityQuestionId != null">security_question_id = #{securityQuestionId},</if>
+            <if test="securityAnswer != null">security_answer = #{securityAnswer},</if>
+            updated_at = NOW()
+        </set>
+        WHERE user_id = #{userId}
+    </update>
+
+    <delete id="deleteByUserId">
+        DELETE FROM user_security WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

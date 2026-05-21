@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.CommentMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.activity.entity.Comment">
+        <id column="id" property="id"/>
+        <result column="activity_id" property="activityId"/>
+        <result column="user_id" property="userId"/>
+        <result column="content" property="content"/>
+        <result column="reply_to_id" property="replyToId"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO activity_comment (activity_id, user_id, content, reply_to_id, created_at)
+        VALUES (#{activityId}, #{userId}, #{content}, #{replyToId}, NOW())
+    </insert>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectRootCommentsByActivityId" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE activity_id = #{activityId}
+        AND reply_to_id IS NULL
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="selectRepliesByReplyToId" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE reply_to_id = #{replyToId}
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="countRootCommentsByActivityId" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_comment
+        WHERE activity_id = #{activityId}
+        AND reply_to_id IS NULL
+    </select>
+
+    <delete id="deleteById">
+        DELETE FROM activity_comment WHERE id = #{id}
+    </delete>
+
+    <select id="selectAllRepliesByReplyToId" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE reply_to_id = #{replyToId}
+    </select>
+
+    <delete id="deleteBatchByIds">
+        DELETE FROM activity_comment WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

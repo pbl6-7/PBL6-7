@@ -41,16 +41,60 @@
             {{ row.currentParticipants || 0 }}/{{ row.maxParticipants }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="router.push(`/activity/${row.id}`)">查看</el-button>
             <el-button type="primary" link @click="router.push(`/edit-activity/${row.id}`)">编辑</el-button>
             <el-button type="primary" link @click="router.push(`/activity-registrations/${row.id}`)">报名</el-button>
+            <el-button type="success" link @click="openPhotoManager(row.id, row.title)">
+              <el-icon><Image /></el-icon>相册
+            </el-button>
             <el-button type="danger" link @click="handleDelete(row.id)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
+
+    <Teleport to="body">
+      <el-dialog 
+        v-model="showPhotoModal" 
+        :title="`相册管理 - ${currentActivityTitle}`" 
+        width="80%"
+        @close="closePhotoModal"
+      >
+        <div class="photo-manager">
+          <div class="upload-section">
+            <el-button 
+              type="primary" 
+              :loading="uploadLoading"
+              @click="document.getElementById('photo-upload')?.click()"
+            >
+              <el-icon><Plus /></el-icon>
+              上传照片
+            </el-button>
+            <input 
+              id="photo-upload"
+              type="file" 
+              multiple 
+              accept="image/*" 
+              style="display: none"
+              @change="handlePhotoUpload"
+            />
+          </div>
+          <div v-if="photos.length === 0" class="no-photos">
+            暂无照片，请上传活动照片
+          </div>
+          <div v-else class="photo-grid">
+            <div v-for="photo in photos" :key="photo.id" class="photo-item">
+              <img :src="photo.photoUrl" :alt="photo.photoName" />
+              <div class="photo-actions">
+                <el-button type="danger" size="small" icon="Trash" @click="handlePhotoDelete(photo.id)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-dialog>
+    </Teleport>
   </div>
 </template>
 
@@ -58,14 +102,22 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getMyActivities, deleteActivity } from '@/api/activity'
+import { getActivityPhotos, uploadPhoto, deletePhoto } from '@/api/photo'
 import type { Activity } from '@/types/activity'
-import { Plus } from '@element-plus/icons-vue'
+import type { ActivityPhoto } from '@/types/activity'
+import { Plus, Image } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 
 const loading = ref(false)
 const activities = ref<Activity[]>([])
+
+const showPhotoModal = ref(false)
+const currentActivityId = ref<number>(0)
+const currentActivityTitle = ref('')
+const photos = ref<ActivityPhoto[]>([])
+const uploadLoading = ref(false)
 
 const loadActivities = async () => {
   loading.value = true
@@ -92,6 +144,64 @@ const handleDelete = async (id: number) => {
   } catch {
     // 用户取消
   }
+}
+
+const openPhotoManager = async (activityId: number, title: string) => {
+  currentActivityId.value = activityId
+  currentActivityTitle.value = title
+  showPhotoModal.value = true
+  await loadPhotos(activityId)
+}
+
+const loadPhotos = async (activityId: number) => {
+  try {
+    const res = await getActivityPhotos(activityId)
+    photos.value = res.data
+  } catch {
+    ElMessage.error('加载相册失败')
+  }
+}
+
+const handlePhotoUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  if (!files || files.length === 0) return
+
+  uploadLoading.value = true
+  try {
+    for (const file of Array.from(files)) {
+      await uploadPhoto(currentActivityId.value, file)
+    }
+    ElMessage.success('照片上传成功')
+    await loadPhotos(currentActivityId.value)
+  } catch {
+    ElMessage.error('照片上传失败')
+  } finally {
+    uploadLoading.value = false
+    target.value = ''
+  }
+}
+
+const handlePhotoDelete = async (photoId: number) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这张照片吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deletePhoto(photoId)
+    ElMessage.success('照片删除成功')
+    photos.value = photos.value.filter(p => p.id !== photoId)
+  } catch {
+    // 用户取消
+  }
+}
+
+const closePhotoModal = () => {
+  showPhotoModal.value = false
+  currentActivityId.value = 0
+  currentActivityTitle.value = ''
+  photos.value = []
 }
 
 const formatDate = (dateStr: string) => {
@@ -145,5 +255,44 @@ onMounted(() => {
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.photo-manager {
+  padding: 10px 0;
+}
+
+.upload-section {
+  margin-bottom: 20px;
+}
+
+.no-photos {
+  text-align: center;
+  padding: 60px;
+  color: #909399;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.photo-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 </style>
