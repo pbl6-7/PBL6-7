@@ -32,6 +32,24 @@ public class NotificationService {
     public static final String TYPE_ACTIVITY_UPDATE = "ACTIVITY_UPDATE";
     public static final String TYPE_ACTIVITY_START = "ACTIVITY_START";
     public static final String TYPE_ACTIVITY_END = "ACTIVITY_END";
+    public static final String TYPE_APPROVAL_RESULT = "APPROVAL_RESULT";
+
+    /**
+     * 通知单个用户
+     * @param userId 用户ID
+     * @param type 通知类型
+     * @param content 通知内容
+     */
+    @Transactional
+    public void notifyUser(Long userId, String type, String content) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setActivityId(null);
+        notification.setType(type);
+        notification.setContent(content);
+        notification.setIsRead(false);
+        notificationMapper.insert(notification);
+    }
 
     /**
      * 创建通知

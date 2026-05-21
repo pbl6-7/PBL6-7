@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -79,6 +80,30 @@ const routes: RouteRecordRaw[] = [
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/Profile.vue')
+      },
+      {
+        path: 'admin/users',
+        name: 'AdminUserManagement',
+        component: () => import('@/views/admin/UserManagement.vue'),
+        meta: { requiresAdmin: true }
+      },
+      {
+        path: 'admin/activities/approval',
+        name: 'AdminActivityApproval',
+        component: () => import('@/views/admin/ActivityApproval.vue'),
+        meta: { requiresAdmin: true }
+      },
+      {
+        path: 'admin/monitor',
+        name: 'AdminSystemMonitor',
+        component: () => import('@/views/admin/SystemMonitor.vue'),
+        meta: { requiresAdmin: true }
+      },
+      {
+        path: 'admin/statistics',
+        name: 'AdminDataStatistics',
+        component: () => import('@/views/admin/DataStatistics.vue'),
+        meta: { requiresAdmin: true }
       }
     ]
   }
@@ -92,9 +117,16 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const publicPages = ['/login', '/register', '/forgot-password']
-  
+
   if (!token && !publicPages.includes(to.path)) {
     next('/login')
+  } else if (to.meta.requiresAdmin) {
+    const userStore = useUserStore()
+    if (userStore.userInfo?.role !== 'admin') {
+      next('/home')
+    } else {
+      next()
+    }
   } else {
     next()
   }

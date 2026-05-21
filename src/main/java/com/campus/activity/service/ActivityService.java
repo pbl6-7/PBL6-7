@@ -27,6 +27,7 @@ public class ActivityService {
 
     private static final String APPROVAL_STATUS_APPROVED = "approved";
     private static final String APPROVAL_STATUS_PENDING = "pending";
+    private static final String APPROVAL_STATUS_REJECTED = "rejected";
     private static final String STATUS_PUBLISHED = "published";
     private static final String STATUS_ENDED = "ended";
     private static final String STATUS_CANCELLED = "cancelled";
@@ -292,5 +293,116 @@ public class ActivityService {
         pageResponse.setTotalPages((int) Math.ceil((double) total / size));
 
         return pageResponse;
+    }
+
+    /**
+     * 获取待审核活动列表
+     * @return 待审核活动列表
+     */
+    public List<ActivityResponse> getPendingActivities() {
+        List<Activity> activities = activityMapper.selectPendingActivities();
+        
+        Set<Long> userIds = activities.stream()
+                .map(Activity::getPublisherId)
+                .collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(userIds);
+        
+        List<ActivityResponse> responses = activities.stream()
+                .map(ActivityResponse::fromEntity)
+                .collect(Collectors.toList());
+        
+        return batchSetPublisherName(responses, userMap);
+    }
+
+    /**
+     * 按审核状态获取活动列表
+     * @param approvalStatus 审核状态
+     * @return 活动列表
+     */
+    public List<ActivityResponse> getActivitiesByApprovalStatus(String approvalStatus) {
+        List<Activity> activities = activityMapper.selectByApprovalStatus(approvalStatus);
+        
+        Set<Long> userIds = activities.stream()
+                .map(Activity::getPublisherId)
+                .collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(userIds);
+        
+        List<ActivityResponse> responses = activities.stream()
+                .map(ActivityResponse::fromEntity)
+                .collect(Collectors.toList());
+        
+        return batchSetPublisherName(responses, userMap);
+    }
+
+    /**
+     * 审核通过活动
+     * @param activityId 活动ID
+     * @return 活动响应
+     */
+    @Transactional
+    public ActivityResponse approveActivity(Long activityId) {
+        Activity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_FOUND);
+        }
+
+        if (!APPROVAL_STATUS_PENDING.equals(activity.getApprovalStatus())) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_PENDING);
+        }
+
+        activity.setApprovalStatus(APPROVAL_STATUS_APPROVED);
+        activity.setStatus(STATUS_PUBLISHED);
+        activityMapper.updateById(activity);
+
+        User publisher = userMapper.selectById(activity.getPublisherId());
+        notificationService.notifyUser(
+                activity.getPublisherId(),
+                NotificationService.TYPE_APPROVAL_RESULT,
+                "您的活动《" + activity.getTitle() + "》已通过审核"
+        );
+
+        ActivityResponse response = ActivityResponse.fromEntity(activity);
+        if (publisher != null) {
+            response.setPublisherName(publisher.getRealName());
+        }
+        return response;
+    }
+
+    /**
+     * 审核拒绝活动
+     * @param activityId 活动ID
+     * @param reason 拒绝原因
+     * @return 活动响应
+     */
+    @Transactional
+    public ActivityResponse rejectActivity(Long activityId, String reason) {
+        Activity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_FOUND);
+        }
+
+        if (!APPROVAL_STATUS_PENDING.equals(activity.getApprovalStatus())) {
+            throw new BusinessException(ResultCode.ACTIVITY_NOT_PENDING);
+        }
+
+        activity.setApprovalStatus(APPROVAL_STATUS_REJECTED);
+        activityMapper.updateById(activity);
+
+        User publisher = userMapper.selectById(activity.getPublisherId());
+        String notificationMessage = "您的活动《" + activity.getTitle() + "》未通过审核";
+        if (reason != null && !reason.trim().isEmpty()) {
+            notificationMessage += "。原因：" + reason;
+        }
+        notificationService.notifyUser(
+                activity.getPublisherId(),
+                NotificationService.TYPE_APPROVAL_RESULT,
+                notificationMessage
+        );
+
+        ActivityResponse response = ActivityResponse.fromEntity(activity);
+        if (publisher != null) {
+            response.setPublisherName(publisher.getRealName());
+        }
+        return response;
     }
 }

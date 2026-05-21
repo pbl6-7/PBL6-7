@@ -57,4 +57,47 @@
         UPDATE user_info SET deleted_at = NOW() WHERE id = #{id}
     </update>
 
+    <select id="selectAllUsers" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectUsersByRole" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE role = #{role}
+        AND deleted_at IS NULL
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectUserPageList" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE deleted_at IS NULL
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE deleted_at IS NULL
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+    </select>
+
+    <update id="updateUserRole">
+        UPDATE user_info
+        SET role = #{role}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
 </mapper>

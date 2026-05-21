@@ -33,4 +33,8 @@ public interface ActivityRegistrationMapper {
     List<ActivityRegistration> selectByUserIdWithPage(@Param("userId") Long userId, @Param("offset") Integer offset, @Param("size") Integer size);
 
     Long countByUserId(@Param("userId") Long userId);
+
+    Long countAll();
+
+    Long countRecentRegistrations(@Param("days") Integer days);
 }
