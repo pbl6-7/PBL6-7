@@ -53,6 +53,9 @@ public class ActivityService {
         if (STATUS_ENDED.equals(activity.getStatus())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "已结束的活动不允许删除");
         }
+        if (APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "已审核通过的活动不允许删除");
+        }
     }
 
     /**
@@ -246,7 +249,7 @@ public class ActivityService {
         String sortBy = request.getSortBy();
         String sortOrder = request.getSortOrder();
 
-        Integer offset = (page - 1) * size;
+        Integer offset = (int) ((long) (page - 1) * size);
 
         List<Activity> activities = activityMapper.selectList(
                 publisherId,

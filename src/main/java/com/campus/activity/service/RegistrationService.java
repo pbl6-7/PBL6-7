@@ -57,7 +57,20 @@ public class RegistrationService {
 
         ActivityRegistration existing = registrationMapper.selectByActivityIdAndUserId(activityId, userId);
         if (existing != null) {
-            throw new BusinessException(ResultCode.CONFLICT, "您已报名此活动");
+            if (!STATUS_CANCELLED.equals(existing.getStatus())) {
+                throw new BusinessException(ResultCode.CONFLICT, "您已报名此活动");
+            }
+            existing.setStatus(STATUS_PENDING);
+            existing.setRegistrationTime(LocalDateTime.now());
+            registrationMapper.updateById(existing);
+
+            RegistrationResponse response = RegistrationResponse.fromEntity(existing);
+            fillActivityInfo(response, activity);
+            User user = userMapper.selectById(userId);
+            if (user != null) {
+                response.setUserName(user.getRealName());
+            }
+            return response;
         }
 
         if (activity.getMaxParticipants() != null && activity.getMaxParticipants() > 0) {
@@ -92,7 +105,7 @@ public class RegistrationService {
             size = MAX_PAGE_SIZE;
         }
 
-        int offset = (page - 1) * size;
+        int offset = (int) ((long) (page - 1) * size);
 
         Long total = registrationMapper.countByUserId(userId);
 
@@ -145,15 +158,11 @@ public class RegistrationService {
             size = MAX_PAGE_SIZE;
         }
 
-        int offset = (page - 1) * size;
+        int offset = (int) ((long) (page - 1) * size);
 
-        List<ActivityRegistration> allRegistrations = registrationMapper.selectByActivityId(activityId);
-        Long total = (long) allRegistrations.size();
+        Long total = registrationMapper.countByActivityId(activityId);
 
-        List<ActivityRegistration> pagedList = allRegistrations.stream()
-                .skip(offset)
-                .limit(size)
-                .collect(Collectors.toList());
+        List<ActivityRegistration> pagedList = registrationMapper.selectByActivityIdWithPage(activityId, offset, size);
 
         Set<Long> userIds = pagedList.stream()
                 .map(ActivityRegistration::getUserId)
@@ -175,13 +184,22 @@ public class RegistrationService {
         pageResponse.setTotal(total);
         pageResponse.setPage(page);
         pageResponse.setSize(size);
-        pageResponse.setTotalPages((int) Math.ceil((double) allRegistrations.size() / size));
+        pageResponse.setTotalPages((int) Math.ceil((double) total / size));
 
         return pageResponse;
     }
 
+    /**
+     * 报名状态更新无验证
+     */
+    private static final Set<String> VALID_STATUSES = Set.of("pending", "confirmed", "cancelled");
+
     @Transactional
     public RegistrationResponse updateRegistrationStatus(Long publisherId, Long registrationId, String newStatus) {
+        if (!VALID_STATUSES.contains(newStatus)) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "无效的报名状态");
+        }
+
         ActivityRegistration registration = registrationMapper.selectById(registrationId);
         if (registration == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "报名记录不存在");

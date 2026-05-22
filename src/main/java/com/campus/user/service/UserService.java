@@ -9,11 +9,8 @@ import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
 import com.campus.user.service.UserSecurityService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 
 /**
  * 用户服务
@@ -25,14 +22,14 @@ public class UserService {
     private final UserMapper userMapper;
     private final UserSecurityService userSecurityService;
     private final JwtUtils jwtUtils;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public LoginResponse login(LoginRequest request) {
         User user = userMapper.selectByUsername(request.getUsername());
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
-        String hashedPassword = hashPassword(request.getPassword());
-        if (!hashedPassword.equals(user.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
@@ -62,13 +59,7 @@ public class UserService {
     }
 
     private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
-        }
+        return passwordEncoder.encode(password);
     }
 
     /**
@@ -82,8 +73,7 @@ public class UserService {
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
-        String hashedOldPassword = hashPassword(oldPassword);
-        if (!hashedOldPassword.equals(user.getPassword())) {
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR, "旧密码错误");
         }
         user.setPassword(hashPassword(newPassword));

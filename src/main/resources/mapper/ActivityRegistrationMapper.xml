@@ -57,6 +57,13 @@
         ORDER BY registration_time DESC
     </select>
 
+    <select id="selectByActivityIdWithPage" resultMap="BaseResultMap">
+        SELECT * FROM activity_registration
+        WHERE activity_id = #{activityId}
+        ORDER BY registration_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
     <select id="selectByActivityIdAndStatus" resultMap="BaseResultMap">
         SELECT * FROM activity_registration
         WHERE activity_id = #{activityId} AND status = #{status}

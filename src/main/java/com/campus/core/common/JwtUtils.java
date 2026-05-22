@@ -2,6 +2,7 @@ package com.campus.core.common;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -16,13 +17,15 @@ import java.util.Map;
 @Component
 public class JwtUtils {
 
-    private static final String SECRET_KEY = "campus-activity-platform-jwt-secret-key-2024";
-    private static final long EXPIRATION_TIME = 86400000L;
+    @Value("${jwt.secret}")
+    private String secretKey;
 
-    private final SecretKey key;
+    @Value("${jwt.expiration}")
+    private Long expirationTime;
 
-    public JwtUtils() {
-        this.key = Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8));
+    private SecretKey getSigningKey() {
+        byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
@@ -38,8 +41,8 @@ public class JwtUtils {
                 .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
-                .signWith(key, SignatureAlgorithm.HS256)
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -95,7 +98,7 @@ public class JwtUtils {
      */
     private Claims getClaimsFromToken(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(key)
+                .setSigningKey(getSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
