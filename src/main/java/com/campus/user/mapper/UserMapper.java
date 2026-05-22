@@ -86,4 +86,17 @@ public interface UserMapper {
      * @return 更新的记录数
      */
     int updateUserRole(@Param("id") Long id, @Param("role") String role);
+
+    /**
+     * 统计所有用户数量
+     * @return 用户总数
+     */
+    Long countAllUsers();
+
+    /**
+     * 按角色统计用户数量
+     * @param role 用户角色
+     * @return 用户数量
+     */
+    Long countUsersByRole(@Param("role") String role);
 }

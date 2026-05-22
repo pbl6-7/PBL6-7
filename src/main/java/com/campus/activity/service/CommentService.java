@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,7 +72,7 @@ public class CommentService {
             size = MAX_PAGE_SIZE;
         }
 
-        Integer offset = (page - 1) * size;
+        Integer offset = (int) ((long) (page - 1) * size);
 
         List<Comment> rootComments = commentMapper.selectRootCommentsByActivityId(activityId, offset, size);
 
@@ -78,30 +80,53 @@ public class CommentService {
             return new ArrayList<>();
         }
 
-        Set<Long> userIds = rootComments.stream()
-                .map(Comment::getUserId)
-                .collect(Collectors.toSet());
-        List<Comment> allReplies = new ArrayList<>();
-        for (Comment root : rootComments) {
-            List<Comment> replies = commentMapper.selectRepliesByReplyToId(root.getId());
-            allReplies.addAll(replies);
-            userIds.addAll(replies.stream().map(Comment::getUserId).collect(Collectors.toSet()));
+        List<Long> rootIds = rootComments.stream()
+                .map(Comment::getId)
+                .collect(Collectors.toList());
+
+        List<Comment> allReplies = commentMapper.selectRepliesByParentIds(rootIds);
+
+        Map<Long, Long> replyCountMap = new HashMap<>();
+        for (Comment reply : allReplies) {
+            Long parentId = reply.getReplyToId();
+            replyCountMap.merge(parentId, 1L, Long::sum);
         }
 
-        Map<Long, User> userMap = batchGetUsers(userIds);
-        Map<Long, Long> replyCountMap = buildReplyCountMap(rootComments);
+        Set<Long> allUserIds = new HashSet<>();
+        for (Comment root : rootComments) {
+            allUserIds.add(root.getUserId());
+        }
+        for (Comment reply : allReplies) {
+            allUserIds.add(reply.getUserId());
+            if (reply.getReplyToId() != null) {
+                Comment replyToComment = commentMapper.selectById(reply.getReplyToId());
+                if (replyToComment != null) {
+                    allUserIds.add(replyToComment.getUserId());
+                }
+            }
+        }
+
+        Map<Long, User> userMap = batchGetUsers(allUserIds);
+
+        Map<Long, List<Comment>> repliesByParent = new HashMap<>();
+        for (Comment reply : allReplies) {
+            repliesByParent.computeIfAbsent(reply.getReplyToId(), k -> new ArrayList<>()).add(reply);
+        }
 
         List<CommentResponse> responses = new ArrayList<>();
         for (Comment root : rootComments) {
             CommentResponse rootResponse = buildCommentResponse(root, userMap, replyCountMap);
 
-            List<Comment> replies = commentMapper.selectRepliesByReplyToId(root.getId());
+            List<Comment> replies = repliesByParent.getOrDefault(root.getId(), new ArrayList<>());
             List<CommentResponse> replyResponses = new ArrayList<>();
             for (Comment reply : replies) {
                 CommentResponse replyResponse = buildCommentResponse(reply, userMap, null);
                 if (reply.getReplyToId() != null) {
-                    User replyToUser = userMap.get(commentMapper.selectById(reply.getReplyToId()).getUserId());
-                    replyResponse.setReplyToUsername(replyToUser != null ? replyToUser.getRealName() : null);
+                    Comment replyToComment = commentMapper.selectById(reply.getReplyToId());
+                    if (replyToComment != null) {
+                        User replyToUser = userMap.get(replyToComment.getUserId());
+                        replyResponse.setReplyToUsername(replyToUser != null ? replyToUser.getRealName() : null);
+                    }
                 }
                 replyResponses.add(replyResponse);
             }
@@ -138,11 +163,21 @@ public class CommentService {
     /**
      * 递归收集所有子回复ID
      */
+    private static final int MAX_RECURSION_DEPTH = 10;
+
     private void collectAllReplies(Long parentId, List<Long> idsToDelete) {
+        collectAllRepliesWithDepth(parentId, idsToDelete, 0);
+    }
+
+    private void collectAllRepliesWithDepth(Long parentId, List<Long> idsToDelete, int depth) {
+        if (depth > MAX_RECURSION_DEPTH) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "评论嵌套层数超限");
+        }
+
         List<Comment> replies = commentMapper.selectAllRepliesByReplyToId(parentId);
         for (Comment reply : replies) {
             idsToDelete.add(reply.getId());
-            collectAllReplies(reply.getId(), idsToDelete);
+            collectAllRepliesWithDepth(reply.getId(), idsToDelete, depth + 1);
         }
     }
 

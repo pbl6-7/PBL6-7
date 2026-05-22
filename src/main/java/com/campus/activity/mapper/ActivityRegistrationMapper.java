@@ -24,6 +24,19 @@ public interface ActivityRegistrationMapper {
 
     List<ActivityRegistration> selectByActivityId(@Param("activityId") Long activityId);
 
+    /**
+     * 分页查询活动的报名记录
+     * @param activityId 活动ID
+     * @param offset 偏移量
+     * @param size 每页数量
+     * @return 报名记录列表
+     */
+    List<ActivityRegistration> selectByActivityIdWithPage(
+            @Param("activityId") Long activityId,
+            @Param("offset") Integer offset,
+            @Param("size") Integer size
+    );
+
     List<ActivityRegistration> selectByActivityIdAndStatus(@Param("activityId") Long activityId, @Param("status") String status);
 
     Long countByActivityId(@Param("activityId") Long activityId);

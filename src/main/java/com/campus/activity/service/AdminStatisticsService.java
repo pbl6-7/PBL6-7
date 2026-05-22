@@ -33,10 +33,10 @@ public class AdminStatisticsService {
     }
 
     public Map<String, Object> getUserStatistics() {
-        Long totalUsers = (long) userMapper.selectAllUsers().size();
-        Long publishers = (long) userMapper.selectUsersByRole("publisher").size();
-        Long admins = (long) userMapper.selectUsersByRole("admin").size();
-        Long regularUsers = (long) userMapper.selectUsersByRole("user").size();
+        Long totalUsers = userMapper.countAllUsers();
+        Long publishers = userMapper.countUsersByRole("publisher");
+        Long admins = userMapper.countUsersByRole("admin");
+        Long regularUsers = userMapper.countUsersByRole("user");
 
         Map<String, Object> statistics = new HashMap<>();
         statistics.put("totalUsers", totalUsers);
