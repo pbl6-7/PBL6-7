@@ -68,6 +68,41 @@
           />
         </el-form-item>
 
+        <el-form-item label="活动标签">
+          <div class="tags-input">
+            <el-tag
+              v-for="tag in form.tags"
+              :key="tag"
+              closable
+              :disable-transitions="false"
+              @close="handleRemoveTag(tag)"
+              style="margin-right: 8px; margin-bottom: 4px;"
+            >
+              {{ tag }}
+            </el-tag>
+            <el-input
+              v-if="tagInputVisible"
+              ref="tagInputRef"
+              v-model="tagInputValue"
+              size="small"
+              style="width: 120px;"
+              placeholder="输入标签名"
+              maxlength="20"
+              @keyup.enter="handleAddTag"
+              @blur="handleAddTag"
+            />
+            <el-button
+              v-else
+              size="small"
+              @click="showTagInput"
+              :disabled="form.tags.length >= 5"
+            >
+              + 添加标签
+            </el-button>
+            <span class="tag-hint" v-if="form.tags.length > 0">（最多5个标签）</span>
+          </div>
+        </el-form-item>
+
         <el-form-item>
           <el-button type="primary" :loading="submitting" size="large" @click="handleSubmit">
             保存修改
@@ -80,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getActivityDetail, updateActivity } from '@/api/activity'
 import { ElMessage } from 'element-plus'
@@ -91,6 +126,9 @@ const route = useRoute()
 const formRef = ref<FormInstance>()
 const loading = ref(true)
 const submitting = ref(false)
+const tagInputVisible = ref(false)
+const tagInputValue = ref('')
+const tagInputRef = ref<InstanceType<typeof import('element-plus')['ElInput']>>()
 
 const form = reactive({
   title: '',
@@ -98,7 +136,8 @@ const form = reactive({
   startTime: '',
   endTime: '',
   maxParticipants: 100,
-  description: ''
+  description: '',
+  tags: [] as string[]
 })
 
 const rules: FormRules = {
@@ -117,6 +156,30 @@ const rules: FormRules = {
   ]
 }
 
+const showTagInput = () => {
+  tagInputVisible.value = true
+  nextTick(() => {
+    tagInputRef.value?.focus()
+  })
+}
+
+const handleAddTag = () => {
+  const value = tagInputValue.value.trim()
+  if (value && !form.tags.includes(value)) {
+    if (form.tags.length >= 5) {
+      ElMessage.warning('最多添加5个标签')
+    } else {
+      form.tags.push(value)
+    }
+  }
+  tagInputVisible.value = false
+  tagInputValue.value = ''
+}
+
+const handleRemoveTag = (tag: string) => {
+  form.tags = form.tags.filter(t => t !== tag)
+}
+
 const loadActivity = async () => {
   loading.value = true
   try {
@@ -128,7 +191,8 @@ const loadActivity = async () => {
       startTime: res.data.startTime,
       endTime: res.data.endTime,
       maxParticipants: res.data.maxParticipants,
-      description: res.data.description
+      description: res.data.description,
+      tags: res.data.tags?.map((t: any) => t.name) || []
     })
   } catch {
     ElMessage.error('加载活动信息失败')
@@ -156,7 +220,8 @@ const handleSubmit = async () => {
           startTime: form.startTime,
           endTime: form.endTime,
           maxParticipants: form.maxParticipants,
-          description: form.description
+          description: form.description,
+          tags: form.tags
         })
         ElMessage.success('活动更新成功')
         router.push('/my-activities')
@@ -196,5 +261,18 @@ onMounted(() => {
 
 .activity-form :deep(.el-input-number) {
   width: 200px;
+}
+
+.tags-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-hint {
+  color: #909399;
+  font-size: 12px;
+  margin-left: 4px;
 }
 </style>
