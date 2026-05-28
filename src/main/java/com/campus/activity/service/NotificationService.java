@@ -143,9 +143,21 @@ public class NotificationService {
         }
 
         List<Long> subscriberIds = subscriptionService.getSubscribedUserIds(activityId);
-        for (Long userId : subscriberIds) {
-            createNotification(userId, activityId, type, content);
+        if (subscriberIds.isEmpty()) {
+            return;
         }
+
+        List<Notification> notifications = new ArrayList<>();
+        for (Long userId : subscriberIds) {
+            Notification notification = new Notification();
+            notification.setUserId(userId);
+            notification.setActivityId(activityId);
+            notification.setType(type);
+            notification.setContent(content);
+            notification.setIsRead(false);
+            notifications.add(notification);
+        }
+        notificationMapper.batchInsert(notifications);
     }
 
     /**

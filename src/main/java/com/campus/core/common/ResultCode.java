@@ -39,7 +39,8 @@ public enum ResultCode {
     ACTIVITY_NOT_FOUND(4010, "活动不存在"),
     ACTIVITY_NOT_PENDING(4011, "活动不在待审核状态"),
     INVALID_ROLE(4012, "无效的角色"),
-    NOT_ADMIN(4013, "需要管理员权限");
+    NOT_ADMIN(4013, "需要管理员权限"),
+    NOT_PUBLISHER(4014, "需要发布者权限");
 
     private final Integer code;
     private final String message;

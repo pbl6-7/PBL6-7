@@ -36,6 +36,7 @@ public class ActivityService {
     private final ActivityMapper activityMapper;
     private final UserMapper userMapper;
     private final NotificationService notificationService;
+    private final ActivityTagService activityTagService;
 
     /**
      * 校验活动状态是否允许编辑
@@ -68,6 +69,25 @@ public class ActivityService {
     }
 
     /**
+     * 检查同一发布者的活动时间是否冲突
+     */
+    private void checkTimeConflict(Long publisherId, LocalDateTime startTime, LocalDateTime endTime, Long excludeActivityId) {
+        List<Activity> publisherActivities = activityMapper.selectByPublisherId(publisherId);
+        for (Activity existing : publisherActivities) {
+            if (existing.getDeletedAt() != null) {
+                continue;
+            }
+            if (excludeActivityId != null && existing.getId().equals(excludeActivityId)) {
+                continue;
+            }
+            if (startTime.isBefore(existing.getEndTime()) && endTime.isAfter(existing.getStartTime())) {
+                throw new BusinessException(ResultCode.CONFLICT,
+                        "活动时间与已有活动《" + existing.getTitle() + "》冲突");
+            }
+        }
+    }
+
+    /**
      * 批量查询用户信息，解决N+1问题
      */
     private Map<Long, User> batchGetUsers(Set<Long> userIds) {
@@ -75,7 +95,7 @@ public class ActivityService {
             return Map.of();
         }
         List<User> users = userMapper.selectBatchIds(new ArrayList<>(userIds));
-        return users.stream().collect(Collectors.toMap(User::getId, u -> u));
+        return users.stream().collect(Collectors.toMap(User::getId, u -> u, (v1, v2) -> v1));
     }
 
     /**
@@ -96,10 +116,14 @@ public class ActivityService {
     }
 
     @Transactional
-    public ActivityResponse publishActivity(Long publisherId, ActivityPublishRequest request) {
+    public ActivityResponse publishActivity(Long publisherId, String userRole, ActivityPublishRequest request) {
         User publisher = userMapper.selectById(publisherId);
         if (publisher == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND, "发布者不存在");
+        }
+
+        if (!"publisher".equals(userRole)) {
+            throw new BusinessException(ResultCode.NOT_PUBLISHER, "只有发布者角色才能发布活动");
         }
 
         validateStartTime(request.getStartTime());
@@ -108,6 +132,8 @@ public class ActivityService {
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "活动结束时间不能早于开始时间");
         }
 
+        checkTimeConflict(publisherId, request.getStartTime(), request.getEndTime(), null);
+
         Activity activity = new Activity();
         activity.setTitle(request.getTitle());
         activity.setPublisherId(publisherId);
@@ -115,14 +141,20 @@ public class ActivityService {
         activity.setEndTime(request.getEndTime());
         activity.setLocation(request.getLocation());
         activity.setDescription(request.getDescription());
+        activity.setTypeId(request.getTypeId());
         activity.setMaxParticipants(request.getMaxParticipants() != null ? request.getMaxParticipants() : 0);
         activity.setStatus(STATUS_PUBLISHED);
         activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
 
         activityMapper.insert(activity);
 
+        if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
+            activityTagService.setActivityTags(activity.getId(), request.getTagIds());
+        }
+
         ActivityResponse response = ActivityResponse.fromEntity(activity);
         response.setPublisherName(publisher.getRealName());
+        response.setTags(activityTagService.getTagsByActivityId(activity.getId()));
         return response;
     }
 
@@ -142,6 +174,7 @@ public class ActivityService {
         if (publisher != null) {
             response.setPublisherName(publisher.getRealName());
         }
+        response.setTags(activityTagService.getTagsByActivityId(id));
         return response;
     }
 
@@ -157,7 +190,13 @@ public class ActivityService {
                 .map(ActivityResponse::fromEntity)
                 .collect(Collectors.toList());
         
-        return batchSetPublisherName(responses, userMap);
+        batchSetPublisherName(responses, userMap);
+        
+        for (ActivityResponse response : responses) {
+            response.setTags(activityTagService.getTagsByActivityId(response.getId()));
+        }
+        
+        return responses;
     }
 
     @Transactional
@@ -183,6 +222,11 @@ public class ActivityService {
             }
         }
 
+        checkTimeConflict(publisherId,
+                request.getStartTime() != null ? request.getStartTime() : activity.getStartTime(),
+                request.getEndTime() != null ? request.getEndTime() : activity.getEndTime(),
+                activityId);
+
         if (request.getTitle() != null) {
             activity.setTitle(request.getTitle());
         }
@@ -201,9 +245,16 @@ public class ActivityService {
         if (request.getMaxParticipants() != null) {
             activity.setMaxParticipants(request.getMaxParticipants());
         }
+        if (request.getTypeId() != null) {
+            activity.setTypeId(request.getTypeId());
+        }
 
         activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
         activityMapper.updateById(activity);
+
+        if (request.getTagIds() != null) {
+            activityTagService.setActivityTags(activityId, request.getTagIds());
+        }
 
         notificationService.notifySubscribersWithTitle(
                 activityId,
@@ -216,6 +267,7 @@ public class ActivityService {
         if (publisher != null) {
             response.setPublisherName(publisher.getRealName());
         }
+        response.setTags(activityTagService.getTagsByActivityId(activityId));
         return response;
     }
 
@@ -232,7 +284,8 @@ public class ActivityService {
 
         validateActivityDeletable(activity);
 
-        activityMapper.deleteById(activityId);
+        activity.setDeletedAt(LocalDateTime.now());
+        activityMapper.updateById(activity);
     }
 
     @Transactional
@@ -256,11 +309,10 @@ public class ActivityService {
                 request.getKeyword(),
                 request.getStatus(),
                 request.getApprovalStatus(),
-                request.getActivityType(),
+                request.getTypeId(),
                 request.getLocation(),
                 request.getStartTimeFrom(),
                 request.getStartTimeTo(),
-                request.getTagId(),
                 sortBy,
                 sortOrder,
                 offset,
@@ -272,11 +324,10 @@ public class ActivityService {
                 request.getKeyword(),
                 request.getStatus(),
                 request.getApprovalStatus(),
-                request.getActivityType(),
+                request.getTypeId(),
                 request.getLocation(),
                 request.getStartTimeFrom(),
-                request.getStartTimeTo(),
-                request.getTagId()
+                request.getStartTimeTo()
         );
 
         Set<Long> userIds = activities.stream()
@@ -289,6 +340,10 @@ public class ActivityService {
                 .collect(Collectors.toList());
         
         batchSetPublisherName(activityResponses, userMap);
+
+        for (ActivityResponse response : activityResponses) {
+            response.setTags(activityTagService.getTagsByActivityId(response.getId()));
+        }
 
         ActivityPageResponse pageResponse = new ActivityPageResponse();
         pageResponse.setList(activityResponses);

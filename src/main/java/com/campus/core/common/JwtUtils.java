@@ -25,6 +25,9 @@ public class JwtUtils {
 
     private SecretKey getSigningKey() {
         byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT密钥长度不足，至少需要32字节（256位），当前长度：" + keyBytes.length);
+        }
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -91,6 +94,20 @@ public class JwtUtils {
         } catch (JwtException e) {
             return true;
         }
+    }
+
+    /**
+     * 刷新Token
+     */
+    public String refreshToken(String token) {
+        Claims claims = getClaimsFromToken(token);
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(claims.getSubject())
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTime))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
     }
 
     /**

@@ -10,8 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Arrays;
 
 /**
@@ -24,6 +27,11 @@ public class UserSecurityService {
     private final UserSecurityMapper userSecurityMapper;
     private final UserMapper userMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    private final ConcurrentHashMap<Long, Integer> verifyFailCount = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, Long> verifyLockTime = new ConcurrentHashMap<>();
+    private static final int MAX_VERIFY_FAIL_COUNT = 3;
+    private static final long VERIFY_LOCK_DURATION = 5 * 60 * 1000;
 
     private static final List<SecurityQuestion> SECURITY_QUESTIONS = Arrays.asList(
         new SecurityQuestion(1, "您就读的小学名称是什么？"),
@@ -90,11 +98,39 @@ public class UserSecurityService {
      * 验证密保答案
      */
     public boolean verifyAnswer(Long userId, String answer) {
+        if (isVerifyLocked(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "密保验证次数过多，请5分钟后再试");
+        }
         UserSecurity userSecurity = userSecurityMapper.selectByUserId(userId);
         if (userSecurity == null) {
             throw new BusinessException(ResultCode.SECURITY_QUESTION_NOT_SET);
         }
-        return passwordEncoder.matches(answer, userSecurity.getSecurityAnswer());
+        boolean matches = passwordEncoder.matches(answer, userSecurity.getSecurityAnswer());
+        if (!matches) {
+            verifyFailCount.merge(userId, 1, Integer::sum);
+            int failCount = verifyFailCount.getOrDefault(userId, 0);
+            if (failCount >= MAX_VERIFY_FAIL_COUNT) {
+                verifyLockTime.put(userId, System.currentTimeMillis());
+                verifyFailCount.remove(userId);
+                throw new BusinessException(ResultCode.FORBIDDEN, "密保验证失败次数过多，已锁定5分钟");
+            }
+        } else {
+            verifyFailCount.remove(userId);
+            verifyLockTime.remove(userId);
+        }
+        return matches;
+    }
+
+    private boolean isVerifyLocked(Long userId) {
+        Long lockTime = verifyLockTime.get(userId);
+        if (lockTime == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() - lockTime > VERIFY_LOCK_DURATION) {
+            verifyLockTime.remove(userId);
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -111,6 +147,7 @@ public class UserSecurityService {
     /**
      * 根据用户名验证密保答案并重置密码
      */
+    @Transactional
     public void resetPassword(String username, String securityAnswer, String newPassword) {
         var user = userMapper.selectByUsername(username);
         if (user == null) {

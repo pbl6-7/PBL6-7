@@ -35,6 +35,7 @@ public class RegistrationService {
     private final ActivityRegistrationMapper registrationMapper;
     private final ActivityMapper activityMapper;
     private final UserMapper userMapper;
+    private final NotificationService notificationService;
 
     @Transactional
     public RegistrationResponse registerForActivity(Long userId, Long activityId) {
@@ -94,6 +95,10 @@ public class RegistrationService {
         if (user != null) {
             response.setUserName(user.getRealName());
         }
+
+        notificationService.notifyUser(userId,
+                NotificationService.TYPE_APPROVAL_RESULT,
+                "您已成功报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加");
 
         return response;
     }
@@ -247,7 +252,7 @@ public class RegistrationService {
             return Map.of();
         }
         List<Activity> activities = activityMapper.selectByIds(new ArrayList<>(activityIds));
-        return activities.stream().collect(Collectors.toMap(Activity::getId, a -> a));
+        return activities.stream().collect(Collectors.toMap(Activity::getId, a -> a, (v1, v2) -> v1));
     }
 
     private Map<Long, User> batchGetUsers(Set<Long> userIds) {
@@ -255,7 +260,7 @@ public class RegistrationService {
             return Map.of();
         }
         List<User> users = userMapper.selectBatchIds(new ArrayList<>(userIds));
-        return users.stream().collect(Collectors.toMap(User::getId, u -> u));
+        return users.stream().collect(Collectors.toMap(User::getId, u -> u, (v1, v2) -> v1));
     }
 
     private void fillActivityInfo(RegistrationResponse response, Activity activity) {

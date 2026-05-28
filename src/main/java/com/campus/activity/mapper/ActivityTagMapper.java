@@ -28,4 +28,6 @@ public interface ActivityTagMapper {
     int deleteRelation(@Param("activityId") Long activityId, @Param("tagId") Long tagId);
 
     List<ActivityTag> selectByActivityIdAndTagIds(@Param("activityId") Long activityId, @Param("tagIds") List<Long> tagIds);
+
+    List<ActivityTag> selectByActivityIds(@Param("activityIds") List<Long> activityIds);
 }

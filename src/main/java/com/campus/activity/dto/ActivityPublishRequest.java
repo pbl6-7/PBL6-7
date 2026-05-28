@@ -21,5 +21,9 @@ public class ActivityPublishRequest {
 
     private String description;
 
+    private Long typeId;
+
     private Integer maxParticipants;
+
+    private java.util.List<Long> tagIds;
 }

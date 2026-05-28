@@ -74,4 +74,14 @@
         ORDER BY r.created_at DESC
     </select>
 
+    <select id="selectByActivityIds" resultMap="BaseResultMap">
+        SELECT t.*, r.activity_id FROM activity_tag t
+        INNER JOIN activity_tag_relation r ON t.id = r.tag_id
+        WHERE r.activity_id IN
+        <foreach collection="activityIds" item="activityId" open="(" separator="," close=")">
+            #{activityId}
+        </foreach>
+        ORDER BY r.activity_id, r.created_at DESC
+    </select>
+
 </mapper>

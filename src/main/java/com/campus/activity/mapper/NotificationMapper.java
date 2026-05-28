@@ -13,6 +13,8 @@ import java.util.List;
 public interface NotificationMapper {
     int insert(Notification notification);
 
+    int batchInsert(@Param("list") List<Notification> notifications);
+
     int updateIsRead(@Param("id") Long id);
 
     Notification selectById(@Param("id") Long id);

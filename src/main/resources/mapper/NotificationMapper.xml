@@ -17,6 +17,14 @@
         VALUES (#{userId}, #{activityId}, #{type}, #{content}, #{isRead}, NOW())
     </insert>
 
+    <insert id="batchInsert" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notification (user_id, activity_id, type, content, is_read, create_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.userId}, #{item.activityId}, #{item.type}, #{item.content}, #{item.isRead}, NOW())
+        </foreach>
+    </insert>
+
     <update id="updateIsRead">
         UPDATE notification
         SET is_read = 1

@@ -39,7 +39,8 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'publish',
         name: 'PublishActivity',
-        component: () => import('@/views/PublishActivity.vue')
+        component: () => import('@/views/PublishActivity.vue'),
+        meta: { requiresPublisher: true }
       },
       {
         path: 'edit-activity/:id',
@@ -123,6 +124,13 @@ router.beforeEach((to, from, next) => {
   } else if (to.meta.requiresAdmin) {
     const userStore = useUserStore()
     if (userStore.userInfo?.role !== 'admin') {
+      next('/home')
+    } else {
+      next()
+    }
+  } else if (to.meta.requiresPublisher) {
+    const userStore = useUserStore()
+    if (userStore.userInfo?.role !== 'publisher') {
       next('/home')
     } else {
       next()

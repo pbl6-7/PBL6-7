@@ -6,6 +6,7 @@ import com.campus.activity.entity.Comment;
 import com.campus.activity.mapper.CommentMapper;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
+import com.campus.core.common.SensitiveWordFilter;
 import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -28,6 +30,7 @@ public class CommentService {
 
     private final CommentMapper commentMapper;
     private final UserMapper userMapper;
+    private final SensitiveWordFilter sensitiveWordFilter;
 
     /**
      * 发布评论
@@ -37,6 +40,17 @@ public class CommentService {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND, "用户不存在");
+        }
+
+        if (request.getContent() == null || request.getContent().trim().isEmpty()) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "评论内容不能为空");
+        }
+        if (request.getContent().length() > 1000) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "评论内容不能超过1000字符");
+        }
+
+        if (sensitiveWordFilter.containsSensitiveWord(request.getContent())) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "评论内容包含敏感词，请修改后重试");
         }
 
         if (request.getReplyToId() != null) {
@@ -144,12 +158,16 @@ public class CommentService {
      */
     @Transactional
     public void deleteComment(Long commentId, Long userId) {
+        User user = userMapper.selectById(userId);
         Comment comment = commentMapper.selectById(commentId);
         if (comment == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "评论不存在");
         }
 
-        if (!comment.getUserId().equals(userId)) {
+        boolean isOwner = comment.getUserId().equals(userId);
+        boolean isAdmin = user != null && "admin".equals(user.getRole());
+
+        if (!isOwner && !isAdmin) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此评论");
         }
 

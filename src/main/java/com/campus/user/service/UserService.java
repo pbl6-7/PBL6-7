@@ -9,8 +9,12 @@ import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
 import com.campus.user.service.UserSecurityService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 用户服务
@@ -19,21 +23,60 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
+
     private final UserMapper userMapper;
     private final UserSecurityService userSecurityService;
     private final JwtUtils jwtUtils;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
+    private final ConcurrentHashMap<String, Integer> loginFailCount = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> loginLockTime = new ConcurrentHashMap<>();
+    private static final int MAX_LOGIN_FAIL_COUNT = 5;
+    private static final long LOGIN_LOCK_DURATION = 15 * 60 * 1000;
+
     public LoginResponse login(LoginRequest request) {
-        User user = userMapper.selectByUsername(request.getUsername());
+        String username = request.getUsername();
+
+        if (isLoginLocked(username)) {
+            logger.warn("用户登录被锁定: {}", username);
+            throw new BusinessException(ResultCode.FORBIDDEN, "登录失败次数过多，请15分钟后再试");
+        }
+
+        User user = userMapper.selectByUsername(username);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginFailCount.merge(username, 1, Integer::sum);
+            int failCount = loginFailCount.getOrDefault(username, 0);
+            logger.warn("用户登录失败: {}, 失败次数: {}", username, failCount);
+            if (failCount >= MAX_LOGIN_FAIL_COUNT) {
+                loginLockTime.put(username, System.currentTimeMillis());
+                loginFailCount.remove(username);
+                throw new BusinessException(ResultCode.FORBIDDEN, "登录失败次数过多，已锁定15分钟");
+            }
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
+
+        loginFailCount.remove(username);
+        loginLockTime.remove(username);
+        logger.info("用户登录成功: {}", username);
+
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
         return new LoginResponse(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), token);
+    }
+
+    private boolean isLoginLocked(String username) {
+        Long lockTime = loginLockTime.get(username);
+        if (lockTime == null) {
+            return false;
+        }
+        if (System.currentTimeMillis() - lockTime > LOGIN_LOCK_DURATION) {
+            loginLockTime.remove(username);
+            return false;
+        }
+        return true;
     }
 
     public User getUserById(Long id) {
@@ -51,6 +94,7 @@ public class UserService {
         if (securityQuestionId < 1 || securityQuestionId > 8) {
             throw new BusinessException(ResultCode.SECURITY_QUESTION_INVALID);
         }
+        validatePasswordStrength(user.getPassword());
         user.setPassword(hashPassword(user.getPassword()));
         user.setRole("user");
         userMapper.insert(user);
@@ -60,6 +104,31 @@ public class UserService {
 
     private String hashPassword(String password) {
         return passwordEncoder.encode(password);
+    }
+
+    /**
+     * 验证密码强度
+     * 要求：至少8位，包含大小写字母和数字
+     */
+    private void validatePasswordStrength(String password) {
+        if (password == null || password.length() < 8) {
+            throw new BusinessException(ResultCode.PASSWORD_INVALID);
+        }
+        boolean hasUpper = false;
+        boolean hasLower = false;
+        boolean hasDigit = false;
+        for (char c : password.toCharArray()) {
+            if (Character.isUpperCase(c)) {
+                hasUpper = true;
+            } else if (Character.isLowerCase(c)) {
+                hasLower = true;
+            } else if (Character.isDigit(c)) {
+                hasDigit = true;
+            }
+        }
+        if (!hasUpper || !hasLower || !hasDigit) {
+            throw new BusinessException(ResultCode.PASSWORD_INVALID);
+        }
     }
 
     /**

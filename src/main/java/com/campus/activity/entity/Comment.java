@@ -11,4 +11,5 @@ public class Comment {
     private String content;
     private Long replyToId;
     private LocalDateTime createdAt;
+    private LocalDateTime deletedAt;
 }

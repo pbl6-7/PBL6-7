@@ -3,6 +3,7 @@ package com.campus.activity.dto;
 import com.campus.activity.entity.Activity;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class ActivityResponse {
@@ -16,7 +17,10 @@ public class ActivityResponse {
     private String description;
     private String status;
     private String approvalStatus;
+    private Long typeId;
+    private String activityTypeName;
     private Integer maxParticipants;
+    private List<TagResponse> tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -31,6 +35,7 @@ public class ActivityResponse {
         response.setDescription(activity.getDescription());
         response.setStatus(activity.getStatus());
         response.setApprovalStatus(activity.getApprovalStatus());
+        response.setTypeId(activity.getTypeId());
         response.setMaxParticipants(activity.getMaxParticipants());
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());

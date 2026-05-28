@@ -50,7 +50,7 @@ public interface ActivityMapper {
      * @param keyword 关键词
      * @param status 活动状态
      * @param approvalStatus 审核状态
-     * @param activityType 活动类型
+     * @param typeId 活动类型ID
      * @param location 活动地点
      * @param startTimeFrom 开始时间从
      * @param startTimeTo 开始时间至
@@ -65,11 +65,10 @@ public interface ActivityMapper {
             @Param("keyword") String keyword,
             @Param("status") String status,
             @Param("approvalStatus") String approvalStatus,
-            @Param("activityType") String activityType,
+            @Param("typeId") Long typeId,
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
             @Param("startTimeTo") LocalDateTime startTimeTo,
-            @Param("tagId") Long tagId,
             @Param("sortBy") String sortBy,
             @Param("sortOrder") String sortOrder,
             @Param("offset") Integer offset,
@@ -82,7 +81,7 @@ public interface ActivityMapper {
      * @param keyword 关键词
      * @param status 活动状态
      * @param approvalStatus 审核状态
-     * @param activityType 活动类型
+     * @param typeId 活动类型ID
      * @param location 活动地点
      * @param startTimeFrom 开始时间从
      * @param startTimeTo 开始时间至
@@ -93,11 +92,10 @@ public interface ActivityMapper {
             @Param("keyword") String keyword,
             @Param("status") String status,
             @Param("approvalStatus") String approvalStatus,
-            @Param("activityType") String activityType,
+            @Param("typeId") Long typeId,
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
-            @Param("startTimeTo") LocalDateTime startTimeTo,
-            @Param("tagId") Long tagId
+            @Param("startTimeTo") LocalDateTime startTimeTo
     );
 
     List<Activity> selectByIds(@Param("ids") List<Long> ids);

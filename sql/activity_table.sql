@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS `activity` (
     `description` TEXT COMMENT '活动描述',
     `status` VARCHAR(20) DEFAULT 'draft' COMMENT '活动状态: draft-草稿, published-已发布, cancelled-已取消, ended-已结束',
     `approval_status` VARCHAR(20) DEFAULT 'pending' COMMENT '审核状态: pending-待审核, approved-已通过, rejected-已拒绝',
+    `type_id` BIGINT DEFAULT NULL COMMENT '活动类型ID，关联activity_type表',
     `max_participants` INT DEFAULT 0 COMMENT '最大参与人数，0表示不限',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -18,5 +19,6 @@ CREATE TABLE IF NOT EXISTS `activity` (
     KEY `idx_publisher_id` (`publisher_id`),
     KEY `idx_status` (`status`),
     KEY `idx_approval_status` (`approval_status`),
-    KEY `idx_start_time` (`start_time`)
+    KEY `idx_start_time` (`start_time`),
+    KEY `idx_type_id` (`type_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='活动信息表';

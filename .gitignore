@@ -30,6 +30,7 @@ logs/
 *测试用例*.xlsx
 *敏捷开发Sprint*.xlsx
 ~$*
+*测试用例*.md
 
 .github/
 .trae/

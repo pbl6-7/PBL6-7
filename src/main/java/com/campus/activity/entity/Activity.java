@@ -14,6 +14,7 @@ public class Activity {
     private String description;
     private String status;
     private String approvalStatus;
+    private Long typeId;
     private Integer maxParticipants;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

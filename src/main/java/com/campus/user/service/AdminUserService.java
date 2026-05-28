@@ -25,11 +25,14 @@ public class AdminUserService {
     private final UserMapper userMapper;
 
     /**
-     * 获取用户分页列表
+     * 获取用户分页列表（需要管理员权限）
      * @param request 分页请求参数
+     * @param adminId 管理员ID（用于权限验证）
      * @return 用户分页响应
      */
-    public UserPageResponse getUserPageList(UserPageRequest request) {
+    public UserPageResponse getUserPageList(UserPageRequest request, Long adminId) {
+        validateAdminPermission(adminId);
+        
         Integer page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
         Integer size = request.getSize() != null && request.getSize() > 0 ? request.getSize() : 10;
         if (size > MAX_PAGE_SIZE) {
@@ -55,21 +58,26 @@ public class AdminUserService {
     }
 
     /**
-     * 获取所有用户列表
+     * 获取所有用户列表（需要管理员权限）
+     * @param adminId 管理员ID（用于权限验证）
      * @return 用户列表
      */
-    public List<UserResponse> getAllUsers() {
+    public List<UserResponse> getAllUsers(Long adminId) {
+        validateAdminPermission(adminId);
         return userMapper.selectAllUsers().stream()
+                .limit(MAX_PAGE_SIZE)
                 .map(UserResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
     /**
-     * 根据ID获取用户详情
+     * 根据ID获取用户详情（需要管理员权限）
      * @param id 用户ID
+     * @param adminId 管理员ID（用于权限验证）
      * @return 用户信息
      */
-    public UserResponse getUserById(Long id) {
+    public UserResponse getUserById(Long id, Long adminId) {
+        validateAdminPermission(adminId);
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
@@ -108,5 +116,22 @@ public class AdminUserService {
         }
 
         userMapper.updateUserRole(userId, newRole);
+    }
+
+    /**
+     * 验证管理员权限
+     * @param adminId 管理员ID
+     */
+    private void validateAdminPermission(Long adminId) {
+        if (adminId == null) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "管理员ID不能为空");
+        }
+        User admin = userMapper.selectById(adminId);
+        if (admin == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND, "管理员不存在");
+        }
+        if (!"admin".equals(admin.getRole())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无管理员权限");
+        }
     }
 }
