@@ -128,7 +128,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getActivityList } from '@/api/activity'
+import { getPublicActivityList } from '@/api/activity'
 import { getSearchSuggestions, getHotSearches } from '@/api/search'
 import type { Activity } from '@/types/activity'
 import { Search, Calendar, LocationInformation, User, UserFilled } from '@element-plus/icons-vue'
@@ -153,7 +153,7 @@ const showSuggestions = ref(false)
 const loadActivities = async () => {
   loading.value = true
   try {
-    const res = await getActivityList({
+    const res = await getPublicActivityList({
       keyword: searchKeyword.value || undefined,
       status: filterStatus.value || undefined,
       startDate: filterDateRange.value?.[0],

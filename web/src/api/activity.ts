@@ -24,3 +24,7 @@ export const deleteActivity = (id: number) => {
 export const getActivityList = (params: ActivityQueryRequest) => {
   return request.get<any, { data: PageResponse<Activity> }>('/activities/list', { params })
 }
+
+export const getPublicActivityList = (params: ActivityQueryRequest) => {
+  return request.get<any, { data: PageResponse<Activity> }>('/activities/public/list', { params })
+}

@@ -30,7 +30,7 @@ export interface RegisterRequest {
 }
 
 export interface SecurityQuestion {
-  id: number
+  questionId: number
   question: string
 }
 
