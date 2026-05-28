@@ -35,7 +35,11 @@ public enum ResultCode {
     SECURITY_QUESTION_INVALID(4006, "无效的密保问题编号"),
     SECURITY_ANSWER_ERROR(4007, "密保答案错误"),
     TOKEN_INVALID(4008, "无效的令牌"),
-    TOKEN_EXPIRED(4009, "令牌已过期");
+    TOKEN_EXPIRED(4009, "令牌已过期"),
+    ACTIVITY_NOT_FOUND(4010, "活动不存在"),
+    ACTIVITY_NOT_PENDING(4011, "活动不在待审核状态"),
+    INVALID_ROLE(4012, "无效的角色"),
+    NOT_ADMIN(4013, "需要管理员权限");
 
     private final Integer code;
     private final String message;

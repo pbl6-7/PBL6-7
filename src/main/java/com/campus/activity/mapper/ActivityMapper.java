@@ -69,6 +69,7 @@ public interface ActivityMapper {
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
             @Param("startTimeTo") LocalDateTime startTimeTo,
+            @Param("tagId") Long tagId,
             @Param("sortBy") String sortBy,
             @Param("sortOrder") String sortOrder,
             @Param("offset") Integer offset,
@@ -95,6 +96,56 @@ public interface ActivityMapper {
             @Param("activityType") String activityType,
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
-            @Param("startTimeTo") LocalDateTime startTimeTo
+            @Param("startTimeTo") LocalDateTime startTimeTo,
+            @Param("tagId") Long tagId
     );
+
+    List<Activity> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 查询待审核活动列表
+     * @return 待审核活动列表
+     */
+    List<Activity> selectPendingActivities();
+
+    /**
+     * 按审核状态查询活动
+     * @param approvalStatus 审核状态
+     * @return 活动列表
+     */
+    List<Activity> selectByApprovalStatus(@Param("approvalStatus") String approvalStatus);
+
+    /**
+     * 统计各审核状态的数量
+     * @param approvalStatus 审核状态
+     * @return 数量
+     */
+    Long countByApprovalStatus(@Param("approvalStatus") String approvalStatus);
+
+    /**
+     * 统计总活动数
+     * @return 总数
+     */
+    Long countAll();
+
+    /**
+     * 查询最近的注册用户数
+     * @param days 天数
+     * @return 用户数
+     */
+    Long countRecentUsers(@Param("days") Integer days);
+
+    /**
+     * 统计指定天数后创建的活动数
+     * @param days 天数
+     * @return 活动数
+     */
+    Long countCreatedAfterDays(@Param("days") Integer days);
+
+    /**
+     * 查询最近创建的活动
+     * @param limit 返回数量限制
+     * @return 活动列表
+     */
+    List<Activity> selectRecentActivities(@Param("limit") Integer limit);
 }

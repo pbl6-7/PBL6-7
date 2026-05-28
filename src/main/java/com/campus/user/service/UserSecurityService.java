@@ -7,12 +7,9 @@ import com.campus.user.entity.UserSecurity;
 import com.campus.user.mapper.UserSecurityMapper;
 import com.campus.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Arrays;
@@ -26,6 +23,7 @@ public class UserSecurityService {
 
     private final UserSecurityMapper userSecurityMapper;
     private final UserMapper userMapper;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private static final List<SecurityQuestion> SECURITY_QUESTIONS = Arrays.asList(
         new SecurityQuestion(1, "您就读的小学名称是什么？"),
@@ -96,8 +94,7 @@ public class UserSecurityService {
         if (userSecurity == null) {
             throw new BusinessException(ResultCode.SECURITY_QUESTION_NOT_SET);
         }
-        String hashedAnswer = hashAnswer(answer);
-        return hashedAnswer.equals(userSecurity.getSecurityAnswer());
+        return passwordEncoder.matches(answer, userSecurity.getSecurityAnswer());
     }
 
     /**
@@ -130,43 +127,16 @@ public class UserSecurityService {
     }
 
     /**
-     * @param answer 原始密保答案
-     * @return 加密后的密保答案
      * 密码加密
      */
     private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
-        }
+        return passwordEncoder.encode(password);
     }
 
     /**
      * 密保答案加密
      */
     private String hashAnswer(String answer) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(answer.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
-        }
-    }
-
-    /**
-     * 密码哈希
-     */
-    private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
-        }
+        return passwordEncoder.encode(answer);
     }
 }

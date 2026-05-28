@@ -1,5 +1,6 @@
 # Maven
 target/
+${project.build.directory}/
 *.class
 *.jar
 *.war
@@ -33,7 +34,9 @@ logs/
 .github/
 .trae/
 
-pom.xml
 *.xlsx
 *.xls
-*.md
+
+web/node_modules/
+web/dist/
+web/*.local
