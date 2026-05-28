@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 @Data
 public class ActivityTag {
     private Long id;
+    private Long activityId;
     private String name;
     private String color;
     private LocalDateTime createdAt;

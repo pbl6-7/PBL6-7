@@ -17,6 +17,16 @@
               <el-tag v-else type="danger">已拒绝</el-tag>
             </div>
             <h1 class="activity-title">{{ activity.title }}</h1>
+            <div v-if="activity.tags && activity.tags.length > 0" class="activity-tags">
+              <el-tag
+                v-for="tag in activity.tags"
+                :key="tag.id"
+                size="small"
+                style="margin-right: 6px;"
+              >
+                {{ tag.name }}
+              </el-tag>
+            </div>
             <div class="activity-meta">
               <div class="meta-item">
                 <el-icon><Calendar /></el-icon>
@@ -523,8 +533,15 @@ onMounted(() => {
   font-size: 24px;
   font-weight: 600;
   color: #303133;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   line-height: 1.4;
+}
+
+.activity-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
 }
 
 .activity-meta {

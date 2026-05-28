@@ -9,25 +9,13 @@ import java.util.List;
 public interface ActivityTagMapper {
     int insert(ActivityTag tag);
 
-    int updateById(ActivityTag tag);
+    int batchInsert(@Param("tags") List<ActivityTag> tags);
 
-    int deleteById(@Param("id") Long id);
+    int deleteByActivityId(@Param("activityId") Long activityId);
 
     ActivityTag selectById(@Param("id") Long id);
 
-    ActivityTag selectByName(@Param("name") String name);
-
-    List<ActivityTag> selectAll();
-
     List<ActivityTag> selectByActivityId(@Param("activityId") Long activityId);
-
-    int insertRelation(@Param("activityId") Long activityId, @Param("tagId") Long tagId);
-
-    int deleteRelationByActivityId(@Param("activityId") Long activityId);
-
-    int deleteRelation(@Param("activityId") Long activityId, @Param("tagId") Long tagId);
-
-    List<ActivityTag> selectByActivityIdAndTagIds(@Param("activityId") Long activityId, @Param("tagIds") List<Long> tagIds);
 
     List<ActivityTag> selectByActivityIds(@Param("activityIds") List<Long> activityIds);
 }
