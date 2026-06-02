@@ -35,6 +35,7 @@ public class ActivityService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final ActivityMapper activityMapper;
+    private final ActivityRegistrationMapper registrationMapper;
     private final UserMapper userMapper;
     private final NotificationService notificationService;
 
@@ -321,9 +322,11 @@ public class ActivityService {
         String sortOrder = request.getSortOrder();
         Integer offset = (page - 1) * size;
 
-        List<Activity> activities = activityMapper.selectPublicList(
+        List<Activity> activities = activityMapper.selectList(
+                null,
                 request.getKeyword(),
-                request.getStatus(),
+                STATUS_PUBLISHED,
+                APPROVAL_STATUS_APPROVED,
                 request.getActivityType(),
                 request.getLocation(),
                 request.getStartTimeFrom(),
@@ -335,9 +338,11 @@ public class ActivityService {
                 size
         );
 
-        Long total = activityMapper.countPublic(
+        Long total = activityMapper.count(
+                null,
                 request.getKeyword(),
-                request.getStatus(),
+                STATUS_PUBLISHED,
+                APPROVAL_STATUS_APPROVED,
                 request.getActivityType(),
                 request.getLocation(),
                 request.getStartTimeFrom(),

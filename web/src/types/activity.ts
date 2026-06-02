@@ -27,8 +27,8 @@ export interface ActivityPublishRequest {
 export interface ActivityQueryRequest {
   keyword?: string
   status?: string
-  startDate?: string
-  endDate?: string
+  startTimeFrom?: string
+  startTimeTo?: string
   location?: string
   page?: number
   size?: number

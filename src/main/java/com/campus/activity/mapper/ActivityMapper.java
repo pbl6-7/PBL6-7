@@ -107,8 +107,6 @@ public interface ActivityMapper {
             @Param("tagId") Long tagId
     );
 
-    List<Activity> selectByIds(@Param("ids") List<Long> ids);
-
     /**
      * 查询待审核活动列表
      * @return 待审核活动列表

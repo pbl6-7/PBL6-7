@@ -68,9 +68,9 @@
           >
             <el-option
               v-for="item in securityQuestions"
-              :key="item.id"
+              :key="item.questionId"
               :label="item.question"
-              :value="item.id"
+              :value="item.questionId"
             />
           </el-select>
         </el-form-item>
@@ -122,7 +122,7 @@ const registerForm = reactive({
   contact: '',
   password: '',
   confirmPassword: '',
-  securityQuestionId: 0,
+  securityQuestionId: '',
   securityAnswer: ''
 })
 
