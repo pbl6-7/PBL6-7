@@ -130,9 +130,9 @@ public class UserSecurityService {
     }
 
     /**
-     * @param answer 原始密保答案
-     * @return 加密后的密保答案
      * 密码加密
+     * @param password 原始密码
+     * @return 加密后的密码
      */
     private String hashPassword(String password) {
         try {

@@ -116,4 +116,11 @@ public class ActivityController {
         ActivityPageResponse response = activityService.getActivityList(userId, request);
         return Result.success(response);
     }
+
+    @GetMapping("/public/list")
+    @ApiOperation("获取公开活动列表（首页展示，不需要登录）")
+    public Result<ActivityPageResponse> getPublicActivityList(@ModelAttribute ActivityQueryRequest request) {
+        ActivityPageResponse response = activityService.getPublicActivityList(request);
+        return Result.success(response);
+    }
 }

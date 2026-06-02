@@ -17,6 +17,7 @@ public class ActivityResponse {
     private String status;
     private String approvalStatus;
     private Integer maxParticipants;
+    private Integer currentParticipants;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
