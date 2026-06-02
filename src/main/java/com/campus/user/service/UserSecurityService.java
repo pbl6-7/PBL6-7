@@ -130,9 +130,9 @@ public class UserSecurityService {
     }
 
     /**
-     * @param answer 原始密保答案
-     * @return 加密后的密保答案
      * 密码加密
+     * @param password 原始密码
+     * @return 加密后的密码
      */
     private String hashPassword(String password) {
         try {
@@ -154,19 +154,6 @@ public class UserSecurityService {
             return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "加密失败");
-        }
-    }
-
-    /**
-     * 密码哈希
-     */
-    private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new BusinessException(ResultCode.INTERNAL_SERVER_ERROR, "密码加密失败");
         }
     }
 }

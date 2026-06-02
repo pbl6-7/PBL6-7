@@ -37,3 +37,4 @@ pom.xml
 *.xlsx
 *.xls
 *.md
+node_modules

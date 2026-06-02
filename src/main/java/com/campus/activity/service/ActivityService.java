@@ -6,6 +6,7 @@ import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.entity.Activity;
 import com.campus.activity.mapper.ActivityMapper;
+import com.campus.activity.mapper.ActivityRegistrationMapper;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
 import com.campus.user.entity.User;
@@ -34,6 +35,7 @@ public class ActivityService {
 
     private final ActivityMapper activityMapper;
     private final UserMapper userMapper;
+    private final ActivityRegistrationMapper registrationMapper;
 
     /**
      * 校验活动状态是否允许编辑
@@ -127,7 +129,7 @@ public class ActivityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
 
-        if (!APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus()) 
+        if (!APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())
                 && !STATUS_PUBLISHED.equals(activity.getStatus())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布或未通过审核");
         }
@@ -137,6 +139,10 @@ public class ActivityService {
         if (publisher != null) {
             response.setPublisherName(publisher.getRealName());
         }
+
+        Long count = registrationMapper.countByActivityIdAndStatus(id, "confirmed");
+        response.setCurrentParticipants(count != null ? count.intValue() : 0);
+
         return response;
     }
 
@@ -278,7 +284,68 @@ public class ActivityService {
         batchSetPublisherName(activityResponses, userMap);
 
         ActivityPageResponse pageResponse = new ActivityPageResponse();
-        pageResponse.setList(activityResponses);
+        pageResponse.setRecords(activityResponses);
+        pageResponse.setTotal(total);
+        pageResponse.setPage(page);
+        pageResponse.setSize(size);
+        pageResponse.setTotalPages((int) Math.ceil((double) total / size));
+
+        return pageResponse;
+    }
+
+    /**
+     * 获取公开的活动列表（首页展示）
+     * @param request 查询条件
+     * @return 活动分页列表
+     */
+    public ActivityPageResponse getPublicActivityList(ActivityQueryRequest request) {
+        Integer page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
+        Integer size = request.getSize() != null && request.getSize() > 0 ? request.getSize() : 12;
+        if (size > MAX_PAGE_SIZE) {
+            size = MAX_PAGE_SIZE;
+        }
+
+        String sortBy = request.getSortBy();
+        String sortOrder = request.getSortOrder();
+        Integer offset = (page - 1) * size;
+
+        List<Activity> activities = activityMapper.selectPublicList(
+                request.getKeyword(),
+                request.getStatus(),
+                request.getActivityType(),
+                request.getLocation(),
+                request.getStartTimeFrom(),
+                request.getStartTimeTo(),
+                request.getTagId(),
+                sortBy,
+                sortOrder,
+                offset,
+                size
+        );
+
+        Long total = activityMapper.countPublic(
+                request.getKeyword(),
+                request.getStatus(),
+                request.getActivityType(),
+                request.getLocation(),
+                request.getStartTimeFrom(),
+                request.getStartTimeTo(),
+                request.getTagId()
+        );
+
+        Set<Long> userIds = activities.stream()
+                .map(Activity::getPublisherId)
+                .collect(Collectors.toSet());
+        Map<Long, User> userMap = batchGetUsers(userIds);
+
+        List<ActivityResponse> activityResponses = activities.stream()
+                .map(ActivityResponse::fromEntity)
+                .collect(Collectors.toList());
+
+        batchSetPublisherName(activityResponses, userMap);
+
+        ActivityPageResponse pageResponse = new ActivityPageResponse();
+        pageResponse.setRecords(activityResponses);
         pageResponse.setTotal(total);
         pageResponse.setPage(page);
         pageResponse.setSize(size);

@@ -31,6 +31,13 @@ public interface ActivityMapper {
     List<Activity> selectByPublisherId(@Param("publisherId") Long publisherId);
 
     /**
+     * 根据ID列表批量查询活动
+     * @param ids ID列表
+     * @return 活动列表
+     */
+    List<Activity> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 更新活动
      * @param activity 活动
      * @return 更新的记录数
@@ -96,5 +103,55 @@ public interface ActivityMapper {
             @Param("location") String location,
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
             @Param("startTimeTo") LocalDateTime startTimeTo
+    );
+
+    /**
+     * 查询公开活动列表（首页展示，已审核已发布）
+     * @param keyword 关键词
+     * @param status 活动状态
+     * @param activityType 活动类型
+     * @param location 活动地点
+     * @param startTimeFrom 开始时间从
+     * @param startTimeTo 开始时间至
+     * @param tagId 标签ID
+     * @param sortBy 排序字段
+     * @param sortOrder 排序方向
+     * @param offset 偏移量
+     * @param size 每页数量
+     * @return 活动列表
+     */
+    List<Activity> selectPublicList(
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("activityType") String activityType,
+            @Param("location") String location,
+            @Param("startTimeFrom") LocalDateTime startTimeFrom,
+            @Param("startTimeTo") LocalDateTime startTimeTo,
+            @Param("tagId") Long tagId,
+            @Param("sortBy") String sortBy,
+            @Param("sortOrder") String sortOrder,
+            @Param("offset") Integer offset,
+            @Param("size") Integer size
+    );
+
+    /**
+     * 查询公开活动总数
+     * @param keyword 关键词
+     * @param status 活动状态
+     * @param activityType 活动类型
+     * @param location 活动地点
+     * @param startTimeFrom 开始时间从
+     * @param startTimeTo 开始时间至
+     * @param tagId 标签ID
+     * @return 活动总数
+     */
+    Long countPublic(
+            @Param("keyword") String keyword,
+            @Param("status") String status,
+            @Param("activityType") String activityType,
+            @Param("location") String location,
+            @Param("startTimeFrom") LocalDateTime startTimeFrom,
+            @Param("startTimeTo") LocalDateTime startTimeTo,
+            @Param("tagId") Long tagId
     );
 }

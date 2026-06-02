@@ -156,8 +156,8 @@ const loadActivities = async () => {
     const res = await getPublicActivityList({
       keyword: searchKeyword.value || undefined,
       status: filterStatus.value || undefined,
-      startDate: filterDateRange.value?.[0],
-      endDate: filterDateRange.value?.[1],
+      startTimeFrom: filterDateRange.value?.[0],
+      startTimeTo: filterDateRange.value?.[1],
       page: currentPage.value,
       size: pageSize.value
     })

@@ -36,6 +36,15 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectByIds" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted_at IS NULL
+    </select>
+
     <update id="updateById">
         UPDATE activity
         <set>
@@ -123,6 +132,74 @@
         </if>
         <if test="startTimeTo != null">
             AND start_time &lt;= #{startTimeTo}
+        </if>
+    </select>
+
+    <select id="selectPublicList" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE deleted_at IS NULL
+        AND approval_status = 'approved'
+        AND status = 'published'
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%') OR location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        <if test="activityType != null and activityType != ''">
+            AND activity_type = #{activityType}
+        </if>
+        <if test="location != null and location != ''">
+            AND location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        <if test="startTimeFrom != null">
+            AND start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND start_time &lt;= #{startTimeTo}
+        </if>
+        <if test="tagId != null">
+            AND id IN (SELECT activity_id FROM activity_tag_relation WHERE tag_id = #{tagId})
+        </if>
+        ORDER BY
+        <choose>
+            <when test="sortBy == 'startTime'">start_time</when>
+            <when test="sortBy == 'endTime'">end_time</when>
+            <when test="sortBy == 'createdAt'">created_at</when>
+            <otherwise>created_at</otherwise>
+        </choose>
+        <choose>
+            <when test="sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countPublic" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE deleted_at IS NULL
+        AND approval_status = 'approved'
+        AND status = 'published'
+        <if test="keyword != null and keyword != ''">
+            AND (title LIKE CONCAT('%', #{keyword}, '%') OR description LIKE CONCAT('%', #{keyword}, '%') OR location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="status != null and status != ''">
+            AND status = #{status}
+        </if>
+        <if test="activityType != null and activityType != ''">
+            AND activity_type = #{activityType}
+        </if>
+        <if test="location != null and location != ''">
+            AND location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        <if test="startTimeFrom != null">
+            AND start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND start_time &lt;= #{startTimeTo}
+        </if>
+        <if test="tagId != null">
+            AND id IN (SELECT activity_id FROM activity_tag_relation WHERE tag_id = #{tagId})
         </if>
     </select>
 
