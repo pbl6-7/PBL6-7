@@ -100,4 +100,15 @@
         WHERE id = #{id}
     </update>
 
+    <select id="countAllUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE deleted_at IS NULL
+    </select>
+
+    <select id="countUsersByRole" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE role = #{role}
+        AND deleted_at IS NULL
+    </select>
+
 </mapper>

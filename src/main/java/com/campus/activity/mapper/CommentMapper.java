@@ -68,4 +68,18 @@ public interface CommentMapper {
      * @return 删除的记录数
      */
     int deleteBatchByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 批量查询评论的所有回复
+     * @param parentIds 父评论ID列表
+     * @return 回复列表
+     */
+    List<Comment> selectRepliesByParentIds(@Param("parentIds") List<Long> parentIds);
+
+    /**
+     * 批量根据ID查询评论
+     * @param ids 评论ID列表
+     * @return 评论列表
+     */
+    List<Comment> selectBatchByIds(@Param("ids") List<Long> ids);
 }
