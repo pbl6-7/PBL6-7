@@ -9,8 +9,10 @@ import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
 import com.campus.user.service.UserSecurityService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 /**
  * 用户服务
@@ -22,14 +24,13 @@ public class UserService {
     private final UserMapper userMapper;
     private final UserSecurityService userSecurityService;
     private final JwtUtils jwtUtils;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public LoginResponse login(LoginRequest request) {
         User user = userMapper.selectByUsername(request.getUsername());
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!hashPassword(request.getPassword()).equals(user.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
@@ -59,43 +60,37 @@ public class UserService {
     }
 
     private String hashPassword(String password) {
-        return passwordEncoder.encode(password);
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
+            return java.util.Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            throw new RuntimeException("密码加密失败", e);
+        }
     }
 
-    /**
-     * 修改密码
-     * @param userId 用户ID
-     * @param oldPassword 旧密码
-     * @param newPassword 新密码
-     */
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
-        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new BusinessException(ResultCode.PASSWORD_ERROR, "旧密码错误");
+        if (!hashPassword(oldPassword).equals(user.getPassword())) {
+            throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
         user.setPassword(hashPassword(newPassword));
         userMapper.updateById(user);
     }
 
-    /**
-     * 更新个人资料
-     * @param userId 用户ID
-     * @param realName 真实姓名
-     * @param contact 联系方式
-     */
     public void updateProfile(Long userId, String realName, String contact) {
         User user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         if (realName != null && !realName.trim().isEmpty()) {
-            user.setRealName(realName.trim());
+            user.setRealName(realName);
         }
-        if (contact != null) {
-            user.setContact(contact.trim());
+        if (contact != null && !contact.trim().isEmpty()) {
+            user.setContact(contact);
         }
         userMapper.updateById(user);
     }
