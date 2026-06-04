@@ -11,11 +11,13 @@
         <result column="updated_at" property="updatedAt"/>
     </resultMap>
 
+    <!-- 插入标签 -->
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO activity_tag (activity_id, name, color, created_at, updated_at)
         VALUES (#{activityId}, #{name}, #{color}, NOW(), NOW())
     </insert>
 
+    <!-- 批量插入标签 -->
     <insert id="batchInsert">
         INSERT INTO activity_tag (activity_id, name, color, created_at, updated_at)
         VALUES
@@ -24,27 +26,61 @@
         </foreach>
     </insert>
 
+    <!-- 根据ID删除标签 -->
+    <delete id="deleteById">
+        DELETE FROM activity_tag WHERE id = #{id}
+    </delete>
+
+    <!-- 根据活动ID删除标签 -->
     <delete id="deleteByActivityId">
         DELETE FROM activity_tag WHERE activity_id = #{activityId}
     </delete>
 
+    <!-- 根据ID查询标签 -->
     <select id="selectById" resultMap="BaseResultMap">
         SELECT * FROM activity_tag WHERE id = #{id}
     </select>
 
-    <select id="selectByActivityId" resultMap="BaseResultMap">
-        SELECT * FROM activity_tag
-        WHERE activity_id = #{activityId}
-        ORDER BY created_at ASC
+    <!-- 根据名称查询标签 -->
+    <select id="selectByName" resultMap="BaseResultMap">
+        SELECT * FROM activity_tag WHERE name = #{name} AND activity_id IS NULL LIMIT 1
     </select>
 
+    <!-- 查询所有独立标签（activity_id为NULL） -->
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT * FROM activity_tag 
+        WHERE activity_id IS NULL
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 根据活动ID查询标签列表 -->
+    <select id="selectByActivityId" resultMap="BaseResultMap">
+        SELECT t.* FROM activity_tag t
+        LEFT JOIN activity_tag_relation r ON t.id = r.tag_id
+        WHERE r.activity_id = #{activityId}
+        ORDER BY t.created_at ASC
+    </select>
+
+    <!-- 根据多个活动ID查询标签列表 -->
     <select id="selectByActivityIds" resultMap="BaseResultMap">
-        SELECT * FROM activity_tag
-        WHERE activity_id IN
+        SELECT t.*, r.activity_id as relation_activity_id FROM activity_tag t
+        LEFT JOIN activity_tag_relation r ON t.id = r.tag_id
+        WHERE r.activity_id IN
         <foreach collection="activityIds" item="activityId" open="(" separator="," close=")">
             #{activityId}
         </foreach>
-        ORDER BY activity_id, created_at ASC
+        ORDER BY r.activity_id, t.created_at ASC
     </select>
+
+    <!-- 删除活动与标签的关联关系 -->
+    <delete id="deleteRelationByActivityId">
+        DELETE FROM activity_tag_relation WHERE activity_id = #{activityId}
+    </delete>
+
+    <!-- 插入活动与标签的关联关系 -->
+    <insert id="insertRelation">
+        INSERT INTO activity_tag_relation (activity_id, tag_id, created_at)
+        VALUES (#{activityId}, #{tagId}, NOW())
+    </insert>
 
 </mapper>

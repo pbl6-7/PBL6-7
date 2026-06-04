@@ -1,15 +1,18 @@
 package com.campus.activity.controller;
 
+import com.campus.activity.dto.ActivityTagRequest;
+import com.campus.activity.dto.TagCreateRequest;
 import com.campus.activity.dto.TagResponse;
 import com.campus.activity.service.ActivityTagService;
-import com.campus.core.common.BusinessException;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
+import com.campus.core.common.ResultCode;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.List;
 
 @RestController
