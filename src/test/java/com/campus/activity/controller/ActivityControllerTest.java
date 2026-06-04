@@ -1,20 +1,21 @@
 package com.campus.activity.controller;
 
+import com.campus.activity.dto.ActivityPageResponse;
 import com.campus.activity.dto.ActivityPublishRequest;
 import com.campus.activity.dto.ActivityQueryRequest;
-import com.campus.activity.entity.Activity;
+import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.service.ActivityService;
+import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
-import com.campus.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -25,151 +26,166 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ActivityControllerTest {
 
     @Mock
     private ActivityService activityService;
 
+    @Mock
+    private JwtUtils jwtUtils;
+
     @InjectMocks
     private ActivityController activityController;
 
-    private User testUser;
-    private Activity testActivity;
+    private ActivityResponse testActivityResponse;
     private ActivityPublishRequest publishRequest;
+    private ActivityQueryRequest queryRequest;
+    private static final String VALID_TOKEN = "Bearer valid-token";
 
     @BeforeEach
     void setUp() {
-        testUser = new User();
-        testUser.setId(1L);
-        testUser.setUsername("testuser");
-        testUser.setRole("user");
-
-        testActivity = new Activity();
-        testActivity.setId(1L);
-        testActivity.setTitle("测试活动");
-        testActivity.setDescription("活动描述");
-        testActivity.setLocation("图书馆");
-        testActivity.setStartTime(LocalDateTime.of(2026, 6, 1, 10, 0));
-        testActivity.setEndTime(LocalDateTime.of(2026, 6, 1, 12, 0));
-        testActivity.setStatus("published");
-        testActivity.setOrganizerId(1L);
+        testActivityResponse = new ActivityResponse();
+        testActivityResponse.setId(1L);
+        testActivityResponse.setTitle("测试活动");
+        testActivityResponse.setDescription("活动描述");
+        testActivityResponse.setLocation("图书馆");
+        testActivityResponse.setStartTime(LocalDateTime.of(2026, 6, 1, 10, 0));
+        testActivityResponse.setEndTime(LocalDateTime.of(2026, 6, 1, 12, 0));
+        testActivityResponse.setStatus("published");
 
         publishRequest = new ActivityPublishRequest();
         publishRequest.setTitle("新活动");
         publishRequest.setDescription("新活动描述");
-        publishRequest.setLocation("报告厅");
-        publishRequest.setStartTime(LocalDateTime.of(2026, 6, 15, 14, 0));
-        publishRequest.setEndTime(LocalDateTime.of(2026, 6, 15, 16, 0));
+
+        queryRequest = new ActivityQueryRequest();
+
+        when(jwtUtils.validateToken("valid-token")).thenReturn(true);
+        when(jwtUtils.getUserIdFromToken("valid-token")).thenReturn(1L);
     }
 
     @Test
     void testPublishActivity_Success() {
-        when(activityService.publishActivity(any(ActivityPublishRequest.class), anyLong()))
-                .thenReturn(testActivity);
+        when(activityService.publishActivity(anyLong(), any(ActivityPublishRequest.class)))
+                .thenReturn(testActivityResponse);
 
-        ResponseEntity<Result<Activity>> response = activityController.publishActivity(publishRequest, testUser);
+        Result<ActivityResponse> result = activityController.publishActivity(VALID_TOKEN, publishRequest);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(ResultCode.SUCCESS.getCode(), response.getBody().getCode());
-        assertEquals("测试活动", response.getBody().getData().getTitle());
-        verify(activityService, times(1)).publishActivity(any(), eq(1L));
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals("测试活动", result.getData().getTitle());
+        verify(activityService, times(1)).publishActivity(eq(1L), any());
     }
 
     @Test
-    void testPublishActivity_WithAdminRole() {
-        testUser.setRole("admin");
-        when(activityService.publishActivity(any(), anyLong())).thenReturn(testActivity);
+    void testPublishActivity_Unauthorized() {
+        Result<ActivityResponse> result = activityController.publishActivity(null, publishRequest);
 
-        ResponseEntity<Result<Activity>> response = activityController.publishActivity(publishRequest, testUser);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(activityService, times(1)).publishActivity(any(), eq(1L));
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
-    void testGetActivityDetail_Success() {
-        when(activityService.getActivityDetail(1L)).thenReturn(testActivity);
+    void testGetActivityById_Success() {
+        when(activityService.getActivityById(1L)).thenReturn(testActivityResponse);
 
-        ResponseEntity<Result<Activity>> response = activityController.getActivityDetail(1L);
+        Result<ActivityResponse> result = activityController.getActivityById(1L);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1L, response.getBody().getData().getId());
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals(1L, result.getData().getId());
     }
 
     @Test
-    void testGetActivityDetail_NotFound() {
-        when(activityService.getActivityDetail(999L)).thenReturn(null);
+    void testGetMyActivities_Success() {
+        List<ActivityResponse> activities = Arrays.asList(testActivityResponse);
+        when(activityService.getActivitiesByPublisher(1L)).thenReturn(activities);
 
-        ResponseEntity<Result<Activity>> response = activityController.getActivityDetail(999L);
+        Result<List<ActivityResponse>> result = activityController.getMyActivities(VALID_TOKEN);
 
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals(1, result.getData().size());
+    }
+
+    @Test
+    void testGetMyActivities_Unauthorized() {
+        Result<List<ActivityResponse>> result = activityController.getMyActivities(null);
+
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
     void testUpdateActivity_Success() {
-        when(activityService.updateActivity(eq(1L), any(ActivityPublishRequest.class), anyLong()))
-                .thenReturn(true);
+        when(activityService.updateActivity(anyLong(), anyLong(), any(ActivityPublishRequest.class)))
+                .thenReturn(testActivityResponse);
 
-        ResponseEntity<Result<Void>> response = activityController.updateActivity(1L, publishRequest, testUser);
+        Result<ActivityResponse> result = activityController.updateActivity(VALID_TOKEN, 1L, publishRequest);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(activityService, times(1)).updateActivity(eq(1L), any(), eq(1L));
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        verify(activityService, times(1)).updateActivity(eq(1L), eq(1L), any());
     }
 
     @Test
-    void testUpdateActivity_NotOwner() {
-        when(activityService.updateActivity(eq(1L), any(), anyLong()))
-                .thenThrow(new com.campus.core.common.BusinessException(ResultCode.FORBIDDEN, "无权限"));
+    void testUpdateActivity_Unauthorized() {
+        Result<ActivityResponse> result = activityController.updateActivity(null, 1L, publishRequest);
 
-        ResponseEntity<Result<Void>> response = activityController.updateActivity(1L, publishRequest, testUser);
-
-        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
     void testDeleteActivity_Success() {
-        when(activityService.deleteActivity(1L, 1L)).thenReturn(true);
+        doNothing().when(activityService).deleteActivity(anyLong(), anyLong());
 
-        ResponseEntity<Result<Void>> response = activityController.deleteActivity(1L, testUser);
+        Result<Void> result = activityController.deleteActivity(VALID_TOKEN, 1L);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(200, result.getCode());
+        verify(activityService, times(1)).deleteActivity(1L, 1L);
+    }
+
+    @Test
+    void testDeleteActivity_Unauthorized() {
+        Result<Void> result = activityController.deleteActivity(null, 1L);
+
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
     void testGetActivityList_Success() {
-        List<Activity> activities = Arrays.asList(testActivity);
-        when(activityService.getActivityList(any(ActivityQueryRequest.class)))
-                .thenReturn(activities);
+        ActivityPageResponse pageResponse = new ActivityPageResponse();
+        pageResponse.setRecords(Arrays.asList(testActivityResponse));
+        pageResponse.setTotal(1L);
 
-        ActivityQueryRequest request = new ActivityQueryRequest();
-        ResponseEntity<Result<List<Activity>>> response = activityController.getActivityList(request);
+        when(activityService.getActivityList(anyLong(), any(ActivityQueryRequest.class)))
+                .thenReturn(pageResponse);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().getData().size());
+        Result<ActivityPageResponse> result = activityController.getActivityList(VALID_TOKEN, queryRequest);
+
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals(1, result.getData().getRecords().size());
     }
 
     @Test
-    void testGetActivityList_PublishedOnly() {
-        Activity publishedActivity = new Activity();
-        publishedActivity.setId(2L);
-        publishedActivity.setStatus("published");
-        when(activityService.getActivityList(any())).thenReturn(Arrays.asList(publishedActivity));
+    void testGetActivityList_Unauthorized() {
+        Result<ActivityPageResponse> result = activityController.getActivityList(null, queryRequest);
 
-        ActivityQueryRequest request = new ActivityQueryRequest();
-        ResponseEntity<Result<List<Activity>>> response = activityController.getActivityList(request);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
-    void testUpdateActivityStatus_Success() {
-        when(activityService.updateActivityStatus(1L, "closed")).thenReturn(true);
+    void testGetPublicActivityList_Success() {
+        ActivityPageResponse pageResponse = new ActivityPageResponse();
+        pageResponse.setRecords(Arrays.asList(testActivityResponse));
+        pageResponse.setTotal(1L);
 
-        ResponseEntity<Result<Void>> response = activityController.updateActivityStatus(1L, "closed", testUser);
+        when(activityService.getPublicActivityList(any(ActivityQueryRequest.class)))
+                .thenReturn(pageResponse);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Result<ActivityPageResponse> result = activityController.getPublicActivityList(queryRequest);
+
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals(1, result.getData().getRecords().size());
     }
 }

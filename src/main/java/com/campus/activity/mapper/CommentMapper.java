@@ -22,31 +22,24 @@ public interface CommentMapper {
     Comment selectById(@Param("id") Long id);
 
     /**
-     * 查询活动的一级评论列表（分页）
+     * 查询活动的评论列表（分页）
      * @param activityId 活动ID
      * @param offset 偏移量
      * @param size 每页数量
-     * @return 一级评论列表
+     * @return 评论列表
      */
-    List<Comment> selectRootCommentsByActivityId(
+    List<Comment> selectByActivityId(
             @Param("activityId") Long activityId,
             @Param("offset") Integer offset,
             @Param("size") Integer size
     );
 
     /**
-     * 查询指定评论的所有回复
-     * @param replyToId 被回复的评论ID
-     * @return 回复列表
-     */
-    List<Comment> selectRepliesByReplyToId(@Param("replyToId") Long replyToId);
-
-    /**
-     * 查询活动的一级评论总数
+     * 查询活动的评论总数
      * @param activityId 活动ID
-     * @return 一级评论总数
+     * @return 评论总数
      */
-    Long countRootCommentsByActivityId(@Param("activityId") Long activityId);
+    Long countByActivityId(@Param("activityId") Long activityId);
 
     /**
      * 删除评论
@@ -54,32 +47,4 @@ public interface CommentMapper {
      * @return 删除的记录数
      */
     int deleteById(@Param("id") Long id);
-
-    /**
-     * 查询评论的所有子回复（用于删除时级联）
-     * @param replyToId 父评论ID
-     * @return 子回复列表
-     */
-    List<Comment> selectAllRepliesByReplyToId(@Param("replyToId") Long replyToId);
-
-    /**
-     * 批量删除评论
-     * @param ids 评论ID列表
-     * @return 删除的记录数
-     */
-    int deleteBatchByIds(@Param("ids") List<Long> ids);
-
-    /**
-     * 批量查询评论的所有回复
-     * @param parentIds 父评论ID列表
-     * @return 回复列表
-     */
-    List<Comment> selectRepliesByParentIds(@Param("parentIds") List<Long> parentIds);
-
-    /**
-     * 批量根据ID查询评论
-     * @param ids 评论ID列表
-     * @return 评论列表
-     */
-    List<Comment> selectBatchByIds(@Param("ids") List<Long> ids);
 }

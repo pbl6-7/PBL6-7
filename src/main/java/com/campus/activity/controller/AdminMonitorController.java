@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/monitor")
+@RequestMapping("/api/v1/admin/monitor")
 @RequiredArgsConstructor
 @Api(tags = "管理员-系统监控")
 public class AdminMonitorController {

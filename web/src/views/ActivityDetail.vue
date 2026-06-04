@@ -289,8 +289,14 @@ const loadActivity = async () => {
     isSubscribed.value = subRes.data.subscribed
     subscriptionCount.value = subRes.data.subscriptionCount
 
-    const regRes = await getActivityRegistrations(id, 1, 5)
-    registrations.value = regRes.data.records
+    if (isPublisher.value) {
+      try {
+        const regRes = await getActivityRegistrations(id, 1, 5)
+        registrations.value = regRes.data.records
+      } catch (error) {
+        console.error('加载报名列表失败', error)
+      }
+    }
   } catch {
     ElMessage.error('加载活动详情失败')
   } finally {
