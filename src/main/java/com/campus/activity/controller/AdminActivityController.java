@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/activities")
+@RequestMapping("/api/v1/admin/activities")
 @RequiredArgsConstructor
 @Api(tags = "管理员-活动审核")
 public class AdminActivityController {

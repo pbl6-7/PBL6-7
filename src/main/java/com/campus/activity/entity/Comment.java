@@ -9,6 +9,5 @@ public class Comment {
     private Long activityId;
     private Long userId;
     private String content;
-    private Long replyToId;
     private LocalDateTime createdAt;
 }

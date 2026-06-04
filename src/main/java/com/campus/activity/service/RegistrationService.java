@@ -133,7 +133,7 @@ public class RegistrationService {
                 .collect(Collectors.toList());
 
         RegistrationPageResponse pageResponse = new RegistrationPageResponse();
-        pageResponse.setList(responses);
+        pageResponse.setRecords(responses);
         pageResponse.setTotal(total);
         pageResponse.setPage(page);
         pageResponse.setSize(size);
@@ -180,7 +180,7 @@ public class RegistrationService {
                 .collect(Collectors.toList());
 
         RegistrationPageResponse pageResponse = new RegistrationPageResponse();
-        pageResponse.setList(responses);
+        pageResponse.setRecords(responses);
         pageResponse.setTotal(total);
         pageResponse.setPage(page);
         pageResponse.setSize(size);

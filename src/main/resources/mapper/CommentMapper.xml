@@ -7,13 +7,12 @@
         <result column="activity_id" property="activityId"/>
         <result column="user_id" property="userId"/>
         <result column="content" property="content"/>
-        <result column="reply_to_id" property="replyToId"/>
         <result column="created_at" property="createdAt"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO activity_comment (activity_id, user_id, content, reply_to_id, created_at)
-        VALUES (#{activityId}, #{userId}, #{content}, #{replyToId}, NOW())
+        INSERT INTO activity_comment (activity_id, user_id, content, created_at)
+        VALUES (#{activityId}, #{userId}, #{content}, NOW())
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">
@@ -21,57 +20,20 @@
         WHERE id = #{id}
     </select>
 
-    <select id="selectRootCommentsByActivityId" resultMap="BaseResultMap">
+    <select id="selectByActivityId" resultMap="BaseResultMap">
         SELECT * FROM activity_comment
         WHERE activity_id = #{activityId}
-        AND reply_to_id IS NULL
         ORDER BY created_at DESC
         LIMIT #{offset}, #{size}
     </select>
 
-    <select id="selectRepliesByReplyToId" resultMap="BaseResultMap">
-        SELECT * FROM activity_comment
-        WHERE reply_to_id = #{replyToId}
-        ORDER BY created_at ASC
-    </select>
-
-    <select id="countRootCommentsByActivityId" resultType="java.lang.Long">
+    <select id="countByActivityId" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity_comment
         WHERE activity_id = #{activityId}
-        AND reply_to_id IS NULL
     </select>
 
     <delete id="deleteById">
         DELETE FROM activity_comment WHERE id = #{id}
     </delete>
-
-    <select id="selectAllRepliesByReplyToId" resultMap="BaseResultMap">
-        SELECT * FROM activity_comment
-        WHERE reply_to_id = #{replyToId}
-    </select>
-
-    <delete id="deleteBatchByIds">
-        DELETE FROM activity_comment WHERE id IN
-        <foreach collection="ids" item="id" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-    </delete>
-
-    <select id="selectRepliesByParentIds" resultMap="BaseResultMap">
-        SELECT * FROM activity_comment
-        WHERE reply_to_id IN
-        <foreach collection="parentIds" item="parentId" open="(" separator="," close=")">
-            #{parentId}
-        </foreach>
-        ORDER BY created_at ASC
-    </select>
-
-    <select id="selectBatchByIds" resultMap="BaseResultMap">
-        SELECT * FROM activity_comment
-        WHERE id IN
-        <foreach collection="ids" item="id" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-    </select>
 
 </mapper>

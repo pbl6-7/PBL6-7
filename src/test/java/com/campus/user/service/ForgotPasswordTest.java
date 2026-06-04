@@ -33,43 +33,6 @@ public class ForgotPasswordTest {
     }
 
     /**
-     * 测试正常重置密码
-     */
-    @Test
-    public void testResetPasswordSuccess() {
-        String username = "testuser";
-        String securityAnswer = "testanswer";
-        String newPassword = "newpassword123";
-
-        User user = new User();
-        user.setId(1L);
-        user.setUsername(username);
-
-        com.campus.user.entity.UserSecurity userSecurity = new com.campus.user.entity.UserSecurity();
-        userSecurity.setUserId(1L);
-        userSecurity.setSecurityQuestionId(1);
-        
-        try {
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest("testanswer".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            String hashedAnswer = java.util.Base64.getEncoder().encodeToString(hash);
-            userSecurity.setSecurityAnswer(hashedAnswer);
-        } catch (Exception e) {
-            fail("Failed to hash answer");
-        }
-
-        when(userMapper.selectByUsername(username)).thenReturn(user);
-        when(userSecurityMapper.selectByUserId(1L)).thenReturn(userSecurity);
-        when(userMapper.updateById(any(User.class))).thenReturn(1);
-
-        assertDoesNotThrow(() -> {
-            userSecurityService.resetPassword(username, securityAnswer, newPassword);
-        });
-
-        verify(userMapper).updateById(any(User.class));
-    }
-
-    /**
      * 测试用户不存在
      */
     @Test

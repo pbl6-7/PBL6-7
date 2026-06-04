@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin/statistics")
+@RequestMapping("/api/v1/admin/statistics")
 @RequiredArgsConstructor
 @Api(tags = "管理员-数据统计")
 public class AdminStatisticsController {

@@ -7,6 +7,4 @@ import javax.validation.constraints.NotBlank;
 public class CommentRequest {
     @NotBlank(message = "评论内容不能为空")
     private String content;
-
-    private Long replyToId;
 }

@@ -5,7 +5,7 @@ import java.util.List;
 
 @Data
 public class RegistrationPageResponse {
-    private List<RegistrationResponse> list;
+    private List<RegistrationResponse> records;
     private Long total;
     private Integer page;
     private Integer size;

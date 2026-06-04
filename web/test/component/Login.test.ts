@@ -195,13 +195,19 @@ describe('登录组件测试', () => {
     })
 
     it('登录失败时应该显示错误', async () => {
-      mockLogin.mockRejectedValue(new Error('用户名或密码错误'))
+      // 使用mockResolvedValue模拟返回错误响应，而不是抛出异常
+      mockLogin.mockResolvedValue({
+        code: 400,
+        message: '用户名或密码错误'
+      })
 
       wrapper.vm.loginForm.username = 'testuser'
       wrapper.vm.loginForm.password = 'wrongpassword'
+      
       await wrapper.vm.handleLogin()
 
       expect(mockLogin).toHaveBeenCalled()
+      expect(wrapper.vm.loading).toBe(false) // 验证finally执行了
     })
   })
 

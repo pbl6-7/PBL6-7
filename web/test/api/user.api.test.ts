@@ -78,7 +78,9 @@ describe('用户API集成测试', () => {
           username: uniqueUsername,
           password: '123456',
           realName: '测试用户',
-          email: `${uniqueUsername}@example.com`
+          contact: `${uniqueUsername}@example.com`,
+          securityQuestionId: 1,
+          securityAnswer: '答案'
         })
       })
       const result = await response.json()
@@ -93,7 +95,9 @@ describe('用户API集成测试', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           username: TEST_USER.username,
-          password: '123456'
+          password: '123456',
+          securityQuestionId: 1,
+          securityAnswer: '答案'
         })
       })
       const result = await response.json()

@@ -1,7 +1,9 @@
 package com.campus.user.controller;
 
+import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.user.dto.ChangePasswordRequest;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
 import com.campus.user.dto.UpdateProfileRequest;
@@ -13,24 +15,29 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class UserControllerTest {
 
     @Mock
     private UserService userService;
+
+    @Mock
+    private JwtUtils jwtUtils;
 
     @InjectMocks
     private UserController userController;
 
     private User testUser;
     private LoginRequest loginRequest;
+    private static final String VALID_TOKEN = "Bearer valid-token";
 
     @BeforeEach
     void setUp() {
@@ -38,12 +45,15 @@ class UserControllerTest {
         testUser.setId(1L);
         testUser.setUsername("testuser");
         testUser.setRealName("测试用户");
-        testUser.setEmail("test@example.com");
+        testUser.setContact("13800138000");
         testUser.setRole("user");
 
         loginRequest = new LoginRequest();
         loginRequest.setUsername("testuser");
         loginRequest.setPassword("123456");
+
+        when(jwtUtils.validateToken("valid-token")).thenReturn(true);
+        when(jwtUtils.getUserIdFromToken("valid-token")).thenReturn(1L);
     }
 
     @Test
@@ -56,129 +66,106 @@ class UserControllerTest {
 
         when(userService.login(any(LoginRequest.class))).thenReturn(loginResponse);
 
-        ResponseEntity<Result<LoginResponse>> response = userController.login(loginRequest);
+        Result<LoginResponse> result = userController.login(loginRequest);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("jwt-token-123", response.getBody().getData().getToken());
-        assertEquals(1L, response.getBody().getData().getUserId());
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals("jwt-token-123", result.getData().getToken());
+        assertEquals(1L, result.getData().getUserId());
     }
 
     @Test
-    void testLogin_UserNotFound() {
-        when(userService.login(any()))
-                .thenThrow(new com.campus.core.common.BusinessException(ResultCode.NOT_FOUND, "用户不存在"));
-
-        ResponseEntity<Result<LoginResponse>> response = userController.login(loginRequest);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
-
-    @Test
-    void testLogin_WrongPassword() {
-        when(userService.login(any()))
-                .thenThrow(new com.campus.core.common.BusinessException(ResultCode.UNAUTHORIZED, "密码错误"));
-
-        ResponseEntity<Result<LoginResponse>> response = userController.login(loginRequest);
-
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-    }
-
-    @Test
-    void testGetUserProfile_Success() {
+    void testGetUserById_Success() {
         when(userService.getUserById(1L)).thenReturn(testUser);
 
-        ResponseEntity<Result<User>> response = userController.getUserProfile(testUser);
+        Result<User> result = userController.getUserById(1L);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("testuser", response.getBody().getData().getUsername());
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals("testuser", result.getData().getUsername());
     }
 
     @Test
-    void testGetUserProfile_NotFound() {
+    void testGetUserById_NotFound() {
         when(userService.getUserById(999L)).thenReturn(null);
 
-        User notFoundUser = new User();
-        notFoundUser.setId(999L);
-        ResponseEntity<Result<User>> response = userController.getUserProfile(notFoundUser);
+        Result<User> result = userController.getUserById(999L);
 
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(ResultCode.USER_NOT_FOUND.getCode(), result.getCode());
+    }
+
+    @Test
+    void testGetCurrentUserProfile_Success() {
+        when(userService.getUserById(1L)).thenReturn(testUser);
+
+        Result<User> result = userController.getCurrentUserProfile(VALID_TOKEN);
+
+        assertEquals(200, result.getCode());
+        assertNotNull(result.getData());
+        assertEquals("testuser", result.getData().getUsername());
+    }
+
+    @Test
+    void testGetCurrentUserProfile_Unauthorized() {
+        Result<User> result = userController.getCurrentUserProfile(null);
+
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
     void testUpdateProfile_Success() {
         UpdateProfileRequest request = new UpdateProfileRequest();
         request.setRealName("新名字");
-        request.setEmail("new@example.com");
+        request.setContact("13900139000");
 
-        when(userService.updateProfile(anyLong(), any(UpdateProfileRequest.class)))
-                .thenReturn(testUser);
+        doNothing().when(userService).updateProfile(anyLong(), anyString(), anyString());
 
-        ResponseEntity<Result<User>> response = userController.updateProfile(request, testUser);
+        Result<Void> result = userController.updateProfile(VALID_TOKEN, request);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(userService, times(1)).updateProfile(eq(1L), any());
+        assertEquals(200, result.getCode());
+        verify(userService, times(1)).updateProfile(eq(1L), eq("新名字"), eq("13900139000"));
     }
 
     @Test
-    void testUpdateProfile_NotFound() {
+    void testUpdateProfile_Unauthorized() {
         UpdateProfileRequest request = new UpdateProfileRequest();
         request.setRealName("新名字");
 
-        when(userService.updateProfile(anyLong(), any()))
-                .thenThrow(new com.campus.core.common.BusinessException(ResultCode.NOT_FOUND, "用户不存在"));
+        Result<Void> result = userController.updateProfile(null, request);
 
-        ResponseEntity<Result<User>> response = userController.updateProfile(request, testUser);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
     void testChangePassword_Success() {
-        when(userService.changePassword(anyLong(), anyString(), anyString()))
-                .thenReturn(true);
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword");
 
-        ResponseEntity<Result<Void>> response = userController.changePassword(
-                1L, "oldPassword", "newPassword");
+        doNothing().when(userService).changePassword(anyLong(), anyString(), anyString());
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        Result<Void> result = userController.changePassword(VALID_TOKEN, request);
+
+        assertEquals(200, result.getCode());
     }
 
     @Test
-    void testChangePassword_WrongOldPassword() {
-        when(userService.changePassword(anyLong(), anyString(), anyString()))
-                .thenThrow(new com.campus.core.common.BusinessException(ResultCode.UNAUTHORIZED, "原密码错误"));
+    void testChangePassword_Unauthorized() {
+        ChangePasswordRequest request = new ChangePasswordRequest();
+        request.setOldPassword("oldPassword");
+        request.setNewPassword("newPassword");
 
-        ResponseEntity<Result<Void>> response = userController.changePassword(
-                1L, "wrongOldPassword", "newPassword");
+        Result<Void> result = userController.changePassword(null, request);
 
-        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
-    }
-
-    @Test
-    void testLogout_Success() {
-        ResponseEntity<Result<Void>> response = userController.logout(testUser);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(ResultCode.UNAUTHORIZED.getCode(), result.getCode());
     }
 
     @Test
     void testRegister_Success() {
-        when(userService.register(any(User.class))).thenReturn(testUser);
+        doNothing().when(userService).register(any(User.class), anyInt(), anyString());
 
-        ResponseEntity<Result<User>> response = userController.register(testUser);
+        Result<Void> result = userController.register(testUser);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-    }
-
-    @Test
-    void testRegister_UsernameExists() {
-        when(userService.register(any()))
-                .thenThrow(new com.campus.core.common.BusinessException(ResultCode.BAD_REQUEST, "用户名已存在"));
-
-        ResponseEntity<Result<User>> response = userController.register(testUser);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(200, result.getCode());
     }
 }

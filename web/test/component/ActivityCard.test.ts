@@ -159,22 +159,20 @@ describe('活动卡片组件测试', () => {
     })
 
     it('点击卡片应该触发click事件', async () => {
-      let emittedActivity = null
       const testWrapper = mount(ActivityCardComponent, {
         props: { activity: mockActivity },
         global: {
           mocks: {
             $router: { push: vi.fn() }
           }
-        },
-        listeners: {
-          click: (activity: any) => { emittedActivity = activity }
         }
       })
 
       await testWrapper.find('.activity-card').trigger('click')
+      await testWrapper.vm.$nextTick()
 
-      expect(emittedActivity).toEqual(mockActivity)
+      expect(testWrapper.emitted('click')).toBeTruthy()
+      expect(testWrapper.emitted('click')?.[0]).toEqual([mockActivity])
     })
   })
 

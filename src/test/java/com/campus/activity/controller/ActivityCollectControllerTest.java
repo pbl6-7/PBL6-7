@@ -1,178 +1,154 @@
 package com.campus.activity.controller;
 
-import com.campus.activity.dto.ActivityResponse;
-import com.campus.activity.entity.Activity;
 import com.campus.activity.entity.ActivityCollect;
 import com.campus.activity.service.ActivityCollectService;
+import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
-import com.campus.core.common.ResultCode;
-import com.campus.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ActivityCollectControllerTest {
 
     @Mock
     private ActivityCollectService activityCollectService;
 
+    @Mock
+    private JwtUtils jwtUtils;
+
     @InjectMocks
     private ActivityCollectController activityCollectController;
 
-    private User testUser;
-    private Activity testActivity;
-    private ActivityCollect testCollect;
+    private static final String VALID_TOKEN = "Bearer valid-token";
+    private static final String INVALID_TOKEN = "invalid-token";
 
     @BeforeEach
     void setUp() {
-        testUser = new User();
-        testUser.setId(1L);
-        testUser.setUsername("testuser");
-        testUser.setRole("user");
-
-        testActivity = new Activity();
-        testActivity.setId(1L);
-        testActivity.setTitle("测试活动");
-        testActivity.setDescription("活动描述");
-        testActivity.setLocation("图书馆");
-        testActivity.setStartTime(LocalDateTime.of(2026, 6, 1, 10, 0));
-        testActivity.setEndTime(LocalDateTime.of(2026, 6, 1, 12, 0));
-        testActivity.setStatus("published");
-
-        testCollect = new ActivityCollect();
-        testCollect.setId(1L);
-        testCollect.setUserId(1L);
-        testCollect.setActivityId(1L);
-        testCollect.setCreateTime(LocalDateTime.now());
+        when(jwtUtils.validateToken("valid-token")).thenReturn(true);
+        when(jwtUtils.validateToken("invalid-token")).thenReturn(false);
+        when(jwtUtils.getUserIdFromToken("valid-token")).thenReturn(1L);
     }
 
     @Test
-    void testCollectActivity_Success() {
+    void testCollect_Success() {
         doNothing().when(activityCollectService).collectActivity(anyLong(), anyLong());
 
-        ResponseEntity<Result<Void>> response =
-                activityCollectController.collectActivity(1L, testUser);
+        Result<Map<String, Object>> result = activityCollectController.collect(1L, VALID_TOKEN);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.OK.value(), result.getCode());
+        assertTrue((Boolean) result.getData().get("collected"));
         verify(activityCollectService, times(1)).collectActivity(1L, 1L);
     }
 
     @Test
-    void testCollectActivity_AlreadyCollected() {
-        doThrow(new com.campus.core.common.BusinessException(ResultCode.BAD_REQUEST, "已收藏"))
-                .when(activityCollectService).collectActivity(anyLong(), anyLong());
+    void testCollect_Unauthorized() {
+        Result<Map<String, Object>> result = activityCollectController.collect(1L, null);
 
-        ResponseEntity<Result<Void>> response =
-                activityCollectController.collectActivity(1L, testUser);
-
-        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(401, result.getCode());
+        verify(activityCollectService, never()).collectActivity(anyLong(), anyLong());
     }
 
     @Test
-    void testCollectActivity_ActivityNotFound() {
-        doThrow(new com.campus.core.common.BusinessException(ResultCode.NOT_FOUND, "活动不存在"))
-                .when(activityCollectService).collectActivity(anyLong(), anyLong());
+    void testCollect_InvalidToken() {
+        Result<Map<String, Object>> result = activityCollectController.collect(1L, INVALID_TOKEN);
 
-        ResponseEntity<Result<Void>> response =
-                activityCollectController.collectActivity(999L, testUser);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals(401, result.getCode());
+        verify(activityCollectService, never()).collectActivity(anyLong(), anyLong());
     }
 
     @Test
-    void testCancelCollect_Success() {
-        doNothing().when(activityCollectService).cancelCollect(anyLong(), anyLong());
+    void testUncollect_Success() {
+        doNothing().when(activityCollectService).uncollectActivity(anyLong(), anyLong());
 
-        ResponseEntity<Result<Void>> response =
-                activityCollectController.cancelCollect(1L, testUser);
+        Result<Map<String, Object>> result = activityCollectController.uncollect(1L, VALID_TOKEN);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(activityCollectService, times(1)).cancelCollect(1L, 1L);
+        assertEquals(HttpStatus.OK.value(), result.getCode());
+        assertFalse((Boolean) result.getData().get("collected"));
+        verify(activityCollectService, times(1)).uncollectActivity(1L, 1L);
     }
 
     @Test
-    void testCancelCollect_NotFound() {
-        doThrow(new com.campus.core.common.BusinessException(ResultCode.NOT_FOUND, "收藏记录不存在"))
-                .when(activityCollectService).cancelCollect(anyLong(), anyLong());
+    void testUncollect_Unauthorized() {
+        Result<Map<String, Object>> result = activityCollectController.uncollect(1L, null);
 
-        ResponseEntity<Result<Void>> response =
-                activityCollectController.cancelCollect(999L, testUser);
-
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-    }
-
-    @Test
-    void testGetCollectStatus_Collected() {
-        when(activityCollectService.isCollected(anyLong(), anyLong())).thenReturn(true);
-
-        ResponseEntity<Result<Boolean>> response =
-                activityCollectController.getCollectStatus(1L, testUser);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertTrue(response.getBody().getData());
-    }
-
-    @Test
-    void testGetCollectStatus_NotCollected() {
-        when(activityCollectService.isCollected(anyLong(), anyLong())).thenReturn(false);
-
-        ResponseEntity<Result<Boolean>> response =
-                activityCollectController.getCollectStatus(1L, testUser);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertFalse(response.getBody().getData());
+        assertEquals(401, result.getCode());
+        verify(activityCollectService, never()).uncollectActivity(anyLong(), anyLong());
     }
 
     @Test
     void testGetMyCollects_Success() {
-        List<ActivityResponse> collects = Arrays.asList(new ActivityResponse(testActivity));
-        when(activityCollectService.getMyCollects(anyLong(), anyInt(), anyInt()))
-                .thenReturn(collects);
+        ActivityCollect collect1 = new ActivityCollect();
+        collect1.setId(1L);
+        collect1.setUserId(1L);
+        collect1.setActivityId(1L);
 
-        ResponseEntity<Result<List<ActivityResponse>>> response =
-                activityCollectController.getMyCollects(1, 10, testUser);
+        ActivityCollect collect2 = new ActivityCollect();
+        collect2.setId(2L);
+        collect2.setUserId(1L);
+        collect2.setActivityId(2L);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals(1, response.getBody().getData().size());
+        when(activityCollectService.getUserCollects(1L)).thenReturn(Arrays.asList(collect1, collect2));
+
+        Result<List<ActivityCollect>> result = activityCollectController.getMyCollects(VALID_TOKEN);
+
+        assertEquals(HttpStatus.OK.value(), result.getCode());
+        assertEquals(2, result.getData().size());
+        verify(activityCollectService, times(1)).getUserCollects(1L);
     }
 
     @Test
-    void testGetMyCollects_Empty() {
-        when(activityCollectService.getMyCollects(anyLong(), anyInt(), anyInt()))
-                .thenReturn(Arrays.asList());
+    void testGetMyCollects_Unauthorized() {
+        Result<List<ActivityCollect>> result = activityCollectController.getMyCollects(null);
 
-        ResponseEntity<Result<List<ActivityResponse>>> response =
-                activityCollectController.getMyCollects(1, 10, testUser);
-
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertTrue(response.getBody().getData().isEmpty());
+        assertEquals(401, result.getCode());
+        verify(activityCollectService, never()).getUserCollects(anyLong());
     }
 
     @Test
-    void testGetMyCollects_Pagination() {
-        when(activityCollectService.getMyCollects(anyLong(), anyInt(), anyInt()))
-                .thenReturn(Arrays.asList());
+    void testCheckCollectStatus_Collected() {
+        when(activityCollectService.isCollected(1L, 1L)).thenReturn(true);
+        when(activityCollectService.getCollectCount(1L)).thenReturn(5);
 
-        ResponseEntity<Result<List<ActivityResponse>>> response =
-                activityCollectController.getMyCollects(2, 10, testUser);
+        Result<Map<String, Object>> result = activityCollectController.checkCollectStatus(1L, VALID_TOKEN);
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        verify(activityCollectService).getMyCollects(1L, 2, 10);
+        assertEquals(HttpStatus.OK.value(), result.getCode());
+        assertTrue((Boolean) result.getData().get("collected"));
+        assertEquals(5, result.getData().get("collectCount"));
+    }
+
+    @Test
+    void testCheckCollectStatus_NotCollected() {
+        when(activityCollectService.isCollected(1L, 1L)).thenReturn(false);
+        when(activityCollectService.getCollectCount(1L)).thenReturn(0);
+
+        Result<Map<String, Object>> result = activityCollectController.checkCollectStatus(1L, VALID_TOKEN);
+
+        assertEquals(HttpStatus.OK.value(), result.getCode());
+        assertFalse((Boolean) result.getData().get("collected"));
+        assertEquals(0, result.getData().get("collectCount"));
+    }
+
+    @Test
+    void testCheckCollectStatus_Unauthorized() {
+        Result<Map<String, Object>> result = activityCollectController.checkCollectStatus(1L, null);
+
+        assertEquals(401, result.getCode());
+        verify(activityCollectService, never()).isCollected(anyLong(), anyLong());
     }
 }

@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +30,10 @@ public class CommentService {
 
     /**
      * 发布评论
+     * @param activityId 活动ID
+     * @param userId 用户ID
+     * @param request 评论请求
+     * @return 评论响应
      */
     @Transactional
     public CommentResponse publishComment(Long activityId, Long userId, CommentRequest request) {
@@ -39,31 +42,24 @@ public class CommentService {
             throw new BusinessException(ResultCode.USER_NOT_FOUND, "用户不存在");
         }
 
-        if (request.getReplyToId() != null) {
-            Comment parentComment = commentMapper.selectById(request.getReplyToId());
-            if (parentComment == null) {
-                throw new BusinessException(ResultCode.NOT_FOUND, "被回复的评论不存在");
-            }
-            if (!parentComment.getActivityId().equals(activityId)) {
-                throw new BusinessException(ResultCode.VALIDATION_ERROR, "被回复的评论不属于该活动");
-            }
-        }
-
         Comment comment = new Comment();
         comment.setActivityId(activityId);
         comment.setUserId(userId);
         comment.setContent(request.getContent());
-        comment.setReplyToId(request.getReplyToId());
 
         commentMapper.insert(comment);
 
         CommentResponse response = CommentResponse.fromEntity(comment);
-        response.setUsername(user.getRealName());
+        response.setUsername(user.getRealName() != null ? user.getRealName() : user.getUsername());
         return response;
     }
 
     /**
      * 获取活动的评论列表
+     * @param activityId 活动ID
+     * @param page 页码
+     * @param size 每页数量
+     * @return 评论列表
      */
     public List<CommentResponse> getCommentList(Long activityId, Integer page, Integer size) {
         page = page != null && page > 0 ? page : 1;
@@ -74,66 +70,27 @@ public class CommentService {
 
         Integer offset = (int) ((long) (page - 1) * size);
 
-        List<Comment> rootComments = commentMapper.selectRootCommentsByActivityId(activityId, offset, size);
+        List<Comment> comments = commentMapper.selectByActivityId(activityId, offset, size);
 
-        if (rootComments.isEmpty()) {
+        if (comments.isEmpty()) {
             return new ArrayList<>();
         }
 
-        List<Long> rootIds = rootComments.stream()
-                .map(Comment::getId)
-                .collect(Collectors.toList());
-
-        List<Comment> allReplies = commentMapper.selectRepliesByParentIds(rootIds);
-
-        Map<Long, Long> replyCountMap = new HashMap<>();
-        for (Comment reply : allReplies) {
-            Long parentId = reply.getReplyToId();
-            replyCountMap.merge(parentId, 1L, Long::sum);
+        Set<Long> userIds = new HashSet<>();
+        for (Comment comment : comments) {
+            userIds.add(comment.getUserId());
         }
 
-        Set<Long> allUserIds = new HashSet<>();
-        for (Comment root : rootComments) {
-            allUserIds.add(root.getUserId());
-        }
-        for (Comment reply : allReplies) {
-            allUserIds.add(reply.getUserId());
-            if (reply.getReplyToId() != null) {
-                Comment replyToComment = commentMapper.selectById(reply.getReplyToId());
-                if (replyToComment != null) {
-                    allUserIds.add(replyToComment.getUserId());
-                }
-            }
-        }
-
-        Map<Long, User> userMap = batchGetUsers(allUserIds);
-
-        Map<Long, List<Comment>> repliesByParent = new HashMap<>();
-        for (Comment reply : allReplies) {
-            repliesByParent.computeIfAbsent(reply.getReplyToId(), k -> new ArrayList<>()).add(reply);
-        }
+        Map<Long, User> userMap = batchGetUsers(userIds);
 
         List<CommentResponse> responses = new ArrayList<>();
-        for (Comment root : rootComments) {
-            CommentResponse rootResponse = buildCommentResponse(root, userMap, replyCountMap);
-
-            List<Comment> replies = repliesByParent.getOrDefault(root.getId(), new ArrayList<>());
-            List<CommentResponse> replyResponses = new ArrayList<>();
-            for (Comment reply : replies) {
-                CommentResponse replyResponse = buildCommentResponse(reply, userMap, null);
-                if (reply.getReplyToId() != null) {
-                    Comment replyToComment = commentMapper.selectById(reply.getReplyToId());
-                    if (replyToComment != null) {
-                        User replyToUser = userMap.get(replyToComment.getUserId());
-                        replyResponse.setReplyToUsername(replyToUser != null ? replyToUser.getRealName() : null);
-                    }
-                }
-                replyResponses.add(replyResponse);
+        for (Comment comment : comments) {
+            CommentResponse response = CommentResponse.fromEntity(comment);
+            User user = userMap.get(comment.getUserId());
+            if (user != null) {
+                response.setUsername(user.getRealName() != null ? user.getRealName() : user.getUsername());
             }
-            rootResponse.setReplyCount(replyResponses.size());
-
-            rootResponse.setReplies(replyResponses);
-            responses.add(rootResponse);
+            responses.add(response);
         }
 
         return responses;
@@ -141,6 +98,8 @@ public class CommentService {
 
     /**
      * 删除评论
+     * @param commentId 评论ID
+     * @param userId 用户ID
      */
     @Transactional
     public void deleteComment(Long commentId, Long userId) {
@@ -153,32 +112,7 @@ public class CommentService {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此评论");
         }
 
-        List<Long> idsToDelete = new ArrayList<>();
-        idsToDelete.add(commentId);
-        collectAllReplies(commentId, idsToDelete);
-
-        commentMapper.deleteBatchByIds(idsToDelete);
-    }
-
-    /**
-     * 递归收集所有子回复ID
-     */
-    private static final int MAX_RECURSION_DEPTH = 10;
-
-    private void collectAllReplies(Long parentId, List<Long> idsToDelete) {
-        collectAllRepliesWithDepth(parentId, idsToDelete, 0);
-    }
-
-    private void collectAllRepliesWithDepth(Long parentId, List<Long> idsToDelete, int depth) {
-        if (depth > MAX_RECURSION_DEPTH) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "评论嵌套层数超限");
-        }
-
-        List<Comment> replies = commentMapper.selectAllRepliesByReplyToId(parentId);
-        for (Comment reply : replies) {
-            idsToDelete.add(reply.getId());
-            collectAllRepliesWithDepth(reply.getId(), idsToDelete, depth + 1);
-        }
+        commentMapper.deleteById(commentId);
     }
 
     /**
@@ -190,31 +124,5 @@ public class CommentService {
         }
         List<User> users = userMapper.selectBatchIds(new ArrayList<>(userIds));
         return users.stream().collect(Collectors.toMap(User::getId, u -> u));
-    }
-
-    /**
-     * 构建回复数量Map
-     */
-    private Map<Long, Long> buildReplyCountMap(List<Comment> rootComments) {
-        return rootComments.stream()
-                .collect(Collectors.toMap(
-                        Comment::getId,
-                        root -> (long) commentMapper.selectRepliesByReplyToId(root.getId()).size()
-                ));
-    }
-
-    /**
-     * 构建评论响应对象
-     */
-    private CommentResponse buildCommentResponse(Comment comment, Map<Long, User> userMap, Map<Long, Long> replyCountMap) {
-        CommentResponse response = CommentResponse.fromEntity(comment);
-        User user = userMap.get(comment.getUserId());
-        if (user != null) {
-            response.setUsername(user.getRealName());
-        }
-        if (replyCountMap != null && replyCountMap.containsKey(comment.getId())) {
-            response.setReplyCount(replyCountMap.get(comment.getId()).intValue());
-        }
-        return response;
     }
 }
