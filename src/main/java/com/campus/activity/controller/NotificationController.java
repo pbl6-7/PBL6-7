@@ -2,29 +2,26 @@ package com.campus.activity.controller;
 
 import com.campus.activity.dto.NotificationPageResponse;
 import com.campus.activity.service.NotificationService;
-import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 通知控制器
- * 提供通知相关的API接口
- */
 @Api(tags = "通知管理")
 @RestController
 @RequestMapping("/api/v1/notification")
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationController {
 
     private final NotificationService notificationService;
-    private final JwtUtils jwtUtils;
 
     /**
      * 获取我的通知列表
@@ -34,15 +31,20 @@ public class NotificationController {
     public Result<NotificationPageResponse> getMyNotifications(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
+        log.info("用户 {} 查询通知列表", userId);
+
+        // 修复问题12：添加分页参数验证
+        if (page < 1) {
+            return Result.error(ResultCode.VALIDATION_ERROR, "页码必须大于0");
         }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        if (size < 1 || size > 100) {
+            return Result.error(ResultCode.VALIDATION_ERROR, "每页大小必须在1-100之间");
+        }
 
         NotificationPageResponse notifications = notificationService.getUserNotifications(userId, page, size);
         return Result.success(notifications);
@@ -55,15 +57,12 @@ public class NotificationController {
     @ApiOperation("标记通知已读")
     public Result<Map<String, Object>> markAsRead(
             @PathVariable Long notificationId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 标记通知 {} 为已读", userId, notificationId);
 
         notificationService.markAsRead(notificationId, userId);
 
@@ -79,15 +78,11 @@ public class NotificationController {
     @GetMapping("/unread-count")
     @ApiOperation("获取未读通知数量")
     public Result<Map<String, Object>> getUnreadCount(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
 
         int count = notificationService.getUnreadCount(userId);
 

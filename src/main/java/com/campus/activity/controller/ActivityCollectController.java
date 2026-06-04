@@ -39,6 +39,9 @@ public class ActivityCollectController {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
         Long userId = jwtUtils.getUserIdFromToken(token);
+        if (userId == null) {
+            return Result.error(ResultCode.UNAUTHORIZED);
+        }
         
         activityCollectService.collectActivity(userId, activityId);
         

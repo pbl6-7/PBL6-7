@@ -11,6 +11,7 @@ import com.campus.core.common.ResultCode;
 import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ActivityService {
 
     private static final String APPROVAL_STATUS_APPROVED = "approved";
@@ -32,6 +34,10 @@ public class ActivityService {
     private static final String STATUS_ENDED = "ended";
     private static final String STATUS_CANCELLED = "cancelled";
     private static final int MAX_PAGE_SIZE = 100;
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "created_at", "start_time", "end_time", "title", "status", "updated_at"
+    );
 
     private final ActivityMapper activityMapper;
     private final UserMapper userMapper;
@@ -115,20 +121,39 @@ public class ActivityService {
         return responses;
     }
 
+    /**
+     * 验证排序参数，防止 SQL 注入
+     */
+    private void validateSortParams(String sortBy, String sortOrder) {
+        if (sortBy != null && !ALLOWED_SORT_FIELDS.contains(sortBy.toLowerCase())) {
+            log.warn("无效的排序字段: {}", sortBy);
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "不支持的排序字段: " + sortBy);
+        }
+        if (sortOrder != null && !sortOrder.equalsIgnoreCase("ASC") && !sortOrder.equalsIgnoreCase("DESC")) {
+            log.warn("无效的排序方向: {}", sortOrder);
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, "排序方向只能是 ASC 或 DESC");
+        }
+    }
+
     @Transactional
     public ActivityResponse publishActivity(Long publisherId, String userRole, ActivityPublishRequest request) {
+        log.info("用户 {} 开始发布活动: {}", publisherId, request.getTitle());
+
         User publisher = userMapper.selectById(publisherId);
         if (publisher == null) {
+            log.error("发布者不存在: userId={}", publisherId);
             throw new BusinessException(ResultCode.USER_NOT_FOUND, "发布者不存在");
         }
 
         if (!"publisher".equals(userRole)) {
+            log.warn("用户 {} 尝试以角色 {} 发布活动（非发布者）", publisherId, userRole);
             throw new BusinessException(ResultCode.NOT_PUBLISHER, "只有发布者角色才能发布活动");
         }
 
         validateStartTime(request.getStartTime());
 
         if (request.getEndTime().isBefore(request.getStartTime())) {
+            log.warn("活动结束时间早于开始时间: startTime={}, endTime={}", request.getStartTime(), request.getEndTime());
             throw new BusinessException(ResultCode.VALIDATION_ERROR, "活动结束时间不能早于开始时间");
         }
 
@@ -147,6 +172,7 @@ public class ActivityService {
         activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
 
         activityMapper.insert(activity);
+        log.info("活动创建成功: activityId={}", activity.getId());
 
         if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
             activityTagService.setActivityTags(activity.getId(), request.getTagIds());
@@ -155,6 +181,8 @@ public class ActivityService {
         ActivityResponse response = ActivityResponse.fromEntity(activity);
         response.setPublisherName(publisher.getRealName());
         response.setTags(activityTagService.getTagsByActivityId(activity.getId()));
+
+        log.info("用户 {} 成功发布活动: activityId={}, title={}", publisherId, activity.getId(), activity.getTitle());
         return response;
     }
 
@@ -201,12 +229,16 @@ public class ActivityService {
 
     @Transactional
     public ActivityResponse updateActivity(Long activityId, Long publisherId, ActivityPublishRequest request) {
+        log.info("用户 {} 开始更新活动: activityId={}", publisherId, activityId);
+
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {
+            log.error("活动不存在: activityId={}", activityId);
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
 
         if (!activity.getPublisherId().equals(publisherId)) {
+            log.warn("用户 {} 无权修改活动 {} （不是发布者）", publisherId, activityId);
             throw new BusinessException(ResultCode.FORBIDDEN, "无权修改此活动");
         }
 
@@ -218,6 +250,7 @@ public class ActivityService {
 
         if (request.getEndTime() != null && request.getStartTime() != null) {
             if (request.getEndTime().isBefore(request.getStartTime())) {
+                log.warn("更新活动时结束时间早于开始时间: activityId={}", activityId);
                 throw new BusinessException(ResultCode.VALIDATION_ERROR, "活动结束时间不能早于开始时间");
             }
         }
@@ -251,6 +284,7 @@ public class ActivityService {
 
         activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
         activityMapper.updateById(activity);
+        log.info("活动更新成功: activityId={}", activityId);
 
         if (request.getTagIds() != null) {
             activityTagService.setActivityTags(activityId, request.getTagIds());
@@ -268,17 +302,23 @@ public class ActivityService {
             response.setPublisherName(publisher.getRealName());
         }
         response.setTags(activityTagService.getTagsByActivityId(activityId));
+
+        log.info("用户 {} 成功更新活动: activityId={}", publisherId, activityId);
         return response;
     }
 
     @Transactional
     public void deleteActivity(Long activityId, Long publisherId) {
+        log.info("用户 {} 开始删除活动: activityId={}", publisherId, activityId);
+
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {
+            log.error("活动不存在: activityId={}", activityId);
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
 
         if (!activity.getPublisherId().equals(publisherId)) {
+            log.warn("用户 {} 无权删除活动 {} （不是发布者）", publisherId, activityId);
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此活动");
         }
 
@@ -286,6 +326,8 @@ public class ActivityService {
 
         activity.setDeletedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
+
+        log.info("用户 {} 成功删除活动: activityId={}", publisherId, activityId);
     }
 
     @Transactional
@@ -298,9 +340,11 @@ public class ActivityService {
         if (size > MAX_PAGE_SIZE) {
             size = MAX_PAGE_SIZE;
         }
-        
+
         String sortBy = request.getSortBy();
         String sortOrder = request.getSortOrder();
+
+        validateSortParams(sortBy, sortOrder);
 
         Integer offset = (int) ((long) (page - 1) * size);
 
@@ -401,12 +445,17 @@ public class ActivityService {
      */
     @Transactional
     public ActivityResponse approveActivity(Long activityId) {
+        log.info("管理员审核活动: activityId={}, action=approve", activityId);
+
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {
+            log.error("审核活动失败 - 活动不存在: activityId={}", activityId);
             throw new BusinessException(ResultCode.ACTIVITY_NOT_FOUND);
         }
 
         if (!APPROVAL_STATUS_PENDING.equals(activity.getApprovalStatus())) {
+            log.warn("审核活动失败 - 活动不在待审核状态: activityId={}, currentStatus={}",
+                    activityId, activity.getApprovalStatus());
             throw new BusinessException(ResultCode.ACTIVITY_NOT_PENDING);
         }
 
@@ -425,6 +474,8 @@ public class ActivityService {
         if (publisher != null) {
             response.setPublisherName(publisher.getRealName());
         }
+
+        log.info("活动审核通过: activityId={}, publisherId={}", activityId, activity.getPublisherId());
         return response;
     }
 
@@ -436,12 +487,17 @@ public class ActivityService {
      */
     @Transactional
     public ActivityResponse rejectActivity(Long activityId, String reason) {
+        log.info("管理员审核活动: activityId={}, action=reject, reason={}", activityId, reason);
+
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {
+            log.error("审核活动失败 - 活动不存在: activityId={}", activityId);
             throw new BusinessException(ResultCode.ACTIVITY_NOT_FOUND);
         }
 
         if (!APPROVAL_STATUS_PENDING.equals(activity.getApprovalStatus())) {
+            log.warn("审核活动失败 - 活动不在待审核状态: activityId={}, currentStatus={}",
+                    activityId, activity.getApprovalStatus());
             throw new BusinessException(ResultCode.ACTIVITY_NOT_PENDING);
         }
 
@@ -463,6 +519,9 @@ public class ActivityService {
         if (publisher != null) {
             response.setPublisherName(publisher.getRealName());
         }
+
+        log.info("活动审核拒绝: activityId={}, publisherId={}, reason={}",
+                activityId, activity.getPublisherId(), reason);
         return response;
     }
 }

@@ -99,4 +99,11 @@ public interface UserMapper {
      * @return 用户数量
      */
     Long countUsersByRole(@Param("role") String role);
+
+    /**
+     * 查询最近创建的用户（管理员功能）
+     * @param limit 返回数量限制
+     * @return 用户列表
+     */
+    List<User> selectRecentUsers(@Param("limit") Integer limit);
 }

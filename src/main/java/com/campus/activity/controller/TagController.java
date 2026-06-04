@@ -4,6 +4,7 @@ import com.campus.activity.dto.ActivityTagRequest;
 import com.campus.activity.dto.TagCreateRequest;
 import com.campus.activity.dto.TagResponse;
 import com.campus.activity.service.ActivityTagService;
+import com.campus.core.common.BusinessException;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
@@ -21,9 +22,15 @@ import java.util.List;
 @Api(tags = "活动标签管理")
 public class TagController {
 
+    private static final String ROLE_ADMIN = "admin";
+
     private final ActivityTagService activityTagService;
     private final JwtUtils jwtUtils;
 
+    /**
+     * 创建标签
+     * 修复问题2：仅允许管理员创建标签
+     */
     @PostMapping
     @ApiOperation("创建标签")
     public Result<TagResponse> createTag(
@@ -36,6 +43,12 @@ public class TagController {
         if (!jwtUtils.validateToken(token)) {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
+
+        String role = jwtUtils.getRoleFromToken(token);
+        if (!ROLE_ADMIN.equals(role)) {
+            return Result.error(ResultCode.FORBIDDEN, "只有管理员才能创建标签");
+        }
+
         TagResponse response = activityTagService.createTag(request);
         return Result.success(response, "标签创建成功");
     }
@@ -54,6 +67,10 @@ public class TagController {
         return Result.success(response);
     }
 
+    /**
+     * 删除标签
+     * 修复问题2：仅允许管理员删除标签
+     */
     @DeleteMapping("/{id}")
     @ApiOperation("删除标签")
     public Result<Void> deleteTag(
@@ -66,6 +83,12 @@ public class TagController {
         if (!jwtUtils.validateToken(token)) {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
+
+        String role = jwtUtils.getRoleFromToken(token);
+        if (!ROLE_ADMIN.equals(role)) {
+            return Result.error(ResultCode.FORBIDDEN, "只有管理员才能删除标签");
+        }
+
         activityTagService.deleteTag(id);
         return Result.success(null, "标签删除成功");
     }
@@ -77,6 +100,10 @@ public class TagController {
         return Result.success(tags);
     }
 
+    /**
+     * 为活动设置标签
+     * 修复问题2：添加权限验证
+     */
     @PostMapping("/activity")
     @ApiOperation("为活动设置标签")
     public Result<Void> setActivityTags(
@@ -89,7 +116,13 @@ public class TagController {
         if (!jwtUtils.validateToken(token)) {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
-        activityTagService.setActivityTags(request.getActivityId(), request.getTagIds());
+        Long userId = jwtUtils.getUserIdFromToken(token);
+        String role = jwtUtils.getRoleFromToken(token);
+        if (userId == null || role == null) {
+            return Result.error(ResultCode.UNAUTHORIZED);
+        }
+        
+        activityTagService.setActivityTags(request.getActivityId(), request.getTagIds(), userId, role);
         return Result.success(null, "活动标签设置成功");
     }
 }

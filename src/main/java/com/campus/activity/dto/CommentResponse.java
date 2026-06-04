@@ -19,6 +19,10 @@ public class CommentResponse {
     private List<CommentResponse> replies;
 
     public static CommentResponse fromEntity(Comment comment) {
+        if (comment == null) {
+            return null;
+        }
+
         CommentResponse response = new CommentResponse();
         response.setId(comment.getId());
         response.setActivityId(comment.getActivityId());

@@ -45,6 +45,7 @@ public class SearchService {
 
     /**
      * 清理并验证搜索前缀
+     * 修复问题11：加强输入验证，防止SQL注入和XSS
      * @param prefix 原始前缀
      * @return 清理后的前缀，如果无效返回null
      */
@@ -56,6 +57,15 @@ public class SearchService {
         if (trimmed.length() > MAX_SEARCH_PREFIX_LENGTH) {
             trimmed = trimmed.substring(0, MAX_SEARCH_PREFIX_LENGTH);
         }
+
+        // 修复：移除可能导致SQL注入或XSS的特殊字符
+        trimmed = trimmed.replaceAll("[<>'\";\\\\/&%$#@!~`]", "");
+        
+        // 修复：只允许中英文、数字、空格和常见标点
+        if (!trimmed.matches("^[\\u4e00-\\u9fa5a-zA-Z0-9\\s\\-_.，。、]+$")) {
+            return null;
+        }
+        
         return trimmed;
     }
 
@@ -74,11 +84,10 @@ public class SearchService {
                 null,
                 null,
                 null,
-                null,
                 "createdAt",
                 "desc",
-                0,
-                50
+                Integer.valueOf(0),
+                Integer.valueOf(50)
         );
 
         Set<String> suggestionSet = new LinkedHashSet<>();

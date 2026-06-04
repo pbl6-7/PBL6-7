@@ -2,6 +2,7 @@ package com.campus.user.service;
 
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.JwtUtils;
+import com.campus.core.common.PasswordValidator;
 import com.campus.core.common.ResultCode;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
@@ -108,27 +109,10 @@ public class UserService {
 
     /**
      * 验证密码强度
-     * 要求：至少8位，包含大小写字母和数字
+     * 委托给统一的 PasswordValidator 工具类
      */
     private void validatePasswordStrength(String password) {
-        if (password == null || password.length() < 8) {
-            throw new BusinessException(ResultCode.PASSWORD_INVALID);
-        }
-        boolean hasUpper = false;
-        boolean hasLower = false;
-        boolean hasDigit = false;
-        for (char c : password.toCharArray()) {
-            if (Character.isUpperCase(c)) {
-                hasUpper = true;
-            } else if (Character.isLowerCase(c)) {
-                hasLower = true;
-            } else if (Character.isDigit(c)) {
-                hasDigit = true;
-            }
-        }
-        if (!hasUpper || !hasLower || !hasDigit) {
-            throw new BusinessException(ResultCode.PASSWORD_INVALID);
-        }
+        PasswordValidator.validate(password);
     }
 
     /**
@@ -145,6 +129,7 @@ public class UserService {
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new BusinessException(ResultCode.PASSWORD_ERROR, "旧密码错误");
         }
+        PasswordValidator.validate(newPassword);
         user.setPassword(hashPassword(newPassword));
         userMapper.updateById(user);
     }

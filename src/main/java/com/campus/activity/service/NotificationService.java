@@ -71,12 +71,21 @@ public class NotificationService {
 
     /**
      * 分页获取用户通知
+     * 修复问题12：添加分页参数验证
      * @param userId 用户ID
      * @param page 页码
      * @param size 每页数量
      * @return 分页通知列表
      */
     public NotificationPageResponse getUserNotifications(Long userId, int page, int size) {
+        // 修复问题12：验证分页参数
+        if (page < 1) {
+            page = 1;
+        }
+        if (size < 1 || size > 100) {
+            size = 10;
+        }
+
         long offset = (long) (page - 1) * size;
         List<Notification> notifications = notificationMapper.selectByUserId(userId, offset, (long) size);
         int total = notificationMapper.countByUserId(userId);

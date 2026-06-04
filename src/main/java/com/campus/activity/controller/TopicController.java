@@ -3,6 +3,8 @@ package com.campus.activity.controller;
 import com.campus.activity.dto.TopicCreateRequest;
 import com.campus.activity.dto.TopicResponse;
 import com.campus.activity.dto.TopicUpdateRequest;
+import com.campus.activity.entity.Activity;
+import com.campus.activity.mapper.ActivityMapper;
 import com.campus.activity.service.ActivityTopicService;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
@@ -21,9 +23,16 @@ import java.util.List;
 @Api(tags = "活动话题管理")
 public class TopicController {
 
+    private static final String ROLE_ADMIN = "admin";
+
     private final ActivityTopicService activityTopicService;
     private final JwtUtils jwtUtils;
+    private final ActivityMapper activityMapper;
 
+    /**
+     * 创建话题
+     * 修复问题3：仅允许活动发布者或管理员创建话题
+     */
     @PostMapping
     @ApiOperation("创建话题")
     public Result<TopicResponse> createTopic(
@@ -37,7 +46,21 @@ public class TopicController {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
         Long userId = jwtUtils.getUserIdFromToken(token);
-        TopicResponse response = activityTopicService.createTopic(userId, request);
+        String role = jwtUtils.getRoleFromToken(token);
+
+        Activity activity = activityMapper.selectById(request.getActivityId());
+        if (activity == null) {
+            return Result.error(ResultCode.NOT_FOUND, "活动不存在");
+        }
+
+        boolean isPublisher = activity.getPublisherId().equals(userId);
+        boolean isAdmin = ROLE_ADMIN.equals(role);
+
+        if (!isPublisher && !isAdmin) {
+            return Result.error(ResultCode.FORBIDDEN, "只有活动发布者或管理员才能创建话题");
+        }
+
+        TopicResponse response = activityTopicService.createTopic(userId, request, role);
         return Result.success(response, "话题创建成功");
     }
 

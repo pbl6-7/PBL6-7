@@ -20,9 +20,15 @@ import java.util.List;
 @Api(tags = "活动类型管理")
 public class ActivityTypeController {
 
+    private static final String ROLE_ADMIN = "admin";
+
     private final ActivityTypeService activityTypeService;
     private final JwtUtils jwtUtils;
 
+    /**
+     * 创建活动类型
+     * 修复问题4：仅允许管理员创建活动类型
+     */
     @PostMapping
     @ApiOperation("创建活动类型")
     public Result<ActivityTypeResponse> createType(
@@ -35,6 +41,12 @@ public class ActivityTypeController {
         if (!jwtUtils.validateToken(token)) {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
+
+        String role = jwtUtils.getRoleFromToken(token);
+        if (!ROLE_ADMIN.equals(role)) {
+            return Result.error(ResultCode.FORBIDDEN, "只有管理员才能创建活动类型");
+        }
+
         ActivityTypeResponse response = activityTypeService.createType(request);
         return Result.success(response, "类型创建成功");
     }
@@ -53,6 +65,10 @@ public class ActivityTypeController {
         return Result.success(response);
     }
 
+    /**
+     * 更新活动类型
+     * 修复问题4：仅允许管理员更新活动类型
+     */
     @PutMapping("/{id}")
     @ApiOperation("更新活动类型")
     public Result<ActivityTypeResponse> updateType(
@@ -66,10 +82,20 @@ public class ActivityTypeController {
         if (!jwtUtils.validateToken(token)) {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
+
+        String role = jwtUtils.getRoleFromToken(token);
+        if (!ROLE_ADMIN.equals(role)) {
+            return Result.error(ResultCode.FORBIDDEN, "只有管理员才能更新活动类型");
+        }
+
         ActivityTypeResponse response = activityTypeService.updateType(id, request);
         return Result.success(response, "类型更新成功");
     }
 
+    /**
+     * 删除活动类型
+     * 修复问题4：仅允许管理员删除活动类型
+     */
     @DeleteMapping("/{id}")
     @ApiOperation("删除活动类型")
     public Result<Void> deleteType(
@@ -82,6 +108,12 @@ public class ActivityTypeController {
         if (!jwtUtils.validateToken(token)) {
             return Result.error(ResultCode.TOKEN_INVALID);
         }
+
+        String role = jwtUtils.getRoleFromToken(token);
+        if (!ROLE_ADMIN.equals(role)) {
+            return Result.error(ResultCode.FORBIDDEN, "只有管理员才能删除活动类型");
+        }
+
         activityTypeService.deleteType(id);
         return Result.success(null, "类型删除成功");
     }

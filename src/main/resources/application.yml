@@ -27,6 +27,30 @@ springfox:
 server:
   port: 8080
 
+app:
+  pagination:
+    default-page-size: 10
+    max-page-size: 100
+  comment:
+    max-content-length: 1000
+    max-reply-depth: 10
+  activity:
+    max-title-length: 200
+    max-location-length: 500
+    max-description-length: 5000
+    max-participants: 100000
+  search:
+    default-limit: 10
+    max-limit: 100
+  file-upload:
+    max-file-size: 10485760
+    allowed-extensions:
+      - .jpg
+      - .jpeg
+      - .png
+      - .gif
+      - .pdf
+
 jwt:
   secret: ${JWT_SECRET_KEY:campus-activity-platform-jwt-secret-key-2024}
   expiration: 86400000

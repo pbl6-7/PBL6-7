@@ -25,6 +25,10 @@ public class ActivityResponse {
     private LocalDateTime updatedAt;
 
     public static ActivityResponse fromEntity(Activity activity) {
+        if (activity == null) {
+            return null;
+        }
+
         ActivityResponse response = new ActivityResponse();
         response.setId(activity.getId());
         response.setTitle(activity.getTitle());

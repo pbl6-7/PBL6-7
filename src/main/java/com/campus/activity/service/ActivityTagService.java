@@ -74,11 +74,22 @@ public class ActivityTagService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 为活动设置标签
+     * 修复问题2：添加权限验证，仅允许活动发布者或管理员操作
+     */
     @Transactional
-    public void setActivityTags(Long activityId, List<Long> tagIds) {
+    public void setActivityTags(Long activityId, List<Long> tagIds, Long userId, String userRole) {
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
+        }
+
+        boolean isAdmin = "admin".equals(userRole);
+        boolean isPublisher = activity.getPublisherId().equals(userId);
+
+        if (!isAdmin && !isPublisher) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权修改此活动的标签");
         }
 
         if (tagIds == null || tagIds.isEmpty()) {

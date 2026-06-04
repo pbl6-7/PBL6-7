@@ -111,4 +111,11 @@
         AND deleted_at IS NULL
     </select>
 
+    <select id="selectRecentUsers" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

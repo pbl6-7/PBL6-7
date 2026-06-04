@@ -86,10 +86,7 @@ public class AdminMonitorService {
     }
 
     public List<UserResponse> getRecentUsers() {
-        List<User> users = userMapper.selectAllUsers();
-        if (users.size() > 10) {
-            users = users.subList(0, 10);
-        }
+        List<User> users = userMapper.selectRecentUsers(10);
 
         return users.stream()
             .map(UserResponse::fromEntity)
