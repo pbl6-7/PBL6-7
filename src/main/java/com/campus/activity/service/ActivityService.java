@@ -4,6 +4,7 @@ import com.campus.activity.dto.ActivityPageResponse;
 import com.campus.activity.dto.ActivityPublishRequest;
 import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.ActivityResponse;
+import com.campus.activity.dto.TagResponse;
 import com.campus.activity.entity.Activity;
 import com.campus.activity.mapper.ActivityMapper;
 import com.campus.core.common.BusinessException;
@@ -174,8 +175,8 @@ public class ActivityService {
         activityMapper.insert(activity);
         log.info("活动创建成功: activityId={}", activity.getId());
 
-        if (request.getTagIds() != null && !request.getTagIds().isEmpty()) {
-            activityTagService.setActivityTags(activity.getId(), request.getTagIds());
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            List<TagResponse> createdTags = activityTagService.createTagsForActivity(activity.getId(), request.getTags());
         }
 
         ActivityResponse response = ActivityResponse.fromEntity(activity);
@@ -286,8 +287,8 @@ public class ActivityService {
         activityMapper.updateById(activity);
         log.info("活动更新成功: activityId={}", activityId);
 
-        if (request.getTagIds() != null) {
-            activityTagService.setActivityTags(activityId, request.getTagIds());
+        if (request.getTags() != null) {
+            activityTagService.updateTagsForActivity(activityId, request.getTags());
         }
 
         notificationService.notifySubscribersWithTitle(
@@ -323,6 +324,8 @@ public class ActivityService {
         }
 
         validateActivityDeletable(activity);
+
+        activityTagService.deleteTagsByActivityId(activityId);
 
         activity.setDeletedAt(LocalDateTime.now());
         activityMapper.updateById(activity);

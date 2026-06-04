@@ -1,3 +1,10 @@
+export interface Tag {
+  id: number
+  activityId: number
+  name: string
+  color: string
+}
+
 export interface Activity {
   id: number
   title: string
@@ -11,6 +18,7 @@ export interface Activity {
   approvalStatus: string
   maxParticipants: number
   currentParticipants?: number
+  tags?: Tag[]
   createdAt: string
   updatedAt: string
 }
@@ -22,6 +30,7 @@ export interface ActivityPublishRequest {
   location: string
   description?: string
   maxParticipants?: number
+  tags?: string[]
 }
 
 export interface ActivityQueryRequest {
