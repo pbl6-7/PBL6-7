@@ -4,6 +4,11 @@ import com.campus.core.common.BusinessException;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.PasswordValidator;
 import com.campus.core.common.ResultCode;
+import com.campus.core.constants.AuditOperationConstants;
+import com.campus.core.constants.AuditResourceTypeConstants;
+import com.campus.core.constants.UserRoleConstants;
+import com.campus.core.constants.UserStatusConstants;
+import com.campus.core.service.AuditService;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
 import com.campus.user.entity.User;
@@ -14,8 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 用户服务
@@ -28,56 +31,69 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final UserSecurityService userSecurityService;
+    private final LoginLockService loginLockService;
     private final JwtUtils jwtUtils;
+    private final AuditService auditService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
-    private final ConcurrentHashMap<String, Integer> loginFailCount = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Long> loginLockTime = new ConcurrentHashMap<>();
-    private static final int MAX_LOGIN_FAIL_COUNT = 5;
-    private static final long LOGIN_LOCK_DURATION = 15 * 60 * 1000;
 
     public LoginResponse login(LoginRequest request) {
         String username = request.getUsername();
+        long startTime = System.currentTimeMillis();
 
-        if (isLoginLocked(username)) {
+        // 检查用户是否被锁定
+        if (loginLockService.isUserLocked(username)) {
             logger.warn("用户登录被锁定: {}", username);
+            // 记录审计日志（登录失败）
+            auditService.quickRecord(null, username, AuditOperationConstants.LOGIN,
+                    AuditResourceTypeConstants.USER, null, 403, "登录失败次数过多，账号被锁定");
             throw new BusinessException(ResultCode.FORBIDDEN, "登录失败次数过多，请15分钟后再试");
         }
 
         User user = userMapper.selectByUsername(username);
         if (user == null) {
+            // 记录审计日志（用户不存在）
+            auditService.quickRecord(null, username, AuditOperationConstants.LOGIN,
+                    AuditResourceTypeConstants.USER, null, 404, "用户不存在");
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
+        
+        // 检查用户状态（是否被禁用）
+        if (UserStatusConstants.isDisabled(user.getStatus())) {
+            logger.warn("用户登录失败: {}, 用户已被禁用", username);
+            // 记录审计日志（用户被禁用）
+            auditService.quickRecord(user.getId(), username, AuditOperationConstants.LOGIN,
+                    AuditResourceTypeConstants.USER, user.getId(), 403, "用户已被禁用，禁止登录");
+            throw new BusinessException(ResultCode.AUTHENTICATION_ACCOUNT_DISABLED, "账户已被禁用，请联系管理员");
+        }
+        
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            loginFailCount.merge(username, 1, Integer::sum);
-            int failCount = loginFailCount.getOrDefault(username, 0);
+            // 记录登录失败
+            int failCount = loginLockService.recordLoginFailure(username);
             logger.warn("用户登录失败: {}, 失败次数: {}", username, failCount);
-            if (failCount >= MAX_LOGIN_FAIL_COUNT) {
-                loginLockTime.put(username, System.currentTimeMillis());
-                loginFailCount.remove(username);
+            
+            // 记录审计日志（密码错误）
+            auditService.quickRecord(user.getId(), username, AuditOperationConstants.LOGIN,
+                    AuditResourceTypeConstants.USER, user.getId(), 401, "密码错误，失败次数: " + failCount);
+            
+            // 检查是否达到锁定阈值
+            if (failCount >= loginLockService.getMaxLoginFailCount()) {
+                loginLockService.lockUser(username);
                 throw new BusinessException(ResultCode.FORBIDDEN, "登录失败次数过多，已锁定15分钟");
             }
             throw new BusinessException(ResultCode.PASSWORD_ERROR);
         }
 
-        loginFailCount.remove(username);
-        loginLockTime.remove(username);
+        // 登录成功，清除失败记录
+        loginLockService.clearLoginFailure(username);
         logger.info("用户登录成功: {}", username);
+
+        // 记录审计日志（登录成功）
+        int executionTime = (int) (System.currentTimeMillis() - startTime);
+        auditService.quickRecord(user.getId(), username, AuditOperationConstants.LOGIN,
+                AuditResourceTypeConstants.USER, user.getId(), 200, "登录成功");
 
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
         return new LoginResponse(user.getId(), user.getUsername(), user.getRealName(), user.getRole(), token);
-    }
-
-    private boolean isLoginLocked(String username) {
-        Long lockTime = loginLockTime.get(username);
-        if (lockTime == null) {
-            return false;
-        }
-        if (System.currentTimeMillis() - lockTime > LOGIN_LOCK_DURATION) {
-            loginLockTime.remove(username);
-            return false;
-        }
-        return true;
     }
 
     public User getUserById(Long id) {
@@ -87,6 +103,9 @@ public class UserService {
     public void register(User user, Integer securityQuestionId, String securityAnswer) {
         User existUser = userMapper.selectByUsername(user.getUsername());
         if (existUser != null) {
+            // 记录审计日志（用户已存在）
+            auditService.quickRecord(null, user.getUsername(), AuditOperationConstants.REGISTER,
+                    AuditResourceTypeConstants.USER, null, 409, "用户名已存在");
             throw new BusinessException(ResultCode.USER_ALREADY_EXISTS);
         }
         if (securityQuestionId == null || securityAnswer == null || securityAnswer.trim().isEmpty()) {
@@ -97,10 +116,15 @@ public class UserService {
         }
         validatePasswordStrength(user.getPassword());
         user.setPassword(hashPassword(user.getPassword()));
-        user.setRole("user");
+        user.setRole(UserRoleConstants.USER);
+        user.setStatus(UserStatusConstants.ENABLED); // 设置默认状态为启用
         userMapper.insert(user);
 
         userSecurityService.setSecurity(user.getId(), securityQuestionId, securityAnswer);
+
+        // 记录审计日志（注册成功）
+        auditService.quickRecord(user.getId(), user.getUsername(), AuditOperationConstants.REGISTER,
+                AuditResourceTypeConstants.USER, user.getId(), 200, "用户注册成功");
     }
 
     private String hashPassword(String password) {
@@ -124,14 +148,24 @@ public class UserService {
     public void changePassword(Long userId, String oldPassword, String newPassword) {
         User user = userMapper.selectById(userId);
         if (user == null) {
+            // 记录审计日志（用户不存在）
+            auditService.quickRecord(userId, null, AuditOperationConstants.PASSWORD_CHANGE,
+                    AuditResourceTypeConstants.USER, userId, 404, "用户不存在");
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            // 记录审计日志（旧密码错误）
+            auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.PASSWORD_CHANGE,
+                    AuditResourceTypeConstants.USER, userId, 401, "旧密码错误");
             throw new BusinessException(ResultCode.PASSWORD_ERROR, "旧密码错误");
         }
         PasswordValidator.validate(newPassword);
         user.setPassword(hashPassword(newPassword));
         userMapper.updateById(user);
+
+        // 记录审计日志（密码修改成功）
+        auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.PASSWORD_CHANGE,
+                AuditResourceTypeConstants.USER, userId, 200, "密码修改成功");
     }
 
     /**

@@ -7,6 +7,8 @@ import com.campus.activity.mapper.ActivitySubscriptionMapper;
 import com.campus.activity.mapper.ActivityMapper;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
+import com.campus.core.constants.ActivityStatusConstants;
+import com.campus.core.constants.ApprovalStatusConstants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,9 +21,6 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class ActivitySubscriptionService {
-
-    private static final String APPROVAL_STATUS_APPROVED = "approved";
-    private static final String STATUS_PUBLISHED = "published";
 
     private final ActivitySubscriptionMapper subscriptionMapper;
     private final ActivityMapper activityMapper;
@@ -39,11 +38,11 @@ public class ActivitySubscriptionService {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
 
-        if (!APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())) {
+        if (!ApprovalStatusConstants.APPROVED.equals(activity.getApprovalStatus())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "活动未通过审核，无法订阅");
         }
 
-        if (!STATUS_PUBLISHED.equals(activity.getStatus())) {
+        if (!ActivityStatusConstants.PUBLISHED.equals(activity.getStatus())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布，无法订阅");
         }
 

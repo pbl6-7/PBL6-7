@@ -1,51 +1,87 @@
 package com.campus.activity.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
-import org.hibernate.validator.constraints.Length;
-import org.hibernate.validator.constraints.Range;
+import lombok.NoArgsConstructor;
 
-import javax.validation.constraints.Future;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
+/**
+ * 活动实体类
+ */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class Activity {
-
+    /**
+     * 活动ID
+     */
     private Long id;
-
-    @NotBlank(message = "活动标题不能为空")
-    @Length(max = 200, message = "活动标题不能超过200字符")
+    
+    /**
+     * 活动标题
+     */
     private String title;
-
-    @NotNull(message = "发布者ID不能为空")
-    private Long publisherId;
-
-    @NotNull(message = "活动开始时间不能为空")
-    @Future(message = "活动开始时间必须是未来时间")
-    private LocalDateTime startTime;
-
-    @NotNull(message = "活动结束时间不能为空")
-    private LocalDateTime endTime;
-
-    @Length(max = 500, message = "活动地点不能超过500字符")
-    private String location;
-
-    @Length(max = 5000, message = "活动描述不能超过5000字符")
+    
+    /**
+     * 活动描述
+     */
     private String description;
-
+    
+    /**
+     * 活动地点
+     */
+    private String location;
+    
+    /**
+     * 活动开始时间
+     */
+    private LocalDateTime startTime;
+    
+    /**
+     * 活动结束时间
+     */
+    private LocalDateTime endTime;
+    
+    /**
+     * 发布者ID
+     */
+    private Long publisherId;
+    
+    /**
+     * 活动状态：draft-草稿，published-已发布，cancelled-已取消，ended-已结束
+     */
     private String status;
-
+    
+    /**
+     * 审核状态：pending-待审核，approved-已通过，rejected-已拒绝
+     */
     private String approvalStatus;
-
+    
+    /**
+     * 活动类型ID
+     */
     private Long typeId;
-
-    @Range(min = 0, max = 100000, message = "最大参与人数必须在0-100000之间")
+    
+    /**
+     * 最大参与人数，0表示不限
+     */
     private Integer maxParticipants;
-
+    
+    /**
+     * 创建时间
+     */
     private LocalDateTime createdAt;
-
+    
+    /**
+     * 更新时间
+     */
     private LocalDateTime updatedAt;
-
+    
+    /**
+     * 删除时间（软删除）
+     */
     private LocalDateTime deletedAt;
 }

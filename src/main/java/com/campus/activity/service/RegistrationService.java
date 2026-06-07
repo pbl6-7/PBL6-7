@@ -6,148 +6,217 @@ import com.campus.activity.entity.Activity;
 import com.campus.activity.entity.ActivityRegistration;
 import com.campus.activity.mapper.ActivityRegistrationMapper;
 import com.campus.activity.mapper.ActivityMapper;
+import com.campus.core.common.BaseService;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
+import com.campus.core.constants.ActivityStatusConstants;
+import com.campus.core.constants.ApprovalStatusConstants;
+import com.campus.core.constants.AuditOperationConstants;
+import com.campus.core.constants.AuditResourceTypeConstants;
+import com.campus.core.constants.NotificationTypeConstants;
+import com.campus.core.constants.RegistrationStatusConstants;
+import com.campus.core.service.AuditService;
+import com.campus.core.util.BatchQueryUtils;
+import com.campus.core.util.PageUtils;
 import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 活动报名服务类
+ * 继承 BaseService，使用公共方法和工具类
+ */
 @Service
-@RequiredArgsConstructor
 @Slf4j
-public class RegistrationService {
+public class RegistrationService extends BaseService {
 
-    private static final String STATUS_PENDING = "pending";
-    private static final String STATUS_CONFIRMED = "confirmed";
-    private static final String STATUS_CANCELLED = "cancelled";
-    private static final String APPROVAL_STATUS_APPROVED = "approved";
-    private static final String STATUS_PUBLISHED = "published";
-    private static final int MAX_PAGE_SIZE = 100;
+    @Autowired
+    private ActivityRegistrationMapper registrationMapper;
 
-    private final ActivityRegistrationMapper registrationMapper;
-    private final ActivityMapper activityMapper;
-    private final UserMapper userMapper;
-    private final NotificationService notificationService;
+    @Autowired
+    private ActivityMapper activityMapper;
 
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    private AuditService auditService;
+
+    /**
+     * 用户报名活动
+     *
+     * @param userId 用户ID
+     * @param activityId 活动ID
+     * @return 报名响应对象
+     * @throws BusinessException 当活动不存在、未审核、未发布、已开始或名额已满时抛出异常
+     */
     @Transactional
     public RegistrationResponse registerForActivity(Long userId, Long activityId) {
         log.info("用户 {} 开始报名活动 {}", userId, activityId);
 
         Activity activity = activityMapper.selectById(activityId);
-        if (activity == null) {
-            log.error("报名失败 - 活动不存在: activityId={}", activityId);
-            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
-        }
+        validateNotNull(activity, ResultCode.NOT_FOUND, "活动不存在");
 
-        if (!APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())) {
-            log.warn("报名失败 - 活动未通过审核: activityId={}", activityId);
-            throw new BusinessException(ResultCode.FORBIDDEN, "活动未通过审核，无法报名");
-        }
-
-        if (!STATUS_PUBLISHED.equals(activity.getStatus())) {
-            log.warn("报名失败 - 活动未发布: activityId={}", activityId);
-            throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布，无法报名");
-        }
-
-        if (activity.getStartTime() != null && activity.getStartTime().isBefore(LocalDateTime.now())) {
-            log.warn("报名失败 - 活动已开始或已结束: activityId={}", activityId);
-            throw new BusinessException(ResultCode.FORBIDDEN, "活动已开始或已结束，无法报名");
-        }
+        validateActivityApproved(activity);
+        validateActivityPublished(activity);
+        validateActivityNotStarted(activity);
 
         ActivityRegistration existing = registrationMapper.selectByActivityIdAndUserId(activityId, userId);
         if (existing != null) {
-            if (!STATUS_CANCELLED.equals(existing.getStatus())) {
-                log.warn("报名失败 - 用户已报名: userId={}, activityId={}", userId, activityId);
-                throw new BusinessException(ResultCode.CONFLICT, "您已报名此活动");
-            }
-            existing.setStatus(STATUS_PENDING);
-            existing.setRegistrationTime(LocalDateTime.now());
-            registrationMapper.updateById(existing);
-
-            RegistrationResponse response = RegistrationResponse.fromEntity(existing);
-            fillActivityInfo(response, activity);
-            User user = userMapper.selectById(userId);
-            if (user != null) {
-                response.setUserName(user.getRealName());
-            }
-
-            notificationService.notifyUser(userId,
-                    NotificationService.TYPE_APPROVAL_RESULT,
-                    "您已重新报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加");
-
-            String publisherMessage = "用户【" + (user != null ? user.getRealName() : "用户" + userId) + "】重新报名了您的活动《" + activity.getTitle() + "》";
-            notificationService.notifyUser(activity.getPublisherId(),
-                    NotificationService.TYPE_SUBSCRIPTION_STATUS,
-                    publisherMessage);
-
-            log.info("用户 {} 重新报名活动 {} 成功", userId, activityId);
-            return response;
+            return handleExistingRegistration(existing, activity, userId);
         }
 
-        // 修复问题1：只统计未取消状态的报名记录，避免已取消的报名占用名额
-        if (activity.getMaxParticipants() != null && activity.getMaxParticipants() > 0) {
-            Long pendingCount = registrationMapper.countByActivityIdAndStatus(activityId, STATUS_PENDING);
-            Long confirmedCount = registrationMapper.countByActivityIdAndStatus(activityId, STATUS_CONFIRMED);
+        checkActivityCapacity(activityId, activity.getMaxParticipants());
+
+        ActivityRegistration registration = createNewRegistration(userId, activityId);
+        log.info("用户 {} 报名活动 {} 成功: registrationId={}", userId, activityId, registration.getId());
+
+        // 记录审计日志（报名成功）
+        User user = userMapper.selectById(userId);
+        String username = user != null ? user.getUsername() : null;
+        auditService.quickRecord(userId, username, AuditOperationConstants.REGISTRATION_CREATE,
+                AuditResourceTypeConstants.REGISTRATION, registration.getId(), 200, "报名活动成功: " + activity.getTitle());
+
+        RegistrationResponse response = buildRegistrationResponse(registration, activity, userId);
+        sendRegistrationNotifications(userId, activity, true);
+
+        return response;
+    }
+
+    /**
+     * 处理已存在的报名记录（重新报名）
+     *
+     * @param existing 已存在的报名记录
+     * @param activity 活动对象
+     * @param userId 用户ID
+     * @return 报名响应对象
+     */
+    private RegistrationResponse handleExistingRegistration(
+            ActivityRegistration existing, Activity activity, Long userId) {
+        if (!RegistrationStatusConstants.CANCELLED.equals(existing.getStatus())) {
+            log.warn("报名失败 - 用户已报名: userId={}, activityId={}", userId, activity.getId());
+            throw new BusinessException(ResultCode.CONFLICT, "您已报名此活动");
+        }
+
+        existing.setStatus(RegistrationStatusConstants.PENDING);
+        existing.setRegistrationTime(LocalDateTime.now());
+        registrationMapper.updateById(existing);
+
+        RegistrationResponse response = buildRegistrationResponse(existing, activity, userId);
+        sendRegistrationNotifications(userId, activity, false);
+
+        log.info("用户 {} 重新报名活动 {} 成功", userId, activity.getId());
+        return response;
+    }
+
+    /**
+     * 检查活动报名容量
+     *
+     * @param activityId 活动ID
+     * @param maxParticipants 最大参与人数
+     * @throws BusinessException 当名额已满时抛出异常
+     */
+    private void checkActivityCapacity(Long activityId, Integer maxParticipants) {
+        if (maxParticipants != null && maxParticipants > 0) {
+            Long pendingCount = registrationMapper.countByActivityIdAndStatus(
+                    activityId, RegistrationStatusConstants.PENDING);
+            Long confirmedCount = registrationMapper.countByActivityIdAndStatus(
+                    activityId, RegistrationStatusConstants.CONFIRMED);
             Long currentCount = pendingCount + confirmedCount;
-            if (currentCount >= activity.getMaxParticipants()) {
-                log.warn("报名失败 - 活动报名人数已达上限: activityId={}, max={}, current={}, pending={}, confirmed={}",
-                        activityId, activity.getMaxParticipants(), currentCount, pendingCount, confirmedCount);
+
+            if (currentCount >= maxParticipants) {
+                log.warn("报名失败 - 活动报名人数已达上限: activityId={}, max={}, current={}",
+                        activityId, maxParticipants, currentCount);
                 throw new BusinessException(ResultCode.FORBIDDEN, "活动报名人数已达上限");
             }
         }
+    }
 
+    /**
+     * 创建新的报名记录
+     *
+     * @param userId 用户ID
+     * @param activityId 活动ID
+     * @return 新创建的报名记录
+     */
+    private ActivityRegistration createNewRegistration(Long userId, Long activityId) {
         ActivityRegistration registration = new ActivityRegistration();
         registration.setActivityId(activityId);
         registration.setUserId(userId);
         registration.setRegistrationTime(LocalDateTime.now());
-        registration.setStatus(STATUS_PENDING);
-
+        registration.setStatus(RegistrationStatusConstants.PENDING);
         registrationMapper.insert(registration);
-        log.info("用户 {} 报名活动 {} 成功: registrationId={}", userId, activityId, registration.getId());
+        return registration;
+    }
 
+    /**
+     * 构建报名响应对象
+     *
+     * @param registration 报名记录
+     * @param activity 活动对象
+     * @param userId 用户ID
+     * @return 报名响应对象
+     */
+    private RegistrationResponse buildRegistrationResponse(
+            ActivityRegistration registration, Activity activity, Long userId) {
         RegistrationResponse response = RegistrationResponse.fromEntity(registration);
         fillActivityInfo(response, activity);
         User user = userMapper.selectById(userId);
         if (user != null) {
             response.setUserName(user.getRealName());
         }
-
-        // Bug #2 修复：通知报名者
-        notificationService.notifyUser(userId,
-                NotificationService.TYPE_APPROVAL_RESULT,
-                "您已成功报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加");
-
-        // Bug #2 修复：通知活动发布者有新用户报名
-        String publisherMessage = "用户【" + (user != null ? user.getRealName() : "用户" + userId) + "】报名了您的活动《" + activity.getTitle() + "》";
-        notificationService.notifyUser(activity.getPublisherId(),
-                NotificationService.TYPE_SUBSCRIPTION_STATUS,
-                publisherMessage);
-
         return response;
     }
 
-    public RegistrationPageResponse getMyRegistrations(Long userId, Integer page, Integer size) {
-        page = page != null && page > 0 ? page : 1;
-        size = size != null && size > 0 ? size : 10;
-        if (size > MAX_PAGE_SIZE) {
-            size = MAX_PAGE_SIZE;
-        }
+    /**
+     * 发送报名通知
+     *
+     * @param userId 用户ID
+     * @param activity 活动对象
+     * @param isNew 是否为新报名
+     */
+    private void sendRegistrationNotifications(Long userId, Activity activity, boolean isNew) {
+        User user = userMapper.selectById(userId);
+        String userName = user != null ? user.getRealName() : "用户" + userId;
 
-        int offset = (int) ((long) (page - 1) * size);
+        String userMessage = isNew
+                ? "您已成功报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加"
+                : "您已重新报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加";
+        notificationService.notifyUser(userId, NotificationTypeConstants.APPROVAL_RESULT, userMessage);
+
+        String publisherMessage = "用户【" + userName + "】"
+                + (isNew ? "报名了您的活动" : "重新报名了您的活动")
+                + "《" + activity.getTitle() + "》";
+        notificationService.notifyUser(activity.getPublisherId(),
+                NotificationTypeConstants.SUBSCRIPTION_STATUS, publisherMessage);
+    }
+
+    /**
+     * 获取用户的报名列表（分页）
+     *
+     * @param userId 用户ID
+     * @param page 页码
+     * @param size 每页数量
+     * @return 分页报名响应
+     */
+    public RegistrationPageResponse getMyRegistrations(Long userId, Integer page, Integer size) {
+        PageUtils.PageParams params = PageUtils.validateAndNormalize(page, size);
 
         Long total = registrationMapper.countByUserId(userId);
-
-        List<ActivityRegistration> pagedList = registrationMapper.selectByUserIdWithPage(userId, offset, size);
+        List<ActivityRegistration> pagedList = registrationMapper.selectByUserIdWithPage(
+                userId, params.getOffset(), params.getSize());
 
         Set<Long> activityIds = pagedList.stream()
                 .map(ActivityRegistration::getActivityId)
@@ -156,8 +225,19 @@ public class RegistrationService {
                 .map(ActivityRegistration::getUserId)
                 .collect(Collectors.toSet());
 
-        Map<Long, Activity> activityMap = batchGetActivities(activityIds);
-        Map<Long, User> userMap = batchGetUsers(userIds);
+        // 使用 BatchQueryUtils 批量获取活动信息
+        Map<Long, Activity> activityMap = BatchQueryUtils.batchQueryToMap(
+                ids -> activityMapper.selectByIds(ids),
+                activityIds,
+                Activity::getId
+        );
+
+        // 使用 BatchQueryUtils 批量获取用户信息
+        Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
+                ids -> userMapper.selectBatchIds(ids),
+                userIds,
+                User::getId
+        );
 
         List<RegistrationResponse> responses = pagedList.stream()
                 .map(reg -> {
@@ -170,43 +250,44 @@ public class RegistrationService {
                 })
                 .collect(Collectors.toList());
 
-        RegistrationPageResponse pageResponse = new RegistrationPageResponse();
-        pageResponse.setList(responses);
-        pageResponse.setTotal(total);
-        pageResponse.setPage(page);
-        pageResponse.setSize(size);
-        pageResponse.setTotalPages((int) Math.ceil((double) total / size));
-
-        return pageResponse;
+        return buildPageResponse(responses, total, params);
     }
 
-    public RegistrationPageResponse getActivityRegistrations(Long publisherId, Long activityId, Integer page, Integer size) {
+    /**
+     * 获取活动的报名列表（分页）
+     *
+     * @param publisherId 发布者ID
+     * @param activityId 活动ID
+     * @param page 页码
+     * @param size 每页数量
+     * @return 分页报名响应
+     * @throws BusinessException 当活动不存在或无权查看时抛出异常
+     */
+    public RegistrationPageResponse getActivityRegistrations(
+            Long publisherId, Long activityId, Integer page, Integer size) {
         Activity activity = activityMapper.selectById(activityId);
-        if (activity == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
-        }
+        validateNotNull(activity, ResultCode.NOT_FOUND, "活动不存在");
 
         if (!activity.getPublisherId().equals(publisherId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权查看此活动的报名列表");
         }
 
-        page = page != null && page > 0 ? page : 1;
-        size = size != null && size > 0 ? size : 10;
-        if (size > MAX_PAGE_SIZE) {
-            size = MAX_PAGE_SIZE;
-        }
-
-        int offset = (int) ((long) (page - 1) * size);
+        PageUtils.PageParams params = PageUtils.validateAndNormalize(page, size);
 
         Long total = registrationMapper.countByActivityId(activityId);
-
-        List<ActivityRegistration> pagedList = registrationMapper.selectByActivityIdWithPage(activityId, offset, size);
+        List<ActivityRegistration> pagedList = registrationMapper.selectByActivityIdWithPage(
+                activityId, params.getOffset(), params.getSize());
 
         Set<Long> userIds = pagedList.stream()
                 .map(ActivityRegistration::getUserId)
                 .collect(Collectors.toSet());
 
-        Map<Long, User> userMap = batchGetUsers(userIds);
+        // 使用 BatchQueryUtils 批量获取用户信息
+        Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
+                ids -> userMapper.selectBatchIds(ids),
+                userIds,
+                User::getId
+        );
 
         List<RegistrationResponse> responses = pagedList.stream()
                 .map(reg -> {
@@ -217,23 +298,30 @@ public class RegistrationService {
                 })
                 .collect(Collectors.toList());
 
-        RegistrationPageResponse pageResponse = new RegistrationPageResponse();
-        pageResponse.setList(responses);
-        pageResponse.setTotal(total);
-        pageResponse.setPage(page);
-        pageResponse.setSize(size);
-        pageResponse.setTotalPages((int) Math.ceil((double) total / size));
-
-        return pageResponse;
+        return buildPageResponse(responses, total, params);
     }
 
     /**
      * 报名状态更新无验证
      */
-    private static final Set<String> VALID_STATUSES = Set.of("pending", "confirmed", "cancelled");
+    private static final Set<String> VALID_STATUSES = Set.of(
+            RegistrationStatusConstants.PENDING,
+            RegistrationStatusConstants.CONFIRMED,
+            RegistrationStatusConstants.CANCELLED
+    );
 
+    /**
+     * 更新报名状态
+     *
+     * @param publisherId 发布者ID
+     * @param registrationId 报名记录ID
+     * @param newStatus 新状态
+     * @return 报名响应对象
+     * @throws BusinessException 当状态无效、报名不存在或无权操作时抛出异常
+     */
     @Transactional
-    public RegistrationResponse updateRegistrationStatus(Long publisherId, Long registrationId, String newStatus) {
+    public RegistrationResponse updateRegistrationStatus(
+            Long publisherId, Long registrationId, String newStatus) {
         log.info("发布者 {} 更新报名 {} 状态为 {}", publisherId, registrationId, newStatus);
 
         if (!VALID_STATUSES.contains(newStatus)) {
@@ -242,16 +330,10 @@ public class RegistrationService {
         }
 
         ActivityRegistration registration = registrationMapper.selectById(registrationId);
-        if (registration == null) {
-            log.error("更新报名状态失败 - 报名记录不存在: registrationId={}", registrationId);
-            throw new BusinessException(ResultCode.NOT_FOUND, "报名记录不存在");
-        }
+        validateNotNull(registration, ResultCode.NOT_FOUND, "报名记录不存在");
 
         Activity activity = activityMapper.selectById(registration.getActivityId());
-        if (activity == null) {
-            log.error("更新报名状态失败 - 活动不存在: activityId={}", registration.getActivityId());
-            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
-        }
+        validateNotNull(activity, ResultCode.NOT_FOUND, "活动不存在");
 
         if (!activity.getPublisherId().equals(publisherId)) {
             log.warn("更新报名状态失败 - 无权操作: publisherId={}, expectedPublisherId={}",
@@ -265,95 +347,133 @@ public class RegistrationService {
         log.info("发布者 {} 更新报名 {} 状态从 {} 到 {} 成功",
                 publisherId, registrationId, oldStatus, newStatus);
 
-        RegistrationResponse response = RegistrationResponse.fromEntity(registration);
-        fillActivityInfo(response, activity);
-        User user = userMapper.selectById(registration.getUserId());
-        if (user != null) {
-            response.setUserName(user.getRealName());
-        }
-
-        // Bug #3 修复：通知报名者状态已更新
-        String statusMessage = getStatusMessage(newStatus);
-        String notificationMessage = "您报名的活动《" + activity.getTitle() + "》状态已更新为：【" + statusMessage + "】";
-        if ("confirmed".equals(newStatus)) {
-            notificationMessage += "，请准时参加";
-        } else if ("cancelled".equals(newStatus)) {
-            notificationMessage += "，如有疑问请联系活动发布者";
-        }
-        notificationService.notifyUser(registration.getUserId(),
-                NotificationService.TYPE_APPROVAL_RESULT,
-                notificationMessage);
-
-        String publisherMessage = "活动《" + activity.getTitle() + "》的报名状态已更新：用户【" + (user != null ? user.getRealName() : "用户" + registration.getUserId()) + "】的状态已变更为【" + statusMessage + "】";
-        notificationService.notifyUser(publisherId,
-                NotificationService.TYPE_SUBSCRIPTION_STATUS,
-                publisherMessage);
+        RegistrationResponse response = buildRegistrationResponse(registration, activity, registration.getUserId());
+        sendStatusUpdateNotifications(registration.getUserId(), activity, newStatus, publisherId);
 
         return response;
     }
 
     /**
-     * 获取状态对应的中文描述
+     * 发送状态更新通知
+     *
+     * @param userId 用户ID
+     * @param activity 活动对象
+     * @param newStatus 新状态
+     * @param publisherId 发布者ID
      */
-    private String getStatusMessage(String status) {
-        switch (status) {
-            case "pending":
-                return "待确认";
-            case "confirmed":
-                return "已确认";
-            case "cancelled":
-                return "已取消";
-            default:
-                return status;
+    private void sendStatusUpdateNotifications(
+            Long userId, Activity activity, String newStatus, Long publisherId) {
+        User user = userMapper.selectById(userId);
+        String userName = user != null ? user.getRealName() : "用户" + userId;
+
+        String statusMessage = RegistrationStatusConstants.getDescription(newStatus);
+        String userNotification = "您报名的活动《" + activity.getTitle() + "》状态已更新为：【" + statusMessage + "】";
+        if (RegistrationStatusConstants.CONFIRMED.equals(newStatus)) {
+            userNotification += "，请准时参加";
+        } else if (RegistrationStatusConstants.CANCELLED.equals(newStatus)) {
+            userNotification += "，如有疑问请联系活动发布者";
         }
+        notificationService.notifyUser(userId, NotificationTypeConstants.APPROVAL_RESULT, userNotification);
+
+        String publisherNotification = "活动《" + activity.getTitle() + "》的报名状态已更新：用户【" + userName
+                + "】的状态已变更为【" + statusMessage + "】";
+        notificationService.notifyUser(publisherId, NotificationTypeConstants.SUBSCRIPTION_STATUS, publisherNotification);
     }
 
+    /**
+     * 取消报名
+     *
+     * @param userId 用户ID
+     * @param activityId 活动ID
+     * @throws BusinessException 当报名不存在或已取消时抛出异常
+     */
     @Transactional
     public void cancelRegistration(Long userId, Long activityId) {
         log.info("用户 {} 开始取消活动 {} 的报名", userId, activityId);
 
         ActivityRegistration registration = registrationMapper.selectByActivityIdAndUserId(activityId, userId);
-        if (registration == null) {
-            log.error("取消报名失败 - 报名记录不存在: userId={}, activityId={}", userId, activityId);
-            throw new BusinessException(ResultCode.NOT_FOUND, "报名记录不存在");
-        }
+        validateNotNull(registration, ResultCode.NOT_FOUND, "报名记录不存在");
 
-        if (STATUS_CANCELLED.equals(registration.getStatus())) {
+        if (RegistrationStatusConstants.CANCELLED.equals(registration.getStatus())) {
             log.warn("取消报名失败 - 报名已取消: registrationId={}", registration.getId());
             throw new BusinessException(ResultCode.BAD_REQUEST, "该报名已取消");
         }
 
-        registration.setStatus(STATUS_CANCELLED);
+        registration.setStatus(RegistrationStatusConstants.CANCELLED);
         registrationMapper.updateById(registration);
-        log.info("用户 {} 取消活动 {} 的报名成功: registrationId={}", userId, activityId, registration.getId());
+        log.info("用户 {} 取消活动 {} 的报名成功: registrationId={}",
+                userId, activityId, registration.getId());
 
-        // 通知活动发布者有用户取消报名
+        // 记录审计日志（取消报名）
+        User user = userMapper.selectById(userId);
+        String username = user != null ? user.getUsername() : null;
+        Activity activity = activityMapper.selectById(activityId);
+        String activityTitle = activity != null ? activity.getTitle() : "未知活动";
+        auditService.quickRecord(userId, username, AuditOperationConstants.REGISTRATION_CANCEL,
+                AuditResourceTypeConstants.REGISTRATION, registration.getId(), 200, "取消报名: " + activityTitle);
+
+        sendCancellationNotification(userId, activityId);
+    }
+
+    /**
+     * 发送取消报名通知
+     *
+     * @param userId 用户ID
+     * @param activityId 活动ID
+     */
+    private void sendCancellationNotification(Long userId, Long activityId) {
         Activity activity = activityMapper.selectById(activityId);
         User user = userMapper.selectById(userId);
         if (activity != null && user != null) {
             String userName = user.getRealName() != null ? user.getRealName() : "用户" + userId;
             notificationService.notifyUser(activity.getPublisherId(),
-                    NotificationService.TYPE_SUBSCRIPTION_STATUS,
+                    NotificationTypeConstants.SUBSCRIPTION_STATUS,
                     "用户【" + userName + "】取消了活动《" + activity.getTitle() + "》的报名");
         }
     }
 
-    private Map<Long, Activity> batchGetActivities(Set<Long> activityIds) {
-        if (activityIds == null || activityIds.isEmpty()) {
-            return Map.of();
+    /**
+     * 验证活动是否已审核通过
+     *
+     * @param activity 活动对象
+     * @throws BusinessException 当活动未审核通过时抛出异常
+     */
+    private void validateActivityApproved(Activity activity) {
+        if (!ApprovalStatusConstants.APPROVED.equals(activity.getApprovalStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "活动未通过审核");
         }
-        List<Activity> activities = activityMapper.selectByIds(new ArrayList<>(activityIds));
-        return activities.stream().collect(Collectors.toMap(Activity::getId, a -> a, (v1, v2) -> v1));
     }
 
-    private Map<Long, User> batchGetUsers(Set<Long> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            return Map.of();
+    /**
+     * 验证活动是否已发布
+     *
+     * @param activity 活动对象
+     * @throws BusinessException 当活动未发布时抛出异常
+     */
+    private void validateActivityPublished(Activity activity) {
+        if (!ActivityStatusConstants.PUBLISHED.equals(activity.getStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布");
         }
-        List<User> users = userMapper.selectBatchIds(new ArrayList<>(userIds));
-        return users.stream().collect(Collectors.toMap(User::getId, u -> u, (v1, v2) -> v1));
     }
 
+    /**
+     * 验证活动是否未开始
+     *
+     * @param activity 活动对象
+     * @throws BusinessException 当活动已开始时抛出异常
+     */
+    private void validateActivityNotStarted(Activity activity) {
+        if (activity.getStartTime() != null && activity.getStartTime().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "活动已开始或已结束");
+        }
+    }
+
+    /**
+     * 填充活动信息到响应对象
+     *
+     * @param response 报名响应对象
+     * @param activity 活动对象
+     */
     private void fillActivityInfo(RegistrationResponse response, Activity activity) {
         if (activity != null) {
             response.setActivityTitle(activity.getTitle());
@@ -363,9 +483,34 @@ public class RegistrationService {
         }
     }
 
+    /**
+     * 填充用户信息到响应对象
+     *
+     * @param response 报名响应对象
+     * @param userMap 用户映射Map
+     */
     private void fillUserInfo(RegistrationResponse response, Map<Long, User> userMap) {
         if (response.getUserId() != null && userMap.containsKey(response.getUserId())) {
             response.setUserName(userMap.get(response.getUserId()).getRealName());
         }
+    }
+
+    /**
+     * 构建分页响应对象
+     *
+     * @param responses 响应列表
+     * @param total 总记录数
+     * @param params 分页参数
+     * @return 分页响应对象
+     */
+    private RegistrationPageResponse buildPageResponse(
+            List<RegistrationResponse> responses, Long total, PageUtils.PageParams params) {
+        RegistrationPageResponse pageResponse = new RegistrationPageResponse();
+        pageResponse.setList(responses);
+        pageResponse.setTotal(total);
+        pageResponse.setPage(params.getPage());
+        pageResponse.setSize(params.getSize());
+        pageResponse.setTotalPages(PageUtils.calculateTotalPages(total, params.getSize()));
+        return pageResponse;
     }
 }

@@ -6,13 +6,15 @@ import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.service.ActivityService;
 import com.campus.core.common.Result;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -27,7 +29,7 @@ public class ActivityController {
     @ApiOperation("发布活动")
     public Result<ActivityResponse> publishActivity(
             HttpServletRequest request,
-            @Valid @RequestBody ActivityPublishRequest publishRequest) {
+            @Validated({CreateGroup.class}) @RequestBody ActivityPublishRequest publishRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
         String userRole = (String) request.getAttribute("currentUserRole");
         ActivityResponse response = activityService.publishActivity(userId, userRole, publishRequest);
@@ -54,7 +56,7 @@ public class ActivityController {
     public Result<ActivityResponse> updateActivity(
             HttpServletRequest request,
             @PathVariable Long id,
-            @Valid @RequestBody ActivityPublishRequest updateRequest) {
+            @Validated({UpdateGroup.class}) @RequestBody ActivityPublishRequest updateRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
         ActivityResponse response = activityService.updateActivity(id, userId, updateRequest);
         return Result.success(response, "活动更新成功");

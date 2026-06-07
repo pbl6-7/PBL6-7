@@ -7,12 +7,14 @@ import com.campus.activity.service.ActivityTagService;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -34,7 +36,7 @@ public class TagController {
     @ApiOperation("创建标签")
     public Result<TagResponse> createTag(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody TagCreateRequest request) {
+            @Validated({CreateGroup.class}) @RequestBody TagCreateRequest request) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -107,7 +109,7 @@ public class TagController {
     @ApiOperation("为活动设置标签")
     public Result<Void> setActivityTags(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody ActivityTagRequest request) {
+            @Validated({UpdateGroup.class}) @RequestBody ActivityTagRequest request) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }

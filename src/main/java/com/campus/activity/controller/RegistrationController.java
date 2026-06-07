@@ -6,13 +6,15 @@ import com.campus.activity.dto.RegistrationResponse;
 import com.campus.activity.dto.RegistrationStatusUpdateRequest;
 import com.campus.activity.service.RegistrationService;
 import com.campus.core.common.Result;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/registrations")
@@ -26,7 +28,7 @@ public class RegistrationController {
     @ApiOperation("报名活动")
     public Result<RegistrationResponse> registerForActivity(
             HttpServletRequest request,
-            @Valid @RequestBody RegistrationRequest regRequest) {
+            @Validated({CreateGroup.class}) @RequestBody RegistrationRequest regRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
         RegistrationResponse response = registrationService.registerForActivity(userId, regRequest.getActivityId());
         return Result.success(response, "报名成功");
@@ -59,7 +61,7 @@ public class RegistrationController {
     @ApiOperation("更新报名状态（活动发布者）")
     public Result<RegistrationResponse> updateRegistrationStatus(
             HttpServletRequest request,
-            @Valid @RequestBody RegistrationStatusUpdateRequest statusRequest) {
+            @Validated({UpdateGroup.class}) @RequestBody RegistrationStatusUpdateRequest statusRequest) {
         Long publisherId = (Long) request.getAttribute("currentUserId");
         RegistrationResponse response = registrationService.updateRegistrationStatus(
                 publisherId, statusRequest.getRegistrationId(), statusRequest.getStatus());

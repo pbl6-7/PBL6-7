@@ -6,12 +6,14 @@ import com.campus.activity.service.ActivityTypeService;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -33,7 +35,7 @@ public class ActivityTypeController {
     @ApiOperation("创建活动类型")
     public Result<ActivityTypeResponse> createType(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody ActivityTypeCreateRequest request) {
+            @Validated({CreateGroup.class}) @RequestBody ActivityTypeCreateRequest request) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -74,7 +76,7 @@ public class ActivityTypeController {
     public Result<ActivityTypeResponse> updateType(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @PathVariable Long id,
-            @Valid @RequestBody ActivityTypeCreateRequest request) {
+            @Validated({UpdateGroup.class}) @RequestBody ActivityTypeCreateRequest request) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }

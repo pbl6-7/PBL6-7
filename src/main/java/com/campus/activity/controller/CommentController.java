@@ -9,13 +9,14 @@ import com.campus.activity.mapper.CommentMapper;
 import com.campus.activity.service.CommentService;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.validation.group.CreateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -33,7 +34,7 @@ public class CommentController {
     public Result<CommentResponse> publishComment(
             HttpServletRequest request,
             @PathVariable Long activityId,
-            @Valid @RequestBody CommentRequest commentRequest) {
+            @Validated({CreateGroup.class}) @RequestBody CommentRequest commentRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
         CommentResponse response = commentService.publishComment(activityId, userId, commentRequest);
         return Result.success(response, "评论发布成功");

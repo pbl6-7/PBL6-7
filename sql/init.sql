@@ -12,6 +12,34 @@ CREATE TABLE IF NOT EXISTS `user_info` (
     UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS `jwt_key` (
+    `id` BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '主键ID',
+    `key_value` VARCHAR(255) NOT NULL COMMENT '密钥值（Base64编码）',
+    `version` INT NOT NULL COMMENT '密钥版本',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `is_active` BOOLEAN DEFAULT TRUE COMMENT '是否激活',
+    `expire_at` DATETIME COMMENT '过期时间',
+    INDEX `idx_version` (`version`),
+    INDEX `idx_active` (`is_active`),
+    INDEX `idx_expire_at` (`expire_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='JWT密钥管理表';
+
+CREATE TABLE IF NOT EXISTS `login_lock` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '锁定记录ID',
+    `username` VARCHAR(50) NOT NULL COMMENT '用户名',
+    `lock_time` DATETIME NOT NULL COMMENT '锁定时间',
+    `unlock_time` DATETIME COMMENT '解锁时间（预计）',
+    `fail_count` INT DEFAULT 0 COMMENT '失败次数',
+    `lock_reason` VARCHAR(255) COMMENT '锁定原因',
+    `is_locked` BOOLEAN DEFAULT TRUE COMMENT '是否锁定',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    INDEX `idx_username` (`username`),
+    INDEX `idx_locked` (`is_locked`),
+    INDEX `idx_lock_time` (`lock_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='登录锁定记录表';
+
 CREATE TABLE IF NOT EXISTS `activity` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '活动ID',
     `title` VARCHAR(200) NOT NULL COMMENT '活动名称',

@@ -58,32 +58,43 @@
         UPDATE activity SET deleted_at = NOW() WHERE id = #{id}
     </update>
 
+    <!--
+        查询活动列表（带多维度筛选和分页）
+        优化说明：
+        1. WHERE条件顺序优化：优先使用索引列（status, approval_status, publisher_id, type_id）
+        2. 复合索引idx_status_approval可以优化status和approval_status的组合查询
+        3. 使用索引覆盖排序字段（created_at, start_time）
+        4. 对于大数据量，建议使用游标分页（基于lastId）
+    -->
     <select id="selectList" resultMap="BaseResultMap">
         SELECT a.* FROM activity a
         WHERE a.deleted_at IS NULL
-        <if test="publisherId != null">
-            AND a.publisher_id = #{publisherId}
-        </if>
-        <if test="keyword != null and keyword != ''">
-            AND (a.title LIKE CONCAT('%', #{keyword}, '%') OR a.description LIKE CONCAT('%', #{keyword}, '%') OR a.location LIKE CONCAT('%', #{keyword}, '%'))
-        </if>
+        <!-- 优先使用索引列进行筛选 -->
         <if test="status != null and status != ''">
             AND a.status = #{status}
         </if>
         <if test="approvalStatus != null and approvalStatus != ''">
             AND a.approval_status = #{approvalStatus}
         </if>
+        <if test="publisherId != null">
+            AND a.publisher_id = #{publisherId}
+        </if>
         <if test="typeId != null">
             AND a.type_id = #{typeId}
         </if>
-        <if test="location != null and location != ''">
-            AND a.location LIKE CONCAT('%', #{location}, '%')
-        </if>
+        <!-- 时间范围查询使用索引 -->
         <if test="startTimeFrom != null">
             AND a.start_time &gt;= #{startTimeFrom}
         </if>
         <if test="startTimeTo != null">
             AND a.start_time &lt;= #{startTimeTo}
+        </if>
+        <!-- 非索引列筛选 -->
+        <if test="keyword != null and keyword != ''">
+            AND (a.title LIKE CONCAT('%', #{keyword}, '%') OR a.description LIKE CONCAT('%', #{keyword}, '%') OR a.location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="location != null and location != ''">
+            AND a.location LIKE CONCAT('%', #{location}, '%')
         </if>
         ORDER BY
         <choose>
@@ -99,32 +110,39 @@
         LIMIT #{offset}, #{size}
     </select>
 
+    <!--
+        统计活动总数（带多维度筛选条件）
+        优化说明：WHERE条件顺序与selectList保持一致，优先使用索引列
+    -->
     <select id="count" resultType="java.lang.Long">
         SELECT COUNT(a.id) FROM activity a
         WHERE a.deleted_at IS NULL
-        <if test="publisherId != null">
-            AND a.publisher_id = #{publisherId}
-        </if>
-        <if test="keyword != null and keyword != ''">
-            AND (a.title LIKE CONCAT('%', #{keyword}, '%') OR a.description LIKE CONCAT('%', #{keyword}, '%') OR a.location LIKE CONCAT('%', #{keyword}, '%'))
-        </if>
+        <!-- 优先使用索引列进行筛选 -->
         <if test="status != null and status != ''">
             AND a.status = #{status}
         </if>
         <if test="approvalStatus != null and approvalStatus != ''">
             AND a.approval_status = #{approvalStatus}
         </if>
+        <if test="publisherId != null">
+            AND a.publisher_id = #{publisherId}
+        </if>
         <if test="typeId != null">
             AND a.type_id = #{typeId}
         </if>
-        <if test="location != null and location != ''">
-            AND a.location LIKE CONCAT('%', #{location}, '%')
-        </if>
+        <!-- 时间范围查询使用索引 -->
         <if test="startTimeFrom != null">
             AND a.start_time &gt;= #{startTimeFrom}
         </if>
         <if test="startTimeTo != null">
             AND a.start_time &lt;= #{startTimeTo}
+        </if>
+        <!-- 非索引列筛选 -->
+        <if test="keyword != null and keyword != ''">
+            AND (a.title LIKE CONCAT('%', #{keyword}, '%') OR a.description LIKE CONCAT('%', #{keyword}, '%') OR a.location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="location != null and location != ''">
+            AND a.location LIKE CONCAT('%', #{location}, '%')
         </if>
     </select>
 
@@ -173,6 +191,282 @@
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
         LIMIT #{limit}
+    </select>
+
+    <!--
+        批量插入活动
+        优化说明：
+        1. 使用MyBatis的foreach标签实现批量插入
+        2. 单次批量插入建议不超过500条记录
+        3. 批量插入比循环单条插入性能提升显著
+    -->
+    <insert id="batchInsert" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO activity (title, publisher_id, start_time, end_time, location, description, status, approval_status, type_id, max_participants, created_at, updated_at)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.title}, #{item.publisherId}, #{item.startTime}, #{item.endTime}, #{item.location}, #{item.description}, #{item.status}, #{item.approvalStatus}, #{item.typeId}, #{item.maxParticipants}, NOW(), NOW())
+        </foreach>
+    </insert>
+
+    <!--
+        游标分页查询（基于lastId）
+        优化说明：
+        1. 对于大数据量，使用基于ID的分页避免OFFSET性能问题
+        2. WHERE id > lastId LIMIT N 比 OFFSET性能更好
+        3. 适用于无限滚动或大数据量场景
+    -->
+    <select id="selectListByCursor" resultMap="BaseResultMap">
+        SELECT a.* FROM activity a
+        WHERE a.deleted_at IS NULL
+        <if test="lastId != null">
+            AND a.id &lt; #{lastId}
+        </if>
+        <!-- 优先使用索引列进行筛选 -->
+        <if test="status != null and status != ''">
+            AND a.status = #{status}
+        </if>
+        <if test="approvalStatus != null and approvalStatus != ''">
+            AND a.approval_status = #{approvalStatus}
+        </if>
+        <if test="publisherId != null">
+            AND a.publisher_id = #{publisherId}
+        </if>
+        <if test="typeId != null">
+            AND a.type_id = #{typeId}
+        </if>
+        <!-- 时间范围查询使用索引 -->
+        <if test="startTimeFrom != null">
+            AND a.start_time &gt;= #{startTimeFrom}
+        </if>
+        <if test="startTimeTo != null">
+            AND a.start_time &lt;= #{startTimeTo}
+        </if>
+        <!-- 非索引列筛选 -->
+        <if test="keyword != null and keyword != ''">
+            AND (a.title LIKE CONCAT('%', #{keyword}, '%') OR a.description LIKE CONCAT('%', #{keyword}, '%') OR a.location LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="location != null and location != ''">
+            AND a.location LIKE CONCAT('%', #{location}, '%')
+        </if>
+        ORDER BY a.id DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- ==================== 定时任务相关查询 ==================== -->
+
+    <!--
+        查询即将开始的活动（用于活动提醒定时任务）
+        优化说明：
+        1. 使用索引idx_start_time优化时间范围查询
+        2. 只查询已审核通过且已发布的活动
+        3. 避免查询已取消或已结束的活动
+    -->
+    <select id="selectUpcomingActivities" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE deleted_at IS NULL
+        AND status = 'published'
+        AND approval_status = 'approved'
+        AND start_time BETWEEN #{startTimeFrom} AND #{startTimeTo}
+        ORDER BY start_time ASC
+    </select>
+
+    <!--
+        查询已结束的活动（用于状态更新定时任务）
+        优化说明：
+        1. 使用索引idx_end_time优化查询
+        2. 只查询已发布且已审核通过的活动
+        3. 结束时间早于当前时间
+    -->
+    <select id="selectEndedActivities" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE deleted_at IS NULL
+        AND status = 'published'
+        AND approval_status = 'approved'
+        AND end_time &lt; #{currentTime}
+        ORDER BY end_time ASC
+    </select>
+
+    <!--
+        查询待审核且超过指定时间的活动（用于自动取消定时任务）
+        优化说明：
+        1. 使用索引idx_approval_status和idx_created_at优化查询
+        2. 只查询待审核状态的活动
+        3. 创建时间早于指定天数前
+    -->
+    <select id="selectPendingActivitiesOverDays" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE deleted_at IS NULL
+        AND approval_status = 'pending'
+        AND created_at &lt; DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        ORDER BY created_at ASC
+    </select>
+
+    <!--
+        批量更新活动状态
+        优化说明：
+        1. 使用IN语句批量更新，减少数据库交互次数
+        2. 建议单次批量更新不超过100条记录
+    -->
+    <update id="batchUpdateStatus">
+        UPDATE activity
+        SET status = #{status},
+            updated_at = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted_at IS NULL
+    </update>
+
+    <!-- ==================== 统计相关查询 ==================== -->
+
+    <!-- 按活动状态统计数量 -->
+    <select id="countByStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE status = #{status}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 按活动类型统计数量 -->
+    <select id="countByTypeId" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE type_id = #{typeId}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 统计指定时间范围内的活动数量 -->
+    <select id="countByTimeRange" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE created_at BETWEEN #{startTime} AND #{endTime}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 按月统计活动数量 -->
+    <select id="countByMonth" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE YEAR(created_at) = #{year}
+        AND MONTH(created_at) = #{month}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 按周统计活动数量 -->
+    <select id="countByWeek" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE YEAR(created_at) = #{year}
+        AND WEEK(created_at, 1) = #{week}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 查询热门活动（按报名人数排序） -->
+    <select id="selectHotActivitiesByRegistration" resultType="java.util.Map">
+        SELECT 
+            a.id as activityId,
+            a.title,
+            a.status,
+            a.start_time as startTime,
+            a.location,
+            at.name as activityType,
+            COUNT(ar.id) as registrationCount,
+            a.view_count as viewCount
+        FROM activity a
+        LEFT JOIN activity_type at ON a.type_id = at.id
+        LEFT JOIN activity_registration ar ON a.id = ar.activity_id
+        WHERE a.deleted_at IS NULL
+        GROUP BY a.id
+        ORDER BY registrationCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询热门活动（按收藏人数排序） -->
+    <select id="selectHotActivitiesByCollection" resultType="java.util.Map">
+        SELECT 
+            a.id as activityId,
+            a.title,
+            a.status,
+            a.start_time as startTime,
+            a.location,
+            at.name as activityType,
+            COUNT(ac.id) as collectionCount,
+            a.view_count as viewCount
+        FROM activity a
+        LEFT JOIN activity_type at ON a.type_id = at.id
+        LEFT JOIN activity_collect ac ON a.id = ac.activity_id
+        WHERE a.deleted_at IS NULL
+        GROUP BY a.id
+        ORDER BY collectionCount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 统计平均报名人数 -->
+    <select id="selectAverageRegistrations" resultType="java.lang.Double">
+        SELECT AVG(registration_count) FROM (
+            SELECT COUNT(ar.id) as registration_count
+            FROM activity a
+            LEFT JOIN activity_registration ar ON a.id = ar.activity_id
+            WHERE a.deleted_at IS NULL
+            GROUP BY a.id
+        ) as counts
+    </select>
+
+    <!-- 统计平均浏览次数 -->
+    <select id="selectAverageViewCount" resultType="java.lang.Double">
+        SELECT AVG(view_count) FROM activity
+        WHERE deleted_at IS NULL
+    </select>
+
+    <!-- 按活动类型分组统计数量 -->
+    <select id="selectTypeDistribution" resultType="java.util.Map">
+        SELECT 
+            at.name as key,
+            COUNT(a.id) as value
+        FROM activity a
+        LEFT JOIN activity_type at ON a.type_id = at.id
+        WHERE a.deleted_at IS NULL
+        GROUP BY a.type_id, at.name
+    </select>
+
+    <!-- 按活动状态分组统计数量 -->
+    <select id="selectStatusDistribution" resultType="java.util.Map">
+        SELECT 
+            status as key,
+            COUNT(*) as value
+        FROM activity
+        WHERE deleted_at IS NULL
+        GROUP BY status
+    </select>
+
+    <!-- 按审核状态分组统计数量 -->
+    <select id="selectApprovalStatusDistribution" resultType="java.util.Map">
+        SELECT 
+            approval_status as key,
+            COUNT(*) as value
+        FROM activity
+        WHERE deleted_at IS NULL
+        GROUP BY approval_status
+    </select>
+
+    <!-- 按月统计活动创建趋势 -->
+    <select id="selectMonthlyTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as label,
+            COUNT(*) as value
+        FROM activity
+        WHERE deleted_at IS NULL
+        AND DATE_FORMAT(created_at, '%Y-%m') BETWEEN #{startMonth} AND #{endMonth}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY label ASC
+    </select>
+
+    <!-- 按周统计活动创建趋势 -->
+    <select id="selectWeeklyTrend" resultType="java.util.Map">
+        SELECT 
+            CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) as label,
+            COUNT(*) as value
+        FROM activity
+        WHERE deleted_at IS NULL
+        AND CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) BETWEEN #{startWeek} AND #{endWeek}
+        GROUP BY YEAR(created_at), WEEK(created_at, 1)
+        ORDER BY label ASC
     </select>
 
 </mapper>

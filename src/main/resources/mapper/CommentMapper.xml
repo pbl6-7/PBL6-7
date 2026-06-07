@@ -74,4 +74,23 @@
         </foreach>
     </select>
 
+    <!--
+        游标分页查询活动的一级评论列表（基于lastId）
+        优化说明：
+        1. 对于大数据量，使用基于ID的分页避免OFFSET性能问题
+        2. WHERE id < lastId LIMIT N 比 OFFSET性能更好
+        3. 适用于无限滚动或大数据量场景
+        4. 使用idx_activity_id和idx_created_at索引优化查询
+    -->
+    <select id="selectRootCommentsByActivityIdWithCursor" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE activity_id = #{activityId}
+        AND reply_to_id IS NULL
+        <if test="lastId != null">
+            AND id &lt; #{lastId}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{size}
+    </select>
+
 </mapper>

@@ -1,60 +1,115 @@
-spring:
-  application:
-    name: campus-activity-platform
-
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
-
-  datasource:
-    url: jdbc:mysql://localhost:3306/campus_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: As2004125
-    driver-class-name: com.mysql.cj.jdbc.Driver
-
-mybatis:
-  mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.campus.user.entity,com.campus.activity.entity
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-springfox:
-  documentation:
-    swagger-ui:
-      enabled: true
-
 server:
   port: 8080
 
-app:
-  pagination:
-    default-page-size: 10
-    max-page-size: 100
-  comment:
-    max-content-length: 1000
-    max-reply-depth: 10
-  activity:
-    max-title-length: 200
-    max-location-length: 500
-    max-description-length: 5000
-    max-participants: 100000
-  search:
-    default-limit: 10
-    max-limit: 100
-  file-upload:
-    max-file-size: 10485760
-    allowed-extensions:
-      - .jpg
-      - .jpeg
-      - .png
-      - .gif
-      - .pdf
+spring:
+  application:
+    name: campus-activity-platform
+  datasource:
+    url: jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  cache:
+    type: caffeine
 
+# MyBatis配置
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.campus.activity.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+# JWT配置
 jwt:
-  secret: ${JWT_SECRET_KEY:campus-activity-platform-jwt-secret-key-2024}
+  secret: campus-activity-platform-jwt-secret-key-2024-development-only-please-change-in-production
   expiration: 86400000
+  key:
+    # 是否启用密钥管理功能
+    management-enabled: true
+    # 密钥轮换周期（天）
+    rotation-days: 30
+    # 旧密钥保留时间（天）
+    retention-days: 7
+    # 是否启用自动轮换
+    auto-rotation-enabled: true
 
+# 缓存配置
+cache:
+  expireAfterWrite: 30
+  maximumSize: 1000
+  hotActivityExpire: 30
+  userInfoExpire: 60
+  searchSuggestionExpire: 10
+
+# 搜索历史配置
+search:
+  history:
+    # 搜索历史保留天数（默认30天）
+    retention-days: 30
+
+# 文件上传配置
+file:
+  upload:
+    # 文件存储路径（相对于项目根目录）
+    path: uploads
+    # 文件大小限制（字节），默认10MB
+    max-size: 10485760
+    # 允许的文件类型
+    allowed-types: jpg,jpeg,png,gif,pdf
+    # 是否启用文件类型验证
+    type-validation-enabled: true
+
+# Spring文件上传配置
+spring:
+  servlet:
+    multipart:
+      # 单个文件最大大小
+      max-file-size: 10MB
+      # 总上传文件最大大小
+      max-request-size: 50MB
+      # 是否启用文件上传
+      enabled: true
+
+# 日志配置
 logging:
   level:
-    com.campus: debug
+    com.campus.activity: DEBUG
+    com.campus.activity.config.CacheConfig: INFO
+    com.campus.websocket: DEBUG
+
+# WebSocket配置
+websocket:
+  # 是否启用WebSocket
+  enabled: true
+  # 心跳检测间隔（毫秒）
+  heartbeat-interval: 300000
+  # 连接超时时间（毫秒）
+  connection-timeout: 60000
+
+# 定时任务配置
+# 活动提醒配置
+activity:
+  reminder:
+    # 提前提醒时间（小时），默认提前1小时提醒
+    hours-before: 1
+  auto-cancel:
+    # 未审核活动自动取消的天数阈值，默认超过7天未审核的活动将被自动取消
+    days: 7
+
+# 数据清理配置
+cleanup:
+  audit-log:
+    # 审计日志保留天数（默认90天）
+    retention-days: 90
+  search-history:
+    # 搜索历史保留天数（默认30天）
+    retention-days: 30
+  login-lock:
+    # 登录锁定记录保留天数（默认15天）
+    retention-days: 15
+  jwt-key:
+    # JWT密钥保留天数（默认7天）
+    retention-days: 7
+  deleted-file:
+    # 已删除文件信息保留天数（默认30天）
+    retention-days: 30

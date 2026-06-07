@@ -82,4 +82,17 @@ public interface CommentMapper {
      * @return 评论列表
      */
     List<Comment> selectBatchByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 游标分页查询活动的一级评论列表（基于lastId）
+     * @param activityId 活动ID
+     * @param lastId 上一次查询的最后一条记录ID（用于游标分页）
+     * @param size 每页数量
+     * @return 一级评论列表
+     */
+    List<Comment> selectRootCommentsByActivityIdWithCursor(
+            @Param("activityId") Long activityId,
+            @Param("lastId") Long lastId,
+            @Param("size") Integer size
+    );
 }

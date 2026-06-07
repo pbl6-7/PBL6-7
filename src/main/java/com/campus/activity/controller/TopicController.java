@@ -9,12 +9,14 @@ import com.campus.activity.service.ActivityTopicService;
 import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -37,7 +39,7 @@ public class TopicController {
     @ApiOperation("创建话题")
     public Result<TopicResponse> createTopic(
             @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody TopicCreateRequest request) {
+            @Validated({CreateGroup.class}) @RequestBody TopicCreateRequest request) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -83,7 +85,7 @@ public class TopicController {
     public Result<TopicResponse> updateTopic(
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @PathVariable Long id,
-            @Valid @RequestBody TopicUpdateRequest request) {
+            @Validated({UpdateGroup.class}) @RequestBody TopicUpdateRequest request) {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }

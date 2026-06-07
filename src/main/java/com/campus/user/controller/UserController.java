@@ -2,6 +2,8 @@ package com.campus.user.controller;
 
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import com.campus.user.dto.ChangePasswordRequest;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
@@ -11,10 +13,10 @@ import com.campus.user.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -26,7 +28,7 @@ public class UserController {
 
     @PostMapping("/login")
     @ApiOperation("用户登录")
-    public Result<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public Result<LoginResponse> login(@Validated({CreateGroup.class, UpdateGroup.class}) @RequestBody LoginRequest request) {
         LoginResponse response = userService.login(request);
         return Result.success(response);
     }
@@ -44,7 +46,7 @@ public class UserController {
 
     @PostMapping("/register")
     @ApiOperation("用户注册")
-    public Result<Void> register(@Valid @RequestBody User user) {
+    public Result<Void> register(@Validated({CreateGroup.class}) @RequestBody User user) {
         userService.register(user, user.getSecurityQuestionId(), user.getSecurityAnswer());
         return Result.success(null, "注册成功");
     }
@@ -53,7 +55,7 @@ public class UserController {
     @ApiOperation("修改密码")
     public Result<Void> changePassword(
             HttpServletRequest request,
-            @Valid @RequestBody ChangePasswordRequest changeRequest) {
+            @Validated({UpdateGroup.class}) @RequestBody ChangePasswordRequest changeRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
         userService.changePassword(userId, changeRequest.getOldPassword(), changeRequest.getNewPassword());
         return Result.success(null, "密码修改成功");
@@ -83,7 +85,7 @@ public class UserController {
     @ApiOperation("修改个人资料")
     public Result<Void> updateProfile(
             HttpServletRequest request,
-            @Valid @RequestBody UpdateProfileRequest updateRequest) {
+            @Validated({UpdateGroup.class}) @RequestBody UpdateProfileRequest updateRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
         userService.updateProfile(userId, updateRequest.getRealName(), updateRequest.getContact());
         return Result.success(null, "个人资料修改成功");
