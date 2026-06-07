@@ -259,7 +259,7 @@
     <!-- 统计不活跃用户数量 -->
     <select id="countInactiveUsers" resultType="java.lang.Long">
         SELECT COUNT(*) FROM user_info
-        WHERE updated_at < DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        WHERE updated_at &lt; DATE_SUB(NOW(), INTERVAL #{days} DAY)
         AND deleted_at IS NULL
     </select>
 

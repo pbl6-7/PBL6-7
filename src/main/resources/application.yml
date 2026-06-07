@@ -5,12 +5,24 @@ spring:
   application:
     name: campus-activity-platform
   datasource:
-    url: jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
+    url: ${DB_URL:jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:As2004125}
     driver-class-name: com.mysql.cj.jdbc.Driver
   cache:
     type: caffeine
+  mvc:
+    # 解决SpringFox Swagger与Spring Boot 2.6+兼容性问题
+    pathmatch:
+      matching-strategy: ant_path_matcher
+  servlet:
+    multipart:
+      # 单个文件最大大小
+      max-file-size: 10MB
+      # 总上传文件最大大小
+      max-request-size: 50MB
+      # 是否启用文件上传
+      enabled: true
 
 # MyBatis配置
 mybatis:
@@ -21,7 +33,7 @@ mybatis:
 
 # JWT配置
 jwt:
-  secret: campus-activity-platform-jwt-secret-key-2024-development-only-please-change-in-production
+  secret: ${JWT_SECRET_KEY:campus-activity-platform-jwt-secret-key-2024-development-only-please-change-in-production}
   expiration: 86400000
   key:
     # 是否启用密钥管理功能
@@ -58,17 +70,6 @@ file:
     allowed-types: jpg,jpeg,png,gif,pdf
     # 是否启用文件类型验证
     type-validation-enabled: true
-
-# Spring文件上传配置
-spring:
-  servlet:
-    multipart:
-      # 单个文件最大大小
-      max-file-size: 10MB
-      # 总上传文件最大大小
-      max-request-size: 50MB
-      # 是否启用文件上传
-      enabled: true
 
 # 日志配置
 logging:

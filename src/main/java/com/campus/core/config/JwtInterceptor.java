@@ -24,13 +24,6 @@ public class JwtInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        String requestURI = request.getRequestURI();
-        String method = request.getMethod();
-
-        if ("GET".equalsIgnoreCase(method) && requestURI.matches(".*/api/v1/activities/\\d+/comments$")) {
-            return true;
-        }
-
         String authorization = request.getHeader("Authorization");
 
         if (authorization == null || !authorization.startsWith("Bearer ")) {

@@ -74,4 +74,9 @@ public class ActivityPublishRequest {
      */
     @Size(max = 10, message = "活动标签数量不能超过10个", groups = {CreateGroup.class, UpdateGroup.class})
     private List<String> tags;
+
+    /**
+     * 活动图片文件ID列表
+     */
+    private List<Long> imageIds;
 }

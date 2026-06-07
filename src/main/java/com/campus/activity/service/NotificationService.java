@@ -1,5 +1,7 @@
 package com.campus.activity.service;
 
+import com.campus.activity.dto.NotificationPageResponse;
+
 /**
  * 通知服务接口
  * 提供通知发送功能
@@ -41,4 +43,30 @@ public interface NotificationService {
      * @param message 通知消息
      */
     void notifyAllUsers(String notificationType, String message);
+
+    /**
+     * 获取用户通知列表（分页）
+     *
+     * @param userId 用户ID
+     * @param page 页码
+     * @param size 每页数量
+     * @return 通知分页响应
+     */
+    NotificationPageResponse getUserNotifications(Long userId, int page, int size);
+
+    /**
+     * 标记通知为已读
+     *
+     * @param notificationId 通知ID
+     * @param userId 用户ID
+     */
+    void markAsRead(Long notificationId, Long userId);
+
+    /**
+     * 获取用户未读通知数量
+     *
+     * @param userId 用户ID
+     * @return 未读通知数量
+     */
+    int getUnreadCount(Long userId);
 }
