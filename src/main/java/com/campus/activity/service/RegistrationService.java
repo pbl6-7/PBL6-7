@@ -94,11 +94,14 @@ public class RegistrationService {
             return response;
         }
 
+        // 修复问题1：只统计未取消状态的报名记录，避免已取消的报名占用名额
         if (activity.getMaxParticipants() != null && activity.getMaxParticipants() > 0) {
-            Long currentCount = registrationMapper.countByActivityId(activityId);
+            Long pendingCount = registrationMapper.countByActivityIdAndStatus(activityId, STATUS_PENDING);
+            Long confirmedCount = registrationMapper.countByActivityIdAndStatus(activityId, STATUS_CONFIRMED);
+            Long currentCount = pendingCount + confirmedCount;
             if (currentCount >= activity.getMaxParticipants()) {
-                log.warn("报名失败 - 活动报名人数已达上限: activityId={}, max={}, current={}",
-                        activityId, activity.getMaxParticipants(), currentCount);
+                log.warn("报名失败 - 活动报名人数已达上限: activityId={}, max={}, current={}, pending={}, confirmed={}",
+                        activityId, activity.getMaxParticipants(), currentCount, pendingCount, confirmedCount);
                 throw new BusinessException(ResultCode.FORBIDDEN, "活动报名人数已达上限");
             }
         }

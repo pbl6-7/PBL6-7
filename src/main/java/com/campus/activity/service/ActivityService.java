@@ -193,8 +193,9 @@ public class ActivityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
 
+        // 修复问题2：使用OR逻辑，确保活动必须审核通过且已发布才能被访问
         if (!APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus()) 
-                && !STATUS_PUBLISHED.equals(activity.getStatus())) {
+                || !STATUS_PUBLISHED.equals(activity.getStatus())) {
             throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布或未通过审核");
         }
 
