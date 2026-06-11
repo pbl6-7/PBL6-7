@@ -27,11 +27,10 @@ export const changePassword = (data: ChangePasswordRequest) =>
 export const getUserById = (id: number) =>
   apiClient.get<ApiResponse<User>>(`/v1/users/${id}`);
 
-/** 上传头像 */
-export const uploadAvatar = (userId: number, file: File) => {
+/** 上传头像（userId从JWT获取，无需前端传递） */
+export const uploadAvatar = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('userId', userId.toString());
   return apiClient.post<ApiResponse<any>>('/v1/users/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
@@ -40,6 +39,10 @@ export const uploadAvatar = (userId: number, file: File) => {
 /** 获取密保问题列表 */
 export const getSecurityQuestions = () =>
   apiClient.get<ApiResponse<SecurityQuestion[]>>('/v1/users/security/questions');
+
+/** 获取当前用户的密保问题 */
+export const getUserSecurityQuestion = (userId: number) =>
+  apiClient.get<ApiResponse<SecurityQuestion>>(`/v1/users/security/user/${userId}`);
 
 /** 根据用户名获取密保问题 */
 export const getSecurityQuestionByUsername = (username: string) =>

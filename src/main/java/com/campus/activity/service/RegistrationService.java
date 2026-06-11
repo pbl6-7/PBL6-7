@@ -433,6 +433,28 @@ public class RegistrationService extends BaseService {
     }
 
     /**
+     * 获取指定活动的所有有效报名用户ID列表
+     * 仅返回 pending 和 confirmed 状态的报名，已取消的不包含
+     * 
+     * @param activityId 活动ID
+     * @return 有效报名用户ID列表
+     */
+    public List<Long> getRegisteredUserIds(Long activityId) {
+        // 查询 pending 状态的报名
+        List<ActivityRegistration> pendingRegs = registrationMapper.selectByActivityIdAndStatus(
+                activityId, RegistrationStatusConstants.PENDING);
+        // 查询 confirmed 状态的报名
+        List<ActivityRegistration> confirmedRegs = registrationMapper.selectByActivityIdAndStatus(
+                activityId, RegistrationStatusConstants.CONFIRMED);
+
+        return java.util.stream.Stream.concat(
+                pendingRegs.stream(), confirmedRegs.stream())
+                .map(ActivityRegistration::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 验证活动是否已审核通过
      *
      * @param activity 活动对象

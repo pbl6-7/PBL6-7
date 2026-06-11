@@ -10,6 +10,13 @@ import com.campus.activity.mapper.ActivityImageMapper;
 import com.campus.activity.mapper.ActivityMapper;
 import com.campus.core.constants.ActivityStatusConstants;
 import com.campus.core.constants.ApprovalStatusConstants;
+import com.campus.core.constants.AuditOperationConstants;
+import com.campus.core.constants.AuditResourceTypeConstants;
+import com.campus.core.common.BusinessException;
+import com.campus.core.common.ResultCode;
+import com.campus.core.common.SensitiveWordFilter;
+import com.campus.core.service.AuditService;
+import com.campus.activity.service.NotificationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,6 +34,8 @@ import java.util.stream.Collectors;
  * - 热门活动缓存
  * - 活动详情缓存
  * - 缓存自动失效
+ * - 敏感词验证
+ * - 审计日志记录
  */
 @Slf4j
 @Service
@@ -40,6 +49,15 @@ public class ActivityService {
 
     @Autowired
     private ActivityImageMapper activityImageMapper;
+
+    @Autowired
+    private SensitiveWordFilter sensitiveWordFilter;
+
+    @Autowired
+    private AuditService auditService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * 获取热门活动列表（带缓存）
@@ -99,7 +117,7 @@ public class ActivityService {
 
         activityMapper.insert(activity);
 
-        cacheService.evictHotActivity("hotActivity:list:*");
+        cacheService.clearHotActivityCache();
         log.info("已清除热门活动列表缓存");
 
         return activity;
@@ -116,6 +134,11 @@ public class ActivityService {
     @Transactional
     public ActivityResponse publishActivity(Long userId, String userRole, ActivityPublishRequest publishRequest) {
         log.info("用户 {} 发布活动：{}", userId, publishRequest.getTitle());
+
+        // 敏感词验证
+        validateSensitiveWords(publishRequest.getTitle(), "活动标题");
+        validateSensitiveWords(publishRequest.getDescription(), "活动描述");
+        validateSensitiveWords(publishRequest.getLocation(), "活动地点");
 
         Activity activity = new Activity();
         activity.setTitle(publishRequest.getTitle());
@@ -146,7 +169,26 @@ public class ActivityService {
             }
         }
 
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_PUBLISH,
+                AuditResourceTypeConstants.ACTIVITY, activity.getId(), 200, "发布活动: " + activity.getTitle());
+
+        // 清除缓存
+        cacheService.clearHotActivityCache();
+
         return ActivityResponse.fromEntity(activity);
+    }
+
+    /**
+     * 验证敏感词
+     * 
+     * @param content 待验证内容
+     * @param fieldName 字段名称（用于错误消息）
+     */
+    private void validateSensitiveWords(String content, String fieldName) {
+        if (content != null && !content.isEmpty() && sensitiveWordFilter.containsSensitiveWord(content)) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, fieldName + "包含敏感词，请修改后重试");
+        }
     }
 
     /**
@@ -161,9 +203,19 @@ public class ActivityService {
     public ActivityResponse updateActivity(Long id, Long userId, ActivityPublishRequest updateRequest) {
         log.info("用户 {} 更新活动：id={}", userId, id);
 
+        // 敏感词验证
+        validateSensitiveWords(updateRequest.getTitle(), "活动标题");
+        validateSensitiveWords(updateRequest.getDescription(), "活动描述");
+        validateSensitiveWords(updateRequest.getLocation(), "活动地点");
+
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
-            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.NOT_FOUND, "活动不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
+        }
+
+        // 权限检查：只有活动发布者可以修改活动
+        if (!activity.getPublisherId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权修改此活动");
         }
 
         activity.setTitle(updateRequest.getTitle());
@@ -196,10 +248,14 @@ public class ActivityService {
             }
         }
 
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_UPDATE,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "更新活动: " + activity.getTitle());
+
         // 清除活动详情缓存
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
-        cacheService.evictHotActivity("hotActivity:list:*");
+        cacheService.clearHotActivityCache();
 
         return ActivityResponse.fromEntity(activity);
     }
@@ -215,14 +271,25 @@ public class ActivityService {
         log.info("用户 {} 删除活动：id={}", userId, id);
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
-            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.NOT_FOUND, "活动不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
+        
+        // 权限检查：只有活动发布者可以删除活动
+        if (!activity.getPublisherId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此活动");
+        }
+        
+        String activityTitle = activity.getTitle();
         activityMapper.deleteById(id);
+
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_DELETE,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "删除活动: " + activityTitle);
 
         // 清除活动详情缓存
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
-        cacheService.evictHotActivity("hotActivity:list:*");
+        cacheService.clearHotActivityCache();
     }
 
     /**
@@ -245,7 +312,7 @@ public class ActivityService {
 
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
-        cacheService.evictHotActivity("hotActivity:list:*");
+        cacheService.clearHotActivityCache();
     }
 
     /**
@@ -331,23 +398,32 @@ public class ActivityService {
      * 审核通过活动
      *
      * @param id 活动ID
+     * @param adminId 管理员ID
      * @return 活动响应DTO
      */
     @Transactional
-    public ActivityResponse approveActivity(Long id) {
-        log.info("审核通过活动：id={}", id);
+    public ActivityResponse approveActivity(Long id, Long adminId) {
+        log.info("审核通过活动：id={}, adminId={}", id, adminId);
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
-            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.NOT_FOUND, "活动不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
         activity.setApprovalStatus(ApprovalStatusConstants.APPROVED);
         activity.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
 
+        // 记录审计日志
+        auditService.quickRecord(adminId, null, AuditOperationConstants.ACTIVITY_APPROVE,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "审核通过活动: " + activity.getTitle());
+
+        // 发送通知给活动发布者
+        notificationService.notifyUser(activity.getPublisherId(), "activity_approved", 
+                "活动审核通过", "您的活动「" + activity.getTitle() + "」已审核通过，可以开始报名了！");
+
         // 清除活动详情缓存
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
-        cacheService.evictHotActivity("hotActivity:list:*");
+        cacheService.clearHotActivityCache();
 
         return ActivityResponse.fromEntity(activity);
     }
@@ -357,23 +433,32 @@ public class ActivityService {
      *
      * @param id 活动ID
      * @param reason 拒绝原因
+     * @param adminId 管理员ID
      * @return 活动响应DTO
      */
     @Transactional
-    public ActivityResponse rejectActivity(Long id, String reason) {
-        log.info("审核拒绝活动：id={}, reason={}", id, reason);
+    public ActivityResponse rejectActivity(Long id, String reason, Long adminId) {
+        log.info("审核拒绝活动：id={}, reason={}, adminId={}", id, reason, adminId);
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
-            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.NOT_FOUND, "活动不存在");
+            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
         activity.setApprovalStatus(ApprovalStatusConstants.REJECTED);
         activity.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
 
+        // 记录审计日志
+        auditService.quickRecord(adminId, null, AuditOperationConstants.ACTIVITY_REJECT,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "审核拒绝活动: " + activity.getTitle() + ", 原因: " + reason);
+
+        // 发送通知给活动发布者
+        notificationService.notifyUser(activity.getPublisherId(), "activity_rejected",
+                "活动审核拒绝", "您的活动「" + activity.getTitle() + "」审核被拒绝。原因：" + reason);
+
         // 清除活动详情缓存
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
-        cacheService.evictHotActivity("hotActivity:list:*");
+        cacheService.clearHotActivityCache();
 
         return ActivityResponse.fromEntity(activity);
     }

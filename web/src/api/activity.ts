@@ -62,16 +62,15 @@ export const getMySharedActivities = () =>
 export const getActivityImages = (activityId: number) =>
   apiClient.get<ApiResponse<any[]>>(`/v1/activities/${activityId}/images`);
 
-/** 上传活动图片 */
-export const uploadActivityImages = (activityId: number, files: File[], userId: number) => {
+/** 上传活动图片（userId从JWT获取，无需前端传递） */
+export const uploadActivityImages = (activityId: number, files: File[]) => {
   const formData = new FormData();
   files.forEach(file => formData.append('files', file));
-  formData.append('userId', userId.toString());
   return apiClient.post<ApiResponse<any[]>>(`/v1/activities/${activityId}/images`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
 
-/** 删除活动图片 */
-export const deleteActivityImage = (activityId: number, imageId: number, userId: number) =>
-  apiClient.delete<ApiResponse<void>>(`/v1/activities/${activityId}/images/${imageId}`, { params: { userId } });
+/** 删除活动图片（userId从JWT获取，无需前端传递） */
+export const deleteActivityImage = (activityId: number, imageId: number) =>
+  apiClient.delete<ApiResponse<void>>(`/v1/activities/${activityId}/images/${imageId}`);

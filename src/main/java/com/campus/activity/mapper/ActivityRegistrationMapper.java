@@ -49,6 +49,8 @@ public interface ActivityRegistrationMapper {
 
     Long countByUserId(@Param("userId") Long userId);
 
+    Long countByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+
     Long countAll();
 
     Long countRecentRegistrations(@Param("days") Integer days);

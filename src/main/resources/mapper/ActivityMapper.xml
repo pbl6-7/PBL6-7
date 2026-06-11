@@ -14,14 +14,15 @@
         <result column="approval_status" property="approvalStatus"/>
         <result column="type_id" property="typeId"/>
         <result column="max_participants" property="maxParticipants"/>
+        <result column="view_count" property="viewCount"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
         <result column="deleted_at" property="deletedAt"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO activity (title, publisher_id, start_time, end_time, location, description, status, approval_status, type_id, max_participants, created_at, updated_at)
-        VALUES (#{title}, #{publisherId}, #{startTime}, #{endTime}, #{location}, #{description}, #{status}, #{approvalStatus}, #{typeId}, #{maxParticipants}, NOW(), NOW())
+        INSERT INTO activity (title, publisher_id, start_time, end_time, location, description, status, approval_status, type_id, max_participants, view_count, created_at, updated_at)
+        VALUES (#{title}, #{publisherId}, #{startTime}, #{endTime}, #{location}, #{description}, #{status}, #{approvalStatus}, #{typeId}, #{maxParticipants}, 0, NOW(), NOW())
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">

@@ -90,6 +90,12 @@ public interface UserMapper {
     int updateUserRole(@Param("id") Long id, @Param("role") String role);
 
     /**
+     * 查询所有用户ID列表
+     * @return 用户ID列表
+     */
+    List<Long> selectAllIds();
+
+    /**
      * 统计所有用户数量
      * @return 用户总数
      */
@@ -217,6 +223,13 @@ public interface UserMapper {
      * @return 活跃用户数量
      */
     Long countActiveUsers(@Param("days") Integer days);
+
+    /**
+     * 统计最近注册的用户数量
+     * @param days 最近多少天内注册
+     * @return 用户数量
+     */
+    Long countRecentUsers(@Param("days") Integer days);
 
     /**
      * 统计不活跃用户数量

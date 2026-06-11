@@ -120,7 +120,7 @@ public class UserService {
         user.setStatus(UserStatusConstants.ENABLED); // 设置默认状态为启用
         userMapper.insert(user);
 
-        userSecurityService.setSecurity(user.getId(), securityQuestionId, securityAnswer);
+        userSecurityService.setSecurityOnRegister(user.getId(), securityQuestionId, securityAnswer);
 
         // 记录审计日志（注册成功）
         auditService.quickRecord(user.getId(), user.getUsername(), AuditOperationConstants.REGISTER,

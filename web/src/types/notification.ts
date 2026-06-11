@@ -2,7 +2,8 @@
 export interface Notification {
   id: number;
   activityId: number;
-  activityTitle: string;
+  /** 通知标题 */
+  title: string;
   type: string;
   content: string;
   isRead: boolean;

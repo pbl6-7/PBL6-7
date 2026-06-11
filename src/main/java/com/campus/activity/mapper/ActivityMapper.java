@@ -128,13 +128,6 @@ public interface ActivityMapper {
     Long countAll();
 
     /**
-     * 查询最近的注册用户数
-     * @param days 天数
-     * @return 用户数
-     */
-    Long countRecentUsers(@Param("days") Integer days);
-
-    /**
      * 统计指定天数后创建的活动数
      * @param days 天数
      * @return 活动数

@@ -50,14 +50,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/api/v1/users/login",
                         "/api/v1/users/register",
+                        // 密保公开接口（无需登录）
                         "/api/v1/users/security/questions",
                         "/api/v1/users/security/username/**",
                         "/api/v1/users/security/verify",
                         "/api/v1/users/security/reset-password",
-                        "/api/v1/users/security/set",
+                        // 注意：/api/v1/users/security/set 需要登录验证，不排除
                         "/api/v1/users/security/user/**",
                         "/api/v1/users/{id:[\\d]+}",
-                        "/api/v1/activities/{id:[\\d]+}"
+                        "/api/v1/activities/{id:[\\d]+}",
+                        // 搜索公开端点 - 无需登录即可访问
+                        "/api/v1/search/suggestions",
+                        "/api/v1/search/autocomplete",
+                        "/api/v1/search/hot"
                 )
                 .order(1);
 
@@ -70,11 +75,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/v1/users/security/**",
                         "/api/v1/users/{id:[\\d]+}",
                         "/api/v1/activities/{id:[\\d]+}",
-                        "/api/v1/activities",
                         "/api/v1/activities/search",
                         "/api/v1/activities/types",
                         "/api/v1/activities/tags",
-                        "/api/v1/comments"  // 评论查看不需要权限验证
+                        // 搜索公开端点 - 无需权限验证
+                        "/api/v1/search/suggestions",
+                        "/api/v1/search/autocomplete",
+                        "/api/v1/search/hot",
+                        "/api/v1/search/history"  // 用户搜索历史需要登录但不需要特殊权限
+                        // 注意：评论接口不排除，DELETE /api/v1/comments/{id} 需要权限验证
                 )
                 .order(2);
     }

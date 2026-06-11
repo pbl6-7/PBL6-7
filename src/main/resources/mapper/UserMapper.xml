@@ -49,6 +49,7 @@
             <if test="password != null">password = #{password},</if>
             <if test="realName != null">real_name = #{realName},</if>
             <if test="role != null">role = #{role},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
             <if test="contact != null">contact = #{contact},</if>
             updated_at = NOW()
         </set>
@@ -63,6 +64,11 @@
         SELECT * FROM user_info
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
+    </select>
+
+    <select id="selectAllIds" resultType="java.lang.Long">
+        SELECT id FROM user_info
+        WHERE deleted_at IS NULL
     </select>
 
     <select id="selectUsersByRole" resultMap="BaseResultMap">
@@ -253,6 +259,13 @@
     <select id="countActiveUsers" resultType="java.lang.Long">
         SELECT COUNT(*) FROM user_info
         WHERE updated_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 统计最近注册的用户数量 -->
+    <select id="countRecentUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
         AND deleted_at IS NULL
     </select>
 

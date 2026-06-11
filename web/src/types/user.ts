@@ -100,22 +100,18 @@ export interface SetSecurityRequest {
   password: string;
 }
 
-/** 验证密保请求接口 */
+/** 验证密保请求接口（后端根据用户名查找密保问题，无需传securityQuestionId） */
 export interface VerifySecurityRequest {
   /** 用户名 */
   username: string;
-  /** 密保问题ID */
-  securityQuestionId: number;
   /** 密保答案 */
   securityAnswer: string;
 }
 
-/** 重置密码请求接口 */
+/** 重置密码请求接口（后端根据用户名查找密保问题，无需传securityQuestionId） */
 export interface ResetPasswordRequest {
   /** 用户名 */
   username: string;
-  /** 密保问题ID */
-  securityQuestionId: number;
   /** 密保答案 */
   securityAnswer: string;
   /** 新密码 */

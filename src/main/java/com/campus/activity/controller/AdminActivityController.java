@@ -44,7 +44,8 @@ public class AdminActivityController {
     public Result<ActivityResponse> approveActivity(
             HttpServletRequest request,
             @PathVariable Long id) {
-        ActivityResponse activity = activityService.approveActivity(id);
+        Long adminId = (Long) request.getAttribute("currentUserId");
+        ActivityResponse activity = activityService.approveActivity(id, adminId);
         return Result.success(activity, "活动审核通过");
     }
 
@@ -54,7 +55,8 @@ public class AdminActivityController {
             HttpServletRequest request,
             @PathVariable Long id,
             @RequestBody ActivityApprovalRequest approvalRequest) {
-        ActivityResponse activity = activityService.rejectActivity(id, approvalRequest.getReason());
+        Long adminId = (Long) request.getAttribute("currentUserId");
+        ActivityResponse activity = activityService.rejectActivity(id, approvalRequest.getReason(), adminId);
         return Result.success(activity, "活动审核未通过");
     }
 

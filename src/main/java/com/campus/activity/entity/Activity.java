@@ -71,6 +71,11 @@ public class Activity {
     private Integer maxParticipants;
     
     /**
+     * 浏览次数
+     */
+    private Integer viewCount;
+    
+    /**
      * 创建时间
      */
     private LocalDateTime createdAt;

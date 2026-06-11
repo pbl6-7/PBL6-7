@@ -92,6 +92,11 @@
         WHERE user_id = #{userId}
     </select>
 
+    <select id="countByUserIdAndStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE user_id = #{userId} AND status = #{status}
+    </select>
+
     <select id="countAll" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity_registration
     </select>

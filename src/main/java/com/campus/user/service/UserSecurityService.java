@@ -66,14 +66,46 @@ public class UserSecurityService {
     }
 
     /**
+     * 设置或修改密保（需验证当前密码）
+     * @param userId 用户ID
+     * @param password 当前登录密码
+     * @param securityQuestionId 密保问题ID
+     * @param securityAnswer 密保答案
+     */
+    public void setSecurity(Long userId, String password, Integer securityQuestionId, String securityAnswer) {
+        if (userId == null || securityQuestionId == null || securityAnswer == null || password == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "参数不能为空");
+        }
+
+        // 验证当前密码
+        var user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new BusinessException(ResultCode.PASSWORD_ERROR, "密码错误");
+        }
+
+        doSetSecurity(userId, securityQuestionId, securityAnswer);
+    }
+
+    /**
+     * 注册时设置密保（无需验证密码，仅限注册流程内部调用）
      * @param userId 用户ID
      * @param securityQuestionId 密保问题ID
      * @param securityAnswer 密保答案
      */
-    public void setSecurity(Long userId, Integer securityQuestionId, String securityAnswer) {
+    public void setSecurityOnRegister(Long userId, Integer securityQuestionId, String securityAnswer) {
         if (userId == null || securityQuestionId == null || securityAnswer == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "参数不能为空");
         }
+        doSetSecurity(userId, securityQuestionId, securityAnswer);
+    }
+
+    /**
+     * 实际执行密保设置
+     */
+    private void doSetSecurity(Long userId, Integer securityQuestionId, String securityAnswer) {
         if (securityQuestionId < 1 || securityQuestionId > 8) {
             throw new BusinessException(ResultCode.SECURITY_QUESTION_INVALID);
         }
