@@ -1,26 +1,77 @@
-import request from '@/utils/request'
-import type { Activity, ActivityPublishRequest, ActivityQueryRequest, PageResponse } from '@/types/activity'
+import apiClient from './client';
+import type { Activity, ActivityPublishRequest, ActivityQueryRequest, ActivityPageResponse, ActivityApprovalRequest, ActivityApprovalStatistics } from '@/types/activity';
+import type { ApiResponse } from '@/types/common';
 
-export const publishActivity = (data: ActivityPublishRequest) => {
-  return request.post<any, { data: Activity }>('/activities', data)
-}
+/** 发布活动 */
+export const publishActivity = (data: ActivityPublishRequest) =>
+  apiClient.post<ApiResponse<Activity>>('/v1/activities', data);
 
-export const getActivityDetail = (id: number) => {
-  return request.get<any, { data: Activity }>(`/activities/${id}`)
-}
+/** 获取活动详情 */
+export const getActivityById = (id: number) =>
+  apiClient.get<ApiResponse<Activity>>(`/v1/activities/${id}`);
 
-export const getMyActivities = () => {
-  return request.get<any, { data: Activity[] }>('/activities/my')
-}
+/** 获取我发布的活动 */
+export const getMyActivities = () =>
+  apiClient.get<ApiResponse<Activity[]>>('/v1/activities/my');
 
-export const updateActivity = (id: number, data: ActivityPublishRequest) => {
-  return request.put<any, { data: Activity }>(`/activities/${id}`, data)
-}
+/** 编辑活动 */
+export const updateActivity = (id: number, data: ActivityPublishRequest) =>
+  apiClient.put<ApiResponse<Activity>>(`/v1/activities/${id}`, data);
 
-export const deleteActivity = (id: number) => {
-  return request.delete<any, { data: null }>(`/activities/${id}`)
-}
+/** 删除活动 */
+export const deleteActivity = (id: number) =>
+  apiClient.delete<ApiResponse<void>>(`/v1/activities/${id}`);
 
-export const getActivityList = (params: ActivityQueryRequest) => {
-  return request.get<any, { data: PageResponse<Activity> }>('/activities/list', { params })
-}
+/** 获取活动列表（带筛选分页） */
+export const getActivityList = (params: ActivityQueryRequest) =>
+  apiClient.get<ApiResponse<ActivityPageResponse>>('/v1/activities/list', { params });
+
+/** 发布活动（状态变更） */
+export const publishActivityStatus = (id: number) =>
+  apiClient.post<ApiResponse<any>>(`/v1/activities/${id}/publish`);
+
+/** 取消活动 */
+export const cancelActivity = (id: number, reason?: string) =>
+  apiClient.post<ApiResponse<any>>(`/v1/activities/${id}/cancel`, null, { params: { reason } });
+
+/** 结束活动 */
+export const endActivity = (id: number, reason?: string) =>
+  apiClient.post<ApiResponse<any>>(`/v1/activities/${id}/end`, null, { params: { reason } });
+
+/** 更新活动状态 */
+export const updateActivityStatus = (id: number, newStatus: string, reason?: string) =>
+  apiClient.put<ApiResponse<any>>(`/v1/activities/${id}/status`, null, { params: { newStatus, reason } });
+
+/** 获取活动状态信息 */
+export const getActivityStatus = (id: number) =>
+  apiClient.get<ApiResponse<any>>(`/v1/activities/${id}/status`);
+
+/** 分享活动 */
+export const shareActivity = (id: number, shareChannel?: string) =>
+  apiClient.post<ApiResponse<any>>(`/v1/activities/${id}/share`, null, { params: { shareChannel } });
+
+/** 获取活动分享统计 */
+export const getShareCount = (id: number) =>
+  apiClient.get<ApiResponse<any>>(`/v1/activities/${id}/share-count`);
+
+/** 获取我分享的活动 */
+export const getMySharedActivities = () =>
+  apiClient.get<ApiResponse<any[]>>('/v1/activities/my/shared');
+
+/** 获取活动图片 */
+export const getActivityImages = (activityId: number) =>
+  apiClient.get<ApiResponse<any[]>>(`/v1/activities/${activityId}/images`);
+
+/** 上传活动图片 */
+export const uploadActivityImages = (activityId: number, files: File[], userId: number) => {
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+  formData.append('userId', userId.toString());
+  return apiClient.post<ApiResponse<any[]>>(`/v1/activities/${activityId}/images`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+
+/** 删除活动图片 */
+export const deleteActivityImage = (activityId: number, imageId: number, userId: number) =>
+  apiClient.delete<ApiResponse<void>>(`/v1/activities/${activityId}/images/${imageId}`, { params: { userId } });

@@ -1,16 +1,15 @@
-import request from '@/utils/request'
-import type { Comment, CommentRequest } from '@/types/comment'
+import apiClient from './client';
+import type { CommentRequest, CommentResponse } from '@/types/comment';
+import type { ApiResponse } from '@/types/common';
 
-export const publishComment = (activityId: number, data: CommentRequest) => {
-  return request.post<any, { data: Comment }>(`/activities/${activityId}/comments`, data)
-}
+/** 发布评论 */
+export const publishComment = (activityId: number, data: CommentRequest) =>
+  apiClient.post<ApiResponse<CommentResponse>>(`/v1/activities/${activityId}/comments`, data);
 
-export const getCommentList = (activityId: number, page = 1, size = 20) => {
-  return request.get<any, { data: Comment[] }>(`/activities/${activityId}/comments`, {
-    params: { page, size }
-  })
-}
+/** 获取评论列表 */
+export const getComments = (activityId: number, page?: number, size?: number) =>
+  apiClient.get<ApiResponse<CommentResponse[]>>(`/v1/activities/${activityId}/comments`, { params: { page, size } });
 
-export const deleteComment = (commentId: number) => {
-  return request.delete<any, { data: null }>(`/comments/${commentId}`)
-}
+/** 删除评论 */
+export const deleteComment = (commentId: number) =>
+  apiClient.delete<ApiResponse<void>>(`/v1/comments/${commentId}`);

@@ -1,17 +1,18 @@
-import request from '@/utils/request'
+import apiClient from './client';
+import type { ApiResponse } from '@/types/common';
 
-export const collectActivity = (activityId: number) => {
-  return request.post<any, { data: { activityId: number; collected: boolean } }>(`/activity-collect/${activityId}`)
-}
+/** 收藏活动 */
+export const collectActivity = (activityId: number) =>
+  apiClient.post<ApiResponse<{ activityId: number; collected: boolean }>>(`/v1/activity-collect/${activityId}`);
 
-export const cancelCollect = (activityId: number) => {
-  return request.delete<any, { data: { activityId: number; collected: boolean } }>(`/activity-collect/${activityId}`)
-}
+/** 取消收藏 */
+export const uncollectActivity = (activityId: number) =>
+  apiClient.delete<ApiResponse<{ activityId: number; collected: boolean }>>(`/v1/activity-collect/${activityId}`);
 
-export const getMyCollections = () => {
-  return request.get<any, { data: any[] }>('/activity-collect/my')
-}
+/** 获取我的收藏列表 */
+export const getMyCollects = () =>
+  apiClient.get<ApiResponse<any[]>>('/v1/activity-collect/my');
 
-export const checkCollectStatus = (activityId: number) => {
-  return request.get<any, { data: { collected: boolean; collectCount: number } }>(`/activity-collect/${activityId}/status`)
-}
+/** 检查收藏状态 */
+export const checkCollectStatus = (activityId: number) =>
+  apiClient.get<ApiResponse<{ collected: boolean; collectCount: number }>>(`/v1/activity-collect/${activityId}/status`);

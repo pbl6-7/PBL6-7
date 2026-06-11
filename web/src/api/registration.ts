@@ -1,26 +1,23 @@
-import request from '@/utils/request'
-import type { Registration, RegistrationRequest, RegistrationStatusUpdateRequest, RegistrationPageResponse } from '@/types/registration'
+import apiClient from './client';
+import type { RegistrationRequest, RegistrationResponse, RegistrationStatusUpdateRequest, RegistrationPageResponse } from '@/types/registration';
+import type { ApiResponse } from '@/types/common';
 
-export const registerActivity = (data: RegistrationRequest) => {
-  return request.post<any, { data: Registration }>('/registrations', data)
-}
+/** 报名活动 */
+export const registerForActivity = (data: RegistrationRequest) =>
+  apiClient.post<ApiResponse<RegistrationResponse>>('/v1/registrations', data);
 
-export const getMyRegistrations = (page = 1, size = 10) => {
-  return request.get<any, { data: RegistrationPageResponse }>('/registrations/my', {
-    params: { page, size }
-  })
-}
+/** 获取我的报名记录 */
+export const getMyRegistrations = (page = 1, size = 10) =>
+  apiClient.get<ApiResponse<RegistrationPageResponse>>('/v1/registrations/my', { params: { page, size } });
 
-export const getActivityRegistrations = (activityId: number, page = 1, size = 10) => {
-  return request.get<any, { data: RegistrationPageResponse }>(`/registrations/activity/${activityId}`, {
-    params: { page, size }
-  })
-}
+/** 获取活动报名列表 */
+export const getActivityRegistrations = (activityId: number, page = 1, size = 10) =>
+  apiClient.get<ApiResponse<RegistrationPageResponse>>(`/v1/registrations/activity/${activityId}`, { params: { page, size } });
 
-export const updateRegistrationStatus = (data: RegistrationStatusUpdateRequest) => {
-  return request.put<any, { data: Registration }>('/registrations/status', data)
-}
+/** 更新报名状态 */
+export const updateRegistrationStatus = (data: RegistrationStatusUpdateRequest) =>
+  apiClient.put<ApiResponse<RegistrationResponse>>('/v1/registrations/status', data);
 
-export const cancelRegistration = (activityId: number) => {
-  return request.delete<any, { data: null }>(`/registrations/activity/${activityId}`)
-}
+/** 取消报名 */
+export const cancelRegistration = (activityId: number) =>
+  apiClient.delete<ApiResponse<void>>(`/v1/registrations/activity/${activityId}`);
