@@ -470,4 +470,22 @@
         ORDER BY label ASC
     </select>
 
+    <!-- 按天统计活动创建趋势 -->
+    <select id="selectDailyTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as label,
+            COUNT(*) as value
+        FROM activity
+        WHERE deleted_at IS NULL
+        AND DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+        ORDER BY label ASC
+    </select>
+
+    <!-- 统计指定活动的有效报名数量（pending + confirmed） -->
+    <select id="countConfirmedRegistrations" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE activity_id = #{activityId} AND status IN ('pending', 'confirmed')
+    </select>
+
 </mapper>

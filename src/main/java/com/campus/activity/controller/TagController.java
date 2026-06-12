@@ -4,7 +4,6 @@ import com.campus.activity.dto.ActivityTagRequest;
 import com.campus.activity.dto.TagCreateRequest;
 import com.campus.activity.dto.TagResponse;
 import com.campus.activity.service.ActivityTagService;
-import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
 import com.campus.core.validation.group.CreateGroup;
@@ -15,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 @RestController
@@ -26,31 +26,25 @@ public class TagController {
     private static final String ROLE_ADMIN = "admin";
 
     private final ActivityTagService activityTagService;
-    private final JwtUtils jwtUtils;
 
     /**
      * 创建标签
-     * 修复问题2：仅允许管理员创建标签
+     * 仅允许管理员创建标签
      */
     @PostMapping
     @ApiOperation("创建标签")
     public Result<TagResponse> createTag(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Validated({CreateGroup.class}) @RequestBody TagCreateRequest request) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @Validated({CreateGroup.class}) @RequestBody TagCreateRequest requestObj) {
+        String currentUserRole = (String) request.getAttribute("currentUserRole");
+        if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-
-        String role = jwtUtils.getRoleFromToken(token);
-        if (!ROLE_ADMIN.equals(role)) {
+        if (!ROLE_ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能创建标签");
         }
 
-        TagResponse response = activityTagService.createTag(request);
+        TagResponse response = activityTagService.createTag(requestObj);
         return Result.success(response, "标签创建成功");
     }
 
@@ -70,23 +64,18 @@ public class TagController {
 
     /**
      * 删除标签
-     * 修复问题2：仅允许管理员删除标签
+     * 仅允许管理员删除标签
      */
     @DeleteMapping("/{id}")
     @ApiOperation("删除标签")
     public Result<Void> deleteTag(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest request,
             @PathVariable Long id) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+        String currentUserRole = (String) request.getAttribute("currentUserRole");
+        if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-
-        String role = jwtUtils.getRoleFromToken(token);
-        if (!ROLE_ADMIN.equals(role)) {
+        if (!ROLE_ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能删除标签");
         }
 
@@ -103,27 +92,20 @@ public class TagController {
 
     /**
      * 为活动设置标签
-     * 修复问题2：添加权限验证
+     * 添加权限验证
      */
     @PostMapping("/activity")
     @ApiOperation("为活动设置标签")
     public Result<Void> setActivityTags(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Validated({UpdateGroup.class}) @RequestBody ActivityTagRequest request) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            return Result.error(ResultCode.UNAUTHORIZED);
-        }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
-        String role = jwtUtils.getRoleFromToken(token);
+            HttpServletRequest request,
+            @Validated({UpdateGroup.class}) @RequestBody ActivityTagRequest requestObj) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        String role = (String) request.getAttribute("currentUserRole");
         if (userId == null || role == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
         
-        activityTagService.setActivityTags(request.getActivityId(), request.getTagIds(), userId, role);
+        activityTagService.setActivityTags(requestObj.getActivityId(), requestObj.getTagIds(), userId, role);
         return Result.success(null, "活动标签设置成功");
     }
 }

@@ -1,6 +1,6 @@
 package com.campus.activity.controller;
 
-import com.campus.activity.entity.ActivityCollect;
+import com.campus.activity.dto.CollectDetailResponse;
 import com.campus.activity.service.ActivityCollectService;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
@@ -78,14 +78,14 @@ public class ActivityCollectController {
      */
     @GetMapping("/my")
     @ApiOperation("获取我的收藏列表")
-    public Result<List<ActivityCollect>> getMyCollects(HttpServletRequest request) {
+    public Result<List<CollectDetailResponse>> getMyCollects(HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
         log.info("用户 {} 查询收藏列表", userId);
         
-        List<ActivityCollect> collects = activityCollectService.getUserCollects(userId);
+        List<CollectDetailResponse> collects = activityCollectService.getUserCollectDetails(userId);
         return Result.success(collects);
     }
 

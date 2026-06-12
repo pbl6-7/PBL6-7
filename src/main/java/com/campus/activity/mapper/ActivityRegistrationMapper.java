@@ -140,6 +140,17 @@ public interface ActivityRegistrationMapper {
     );
 
     /**
+     * 按天统计报名趋势
+     * @param startDate 开始日期（格式：YYYY-MM-DD）
+     * @param endDate 结束日期（格式：YYYY-MM-DD）
+     * @return 日度趋势数据（day, count）
+     */
+    List<Map<String, Object>> selectDailyTrend(
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate
+    );
+
+    /**
      * 统计报名成功率
      * @return 成功率（已确认报名数/总报名数）
      */

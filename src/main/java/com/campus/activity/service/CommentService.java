@@ -18,7 +18,6 @@ import com.campus.core.util.BatchQueryUtils;
 import com.campus.core.util.PageUtils;
 import com.campus.user.entity.User;
 import com.campus.user.mapper.UserMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +44,7 @@ public class CommentService {
     private final SensitiveWordFilter sensitiveWordFilter;
     private final AppConfig appConfig;
     private final AuditService auditService;
+    private final NotificationService notificationService;
 
     /**
      * 构造函数注入依赖
@@ -55,6 +55,7 @@ public class CommentService {
      * @param sensitiveWordFilter 敏感词过滤器
      * @param appConfig 应用配置
      * @param auditService 审计服务
+     * @param notificationService 通知服务
      */
     public CommentService(
             CommentMapper commentMapper,
@@ -62,13 +63,15 @@ public class CommentService {
             UserMapper userMapper,
             SensitiveWordFilter sensitiveWordFilter,
             AppConfig appConfig,
-            AuditService auditService) {
+            AuditService auditService,
+            NotificationService notificationService) {
         this.commentMapper = commentMapper;
         this.activityMapper = activityMapper;
         this.userMapper = userMapper;
         this.sensitiveWordFilter = sensitiveWordFilter;
         this.appConfig = appConfig;
         this.auditService = auditService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -104,6 +107,17 @@ public class CommentService {
 
         commentMapper.insert(comment);
         log.info("评论发布成功: commentId={}, userId={}, activityId={}", comment.getId(), userId, activityId);
+
+        // 通知活动发布者
+        try {
+            Activity activity = activityMapper.selectById(activityId);
+            if (activity != null && !activity.getPublisherId().equals(userId)) {
+                notificationService.notifyUser(activity.getPublisherId(), "comment",
+                        "新评论", "用户评论了您的活动「" + activity.getTitle() + "」");
+            }
+        } catch (Exception e) {
+            log.warn("评论通知发送失败: {}", e.getMessage());
+        }
 
         // 记录审计日志（评论发布）
         auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.COMMENT_CREATE,

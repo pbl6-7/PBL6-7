@@ -214,7 +214,7 @@ public class ActivityService {
         }
 
         // 权限检查：只有活动发布者可以修改活动
-        if (!activity.getPublisherId().equals(userId)) {
+        if (!java.util.Objects.equals(activity.getPublisherId(), userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权修改此活动");
         }
 
@@ -275,7 +275,7 @@ public class ActivityService {
         }
         
         // 权限检查：只有活动发布者可以删除活动
-        if (!activity.getPublisherId().equals(userId)) {
+        if (!java.util.Objects.equals(activity.getPublisherId(), userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此活动");
         }
         
@@ -334,7 +334,11 @@ public class ActivityService {
      * @return 活动分页响应
      */
     public ActivityPageResponse getActivityList(Long userId, ActivityQueryRequest queryRequest) {
-        int page = queryRequest.getPage() != null ? queryRequest.getPage() : 1;
+        if (queryRequest.getPage() == null || queryRequest.getPage() < 1) queryRequest.setPage(1);
+        if (queryRequest.getSize() == null || queryRequest.getSize() < 1) queryRequest.setSize(10);
+        if (queryRequest.getSize() > 100) queryRequest.setSize(100);
+
+        int page = queryRequest.getPage();
         int size = queryRequest.getSize() != null ? queryRequest.getSize() : 10;
         int offset = (page - 1) * size;
 

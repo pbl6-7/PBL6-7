@@ -1,5 +1,6 @@
 package com.campus.activity.service;
 
+import com.campus.activity.dto.CollectDetailResponse;
 import com.campus.activity.entity.Activity;
 import com.campus.activity.entity.ActivityCollect;
 import com.campus.activity.mapper.ActivityCollectMapper;
@@ -11,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -80,6 +82,29 @@ public class ActivityCollectService {
      */
     public List<ActivityCollect> getUserCollects(Long userId) {
         return activityCollectMapper.selectByUserId(userId);
+    }
+
+    /**
+     * 获取用户收藏详情列表（包含活动详情）
+     */
+    public List<CollectDetailResponse> getUserCollectDetails(Long userId) {
+        List<ActivityCollect> collects = activityCollectMapper.selectByUserId(userId);
+        List<CollectDetailResponse> details = new ArrayList<>();
+
+        for (ActivityCollect collect : collects) {
+            Activity activity = activityMapper.selectById(collect.getActivityId());
+            CollectDetailResponse detail = new CollectDetailResponse(
+                    collect.getId(),
+                    collect.getActivityId(),
+                    activity != null ? activity.getTitle() : "未知活动",
+                    activity != null ? activity.getLocation() : "未知地点",
+                    activity != null ? activity.getStartTime() : null,
+                    collect.getCreateTime()
+            );
+            details.add(detail);
+        }
+
+        return details;
     }
 
     /**

@@ -5,7 +5,9 @@ import com.campus.activity.dto.ActivityApprovalStatistics;
 import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.mapper.ActivityMapper;
 import com.campus.activity.service.ActivityService;
+import com.campus.core.common.BusinessException;
 import com.campus.core.common.Result;
+import com.campus.core.common.ResultCode;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,9 @@ public class AdminActivityController {
             HttpServletRequest request,
             @PathVariable Long id) {
         Long adminId = (Long) request.getAttribute("currentUserId");
+        if (adminId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
         ActivityResponse activity = activityService.approveActivity(id, adminId);
         return Result.success(activity, "活动审核通过");
     }
@@ -56,7 +61,14 @@ public class AdminActivityController {
             @PathVariable Long id,
             @RequestBody ActivityApprovalRequest approvalRequest) {
         Long adminId = (Long) request.getAttribute("currentUserId");
-        ActivityResponse activity = activityService.rejectActivity(id, approvalRequest.getReason(), adminId);
+        if (adminId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
+        String reason = approvalRequest.getReason();
+        if (reason == null || reason.trim().isEmpty()) {
+            return Result.error(ResultCode.BAD_REQUEST, "拒绝原因不能为空");
+        }
+        ActivityResponse activity = activityService.rejectActivity(id, reason, adminId);
         return Result.success(activity, "活动审核未通过");
     }
 

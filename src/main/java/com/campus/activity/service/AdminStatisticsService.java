@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -486,8 +487,11 @@ public class AdminStatisticsService {
             String startWeek = calculateWeekString(startDate);
             String endWeek = calculateWeekString(endDate);
             trendData = activityMapper.selectWeeklyTrend(startWeek, endWeek);
+        } else if ("day".equals(timeUnit)) {
+            String startDay = startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String endDay = endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            trendData = activityMapper.selectDailyTrend(startDay, endDay);
         } else {
-            // 按天统计（需要额外实现）
             trendData = new ArrayList<>();
         }
         
@@ -512,6 +516,10 @@ public class AdminStatisticsService {
             String startWeek = calculateWeekString(startDate);
             String endWeek = calculateWeekString(endDate);
             trendData = userMapper.selectWeeklyRegistrationTrend(startWeek, endWeek);
+        } else if ("day".equals(timeUnit)) {
+            String startDay = startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String endDay = endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            trendData = userMapper.selectDailyRegistrationTrend(startDay, endDay);
         } else {
             trendData = new ArrayList<>();
         }
@@ -537,6 +545,10 @@ public class AdminStatisticsService {
             String startWeek = calculateWeekString(startDate);
             String endWeek = calculateWeekString(endDate);
             trendData = registrationMapper.selectWeeklyTrend(startWeek, endWeek);
+        } else if ("day".equals(timeUnit)) {
+            String startDay = startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String endDay = endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            trendData = registrationMapper.selectDailyTrend(startDay, endDay);
         } else {
             trendData = new ArrayList<>();
         }
@@ -609,12 +621,14 @@ public class AdminStatisticsService {
     }
 
     /**
-     * 计算周字符串（格式：YYYY-W1）
+     * 计算周字符串（格式：YYYY-Www）
+     * 使用Java标准库的ISO周计算
      */
     private String calculateWeekString(LocalDateTime date) {
+        WeekFields weekFields = WeekFields.ISO;
         int year = date.getYear();
-        int week = date.getDayOfYear() / 7 + 1;
-        return String.format("%d-W%d", year, week);
+        int week = date.get(weekFields.weekOfWeekBasedYear());
+        return String.format("%d-W%02d", year, week);
     }
 
     /**

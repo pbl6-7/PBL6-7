@@ -3,6 +3,7 @@ package com.campus.activity.service;
 import com.campus.activity.dto.ActivityTypeCreateRequest;
 import com.campus.activity.dto.ActivityTypeResponse;
 import com.campus.activity.entity.ActivityType;
+import com.campus.activity.mapper.ActivityMapper;
 import com.campus.activity.mapper.ActivityTypeMapper;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 public class ActivityTypeService {
 
     private final ActivityTypeMapper activityTypeMapper;
+    private final ActivityMapper activityMapper;
 
     @Transactional
     public ActivityTypeResponse createType(ActivityTypeCreateRequest request) {
@@ -71,6 +73,12 @@ public class ActivityTypeService {
         if (type == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "类型不存在");
         }
+
+        Long activityCount = activityMapper.countByTypeId(id);
+        if (activityCount != null && activityCount > 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST, "该类型下存在活动，无法删除");
+        }
+
         activityTypeMapper.deleteById(id);
     }
 }

@@ -148,6 +148,10 @@ public class AdminUserService {
         }
 
         userMapper.updateUserRole(userId, newRole);
+
+        // 记录审计日志
+        auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.ROLE_CHANGE,
+                AuditResourceTypeConstants.USER, userId, 200, "角色变更为: " + newRole);
     }
 
     /**

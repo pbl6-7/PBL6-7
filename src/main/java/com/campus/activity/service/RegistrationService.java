@@ -110,6 +110,8 @@ public class RegistrationService extends BaseService {
             throw new BusinessException(ResultCode.CONFLICT, "您已报名此活动");
         }
 
+        checkActivityCapacity(activity.getId(), activity.getMaxParticipants());
+
         existing.setStatus(RegistrationStatusConstants.PENDING);
         existing.setRegistrationTime(LocalDateTime.now());
         registrationMapper.updateById(existing);
@@ -130,11 +132,7 @@ public class RegistrationService extends BaseService {
      */
     private void checkActivityCapacity(Long activityId, Integer maxParticipants) {
         if (maxParticipants != null && maxParticipants > 0) {
-            Long pendingCount = registrationMapper.countByActivityIdAndStatus(
-                    activityId, RegistrationStatusConstants.PENDING);
-            Long confirmedCount = registrationMapper.countByActivityIdAndStatus(
-                    activityId, RegistrationStatusConstants.CONFIRMED);
-            Long currentCount = pendingCount + confirmedCount;
+            Long currentCount = activityMapper.countConfirmedRegistrations(activityId);
 
             if (currentCount >= maxParticipants) {
                 log.warn("报名失败 - 活动报名人数已达上限: activityId={}, max={}, current={}",

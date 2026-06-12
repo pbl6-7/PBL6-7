@@ -318,4 +318,22 @@ public interface ActivityMapper {
             @Param("startWeek") String startWeek,
             @Param("endWeek") String endWeek
     );
+
+    /**
+     * 按天统计活动创建趋势
+     * @param startDate 开始日期（格式：YYYY-MM-DD）
+     * @param endDate 结束日期（格式：YYYY-MM-DD）
+     * @return 日度趋势数据（day, count）
+     */
+    List<Map<String, Object>> selectDailyTrend(
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate
+    );
+
+    /**
+     * 统计指定活动的有效报名数量（pending + confirmed）
+     * @param activityId 活动ID
+     * @return 有效报名数量
+     */
+    Long countConfirmedRegistrations(@Param("activityId") Long activityId);
 }

@@ -204,10 +204,16 @@ public class SearchService {
     public List<SearchSuggestion> getSearchSuggestions(String keyword, int limit) {
         String cacheKey = String.format("searchSuggestion:keyword:%s:%d", keyword, limit);
 
-        return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
-            log.info("从数据库获取搜索建议，keyword={}, limit={}", keyword, limit);
+        try {
+            return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
+                log.info("从数据库获取搜索建议，keyword={}, limit={}", keyword, limit);
+                return generateSmartSuggestions(keyword, limit);
+            });
+        } catch (Exception e) {
+            // 缓存加载失败时，直接从数据库获取
+            log.warn("搜索建议缓存加载失败，直接从数据库获取: keyword={}, error={}", keyword, e.getMessage());
             return generateSmartSuggestions(keyword, limit);
-        });
+        }
     }
 
     /**
@@ -326,32 +332,38 @@ public class SearchService {
     public List<SearchSuggestion> getUserSearchSuggestions(Long userId, String keyword, int limit) {
         String cacheKey = String.format("searchSuggestion:user:%d:%s:%d", userId, keyword, limit);
 
-        return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
-            // 获取用户最近搜索的关键词
-            List<String> userKeywords = searchHistoryService.getUserRecentKeywords(userId, limit * 2);
-            
-            List<SearchSuggestion> suggestions = new ArrayList<>();
-            
-            // 匹配用户历史关键词
-            for (int i = 0; i < userKeywords.size(); i++) {
-                String userKeyword = userKeywords.get(i);
-                if (userKeyword.toLowerCase().contains(keyword.toLowerCase())) {
-                    int relevanceScore = 100 - i;
-                    Long searchCount = searchHistoryMapper.countByKeyword(userKeyword);
-                    suggestions.add(new SearchSuggestion(userKeyword, relevanceScore, searchCount.intValue(), "user_history"));
+        try {
+            return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
+                // 获取用户最近搜索的关键词
+                List<String> userKeywords = searchHistoryService.getUserRecentKeywords(userId, limit * 2);
+                
+                List<SearchSuggestion> suggestions = new ArrayList<>();
+                
+                // 匹配用户历史关键词
+                for (int i = 0; i < userKeywords.size(); i++) {
+                    String userKeyword = userKeywords.get(i);
+                    if (userKeyword.toLowerCase().contains(keyword.toLowerCase())) {
+                        int relevanceScore = 100 - i;
+                        Long searchCount = searchHistoryMapper.countByKeyword(userKeyword);
+                        suggestions.add(new SearchSuggestion(userKeyword, relevanceScore, searchCount.intValue(), "user_history"));
+                    }
                 }
-            }
-            
-            // 补充通用建议
-            if (suggestions.size() < limit) {
-                List<SearchSuggestion> generalSuggestions = getSearchSuggestions(keyword, limit - suggestions.size());
-                suggestions.addAll(generalSuggestions);
-            }
-            
-            // 排序并限制数量
-            suggestions.sort((a, b) -> Integer.compare(b.getRelevanceScore(), a.getRelevanceScore()));
-            return suggestions.subList(0, Math.min(limit, suggestions.size()));
-        });
+                
+                // 补充通用建议
+                if (suggestions.size() < limit) {
+                    List<SearchSuggestion> generalSuggestions = getSearchSuggestions(keyword, limit - suggestions.size());
+                    suggestions.addAll(generalSuggestions);
+                }
+                
+                // 排序并限制数量
+                suggestions.sort((a, b) -> Integer.compare(b.getRelevanceScore(), a.getRelevanceScore()));
+                return suggestions.subList(0, Math.min(limit, suggestions.size()));
+            });
+        } catch (Exception e) {
+            // 缓存加载失败时，返回空列表
+            log.warn("用户搜索建议缓存加载失败: userId={}, keyword={}, error={}", userId, keyword, e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     /**

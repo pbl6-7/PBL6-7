@@ -1,5 +1,6 @@
 package com.campus.user.controller;
 
+import com.campus.core.common.BusinessException;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
 import com.campus.core.validation.group.CreateGroup;
@@ -57,6 +58,9 @@ public class UserController {
             HttpServletRequest request,
             @Validated({UpdateGroup.class}) @RequestBody ChangePasswordRequest changeRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
         userService.changePassword(userId, changeRequest.getOldPassword(), changeRequest.getNewPassword());
         return Result.success(null, "密码修改成功");
     }
@@ -87,6 +91,9 @@ public class UserController {
             HttpServletRequest request,
             @Validated({UpdateGroup.class}) @RequestBody UpdateProfileRequest updateRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
         userService.updateProfile(userId, updateRequest.getRealName(), updateRequest.getContact());
         return Result.success(null, "个人资料修改成功");
     }

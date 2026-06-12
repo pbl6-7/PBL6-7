@@ -191,6 +191,17 @@
         ORDER BY label ASC
     </select>
 
+    <!-- 按天统计报名趋势 -->
+    <select id="selectDailyTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as label,
+            COUNT(*) as value
+        FROM activity_registration
+        WHERE DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+        ORDER BY label ASC
+    </select>
+
     <!-- 统计报名成功率 -->
     <select id="selectConfirmationRate" resultType="java.lang.Double">
         SELECT 

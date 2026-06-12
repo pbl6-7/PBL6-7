@@ -5,7 +5,9 @@ import com.campus.activity.dto.ActivityPublishRequest;
 import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.service.ActivityService;
+import com.campus.core.common.BusinessException;
 import com.campus.core.common.Result;
+import com.campus.core.common.ResultCode;
 import com.campus.core.validation.group.CreateGroup;
 import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
@@ -31,6 +33,9 @@ public class ActivityController {
             HttpServletRequest request,
             @Validated({CreateGroup.class}) @RequestBody ActivityPublishRequest publishRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
         String userRole = (String) request.getAttribute("currentUserRole");
         ActivityResponse response = activityService.publishActivity(userId, userRole, publishRequest);
         return Result.success(response, "活动发布成功");
@@ -58,6 +63,9 @@ public class ActivityController {
             @PathVariable Long id,
             @Validated({UpdateGroup.class}) @RequestBody ActivityPublishRequest updateRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
         ActivityResponse response = activityService.updateActivity(id, userId, updateRequest);
         return Result.success(response, "活动更新成功");
     }
@@ -68,6 +76,9 @@ public class ActivityController {
             HttpServletRequest request,
             @PathVariable Long id) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
         activityService.deleteActivity(id, userId);
         return Result.success(null, "活动删除成功");
     }

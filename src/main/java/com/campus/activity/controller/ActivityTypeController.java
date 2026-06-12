@@ -3,7 +3,6 @@ package com.campus.activity.controller;
 import com.campus.activity.dto.ActivityTypeCreateRequest;
 import com.campus.activity.dto.ActivityTypeResponse;
 import com.campus.activity.service.ActivityTypeService;
-import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
 import com.campus.core.validation.group.CreateGroup;
@@ -14,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
 @RestController
@@ -25,31 +25,25 @@ public class ActivityTypeController {
     private static final String ROLE_ADMIN = "admin";
 
     private final ActivityTypeService activityTypeService;
-    private final JwtUtils jwtUtils;
 
     /**
      * 创建活动类型
-     * 修复问题4：仅允许管理员创建活动类型
+     * 仅允许管理员创建活动类型
      */
     @PostMapping
     @ApiOperation("创建活动类型")
     public Result<ActivityTypeResponse> createType(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Validated({CreateGroup.class}) @RequestBody ActivityTypeCreateRequest request) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @Validated({CreateGroup.class}) @RequestBody ActivityTypeCreateRequest requestObj) {
+        String currentUserRole = (String) request.getAttribute("currentUserRole");
+        if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-
-        String role = jwtUtils.getRoleFromToken(token);
-        if (!ROLE_ADMIN.equals(role)) {
+        if (!ROLE_ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能创建活动类型");
         }
 
-        ActivityTypeResponse response = activityTypeService.createType(request);
+        ActivityTypeResponse response = activityTypeService.createType(requestObj);
         return Result.success(response, "类型创建成功");
     }
 
@@ -69,50 +63,40 @@ public class ActivityTypeController {
 
     /**
      * 更新活动类型
-     * 修复问题4：仅允许管理员更新活动类型
+     * 仅允许管理员更新活动类型
      */
     @PutMapping("/{id}")
     @ApiOperation("更新活动类型")
     public Result<ActivityTypeResponse> updateType(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest request,
             @PathVariable Long id,
-            @Validated({UpdateGroup.class}) @RequestBody ActivityTypeCreateRequest request) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            @Validated({UpdateGroup.class}) @RequestBody ActivityTypeCreateRequest requestObj) {
+        String currentUserRole = (String) request.getAttribute("currentUserRole");
+        if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-
-        String role = jwtUtils.getRoleFromToken(token);
-        if (!ROLE_ADMIN.equals(role)) {
+        if (!ROLE_ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能更新活动类型");
         }
 
-        ActivityTypeResponse response = activityTypeService.updateType(id, request);
+        ActivityTypeResponse response = activityTypeService.updateType(id, requestObj);
         return Result.success(response, "类型更新成功");
     }
 
     /**
      * 删除活动类型
-     * 修复问题4：仅允许管理员删除活动类型
+     * 仅允许管理员删除活动类型
      */
     @DeleteMapping("/{id}")
     @ApiOperation("删除活动类型")
     public Result<Void> deleteType(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest request,
             @PathVariable Long id) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+        String currentUserRole = (String) request.getAttribute("currentUserRole");
+        if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-
-        String role = jwtUtils.getRoleFromToken(token);
-        if (!ROLE_ADMIN.equals(role)) {
+        if (!ROLE_ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能删除活动类型");
         }
 

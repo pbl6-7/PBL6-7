@@ -310,6 +310,18 @@
         ORDER BY label ASC
     </select>
 
+    <!-- 按天统计用户注册趋势 -->
+    <select id="selectDailyRegistrationTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as label,
+            COUNT(*) as value
+        FROM user_info
+        WHERE deleted_at IS NULL
+        AND DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+        ORDER BY label ASC
+    </select>
+
     <!-- 统计平均每人报名活动数量 -->
     <select id="selectAverageRegistrationsPerUser" resultType="java.lang.Double">
         SELECT AVG(registration_count) FROM (

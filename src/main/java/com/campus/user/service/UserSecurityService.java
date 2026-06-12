@@ -2,6 +2,7 @@ package com.campus.user.service;
 
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
+import com.campus.core.common.PasswordValidator;
 import com.campus.user.dto.SecurityQuestion;
 import com.campus.user.entity.UserSecurity;
 import com.campus.user.mapper.UserSecurityMapper;
@@ -13,9 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.Arrays;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 /**
  * 用户密保Service
@@ -28,8 +31,16 @@ public class UserSecurityService {
     private final UserMapper userMapper;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
-    private final ConcurrentHashMap<Long, Integer> verifyFailCount = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<Long, Long> verifyLockTime = new ConcurrentHashMap<>();
+    /** 密保验证失败计数（自动过期，防止内存泄漏） */
+    private final Cache<Long, Integer> verifyFailCount = Caffeine.newBuilder()
+            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .maximumSize(10000)
+            .build();
+    /** 密保验证锁定时间（自动过期，防止内存泄漏） */
+    private final Cache<Long, Long> verifyLockTime = Caffeine.newBuilder()
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .maximumSize(10000)
+            .build();
     private static final int MAX_VERIFY_FAIL_COUNT = 3;
     private static final long VERIFY_LOCK_DURATION = 5 * 60 * 1000;
 
@@ -139,27 +150,29 @@ public class UserSecurityService {
         }
         boolean matches = passwordEncoder.matches(answer, userSecurity.getSecurityAnswer());
         if (!matches) {
-            verifyFailCount.merge(userId, 1, Integer::sum);
-            int failCount = verifyFailCount.getOrDefault(userId, 0);
+            verifyFailCount.put(userId, verifyFailCount.asMap().getOrDefault(userId, 0) + 1);
+            int failCount = verifyFailCount.asMap().getOrDefault(userId, 0);
             if (failCount >= MAX_VERIFY_FAIL_COUNT) {
                 verifyLockTime.put(userId, System.currentTimeMillis());
-                verifyFailCount.remove(userId);
+                verifyFailCount.invalidate(userId);
                 throw new BusinessException(ResultCode.FORBIDDEN, "密保验证失败次数过多，已锁定5分钟");
             }
         } else {
-            verifyFailCount.remove(userId);
-            verifyLockTime.remove(userId);
+            verifyFailCount.invalidate(userId);
+            verifyLockTime.invalidate(userId);
         }
         return matches;
     }
 
     private boolean isVerifyLocked(Long userId) {
-        Long lockTime = verifyLockTime.get(userId);
+        Long lockTime = verifyLockTime.getIfPresent(userId);
         if (lockTime == null) {
             return false;
         }
         if (System.currentTimeMillis() - lockTime > VERIFY_LOCK_DURATION) {
-            verifyLockTime.remove(userId);
+            // 锁定过期时同时清理失败计数和锁定时间
+            verifyLockTime.invalidate(userId);
+            verifyFailCount.invalidate(userId);
             return false;
         }
         return true;
@@ -189,6 +202,9 @@ public class UserSecurityService {
         if (!verifyAnswer(user.getId(), securityAnswer)) {
             throw new BusinessException(ResultCode.SECURITY_ANSWER_ERROR);
         }
+
+        // 验证新密码强度（与注册时一致）
+        PasswordValidator.validate(newPassword);
 
         String hashedPassword = hashPassword(newPassword);
         user.setPassword(hashedPassword);

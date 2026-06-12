@@ -267,6 +267,17 @@ public interface UserMapper {
     );
 
     /**
+     * 按天统计用户注册趋势
+     * @param startDate 开始日期（格式：YYYY-MM-DD）
+     * @param endDate 结束日期（格式：YYYY-MM-DD）
+     * @return 日度趋势数据（day, count）
+     */
+    List<Map<String, Object>> selectDailyRegistrationTrend(
+            @Param("startDate") String startDate,
+            @Param("endDate") String endDate
+    );
+
+    /**
      * 统计平均每人报名活动数量
      * @return 平均报名数量
      */
