@@ -57,8 +57,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/v1/users/security/reset-password",
                         // 注意：/api/v1/users/security/set 需要登录验证，不排除
                         "/api/v1/users/security/user/**",
-                        "/api/v1/users/{id:[\\d]+}",
-                        "/api/v1/activities/{id:[\\d]+}",
+                        // 注意：/api/v1/activities/{id} 和 /api/v1/users/{id} 不再排除
+                        // JWT拦截器内部已处理：GET请求允许无Token访问，PUT/DELETE需要Token
                         // 搜索公开端点 - 无需登录即可访问
                         "/api/v1/search/suggestions",
                         "/api/v1/search/autocomplete",
@@ -74,7 +74,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/v1/users/register",
                         "/api/v1/users/security/**",
                         "/api/v1/users/{id:[\\d]+}",
-                        "/api/v1/activities/{id:[\\d]+}",
+                        // 注意：/api/v1/activities/{id} 不再排除
+                        // PUT/DELETE需要ACTIVITY_UPDATE/ACTIVITY_DELETE权限验证
+                        // GET活动详情不需要权限验证，但权限拦截器对空权限集会放行
+                        "/api/v1/activities/list",
+                        "/api/v1/activities/my",
                         "/api/v1/activities/search",
                         "/api/v1/activities/types",
                         "/api/v1/activities/tags",

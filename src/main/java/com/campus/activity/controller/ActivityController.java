@@ -92,4 +92,12 @@ public class ActivityController {
         ActivityPageResponse response = activityService.getActivityList(userId, queryRequest);
         return Result.success(response);
     }
+
+    @GetMapping
+    @ApiOperation("获取活动列表（根路径，兼容/api/v1/activities访问）")
+    public Result<ActivityPageResponse> getActivityListRoot(
+            HttpServletRequest request,
+            @ModelAttribute ActivityQueryRequest queryRequest) {
+        return getActivityList(request, queryRequest);
+    }
 }

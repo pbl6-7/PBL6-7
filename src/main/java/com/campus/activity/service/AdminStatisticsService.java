@@ -433,17 +433,17 @@ public class AdminStatisticsService {
         List<Map<String, Object>> hotActivityData = registrationMapper.selectHotActivityRegistrations(10);
         Map<Long, Long> hotActivityRegistrations = new HashMap<>();
         for (Map<String, Object> data : hotActivityData) {
-            Long activityId = (Long) data.get("activityId");
-            Long count = (Long) data.get("count");
+            Long activityId = toLong(data.get("activityId"));
+            Long count = toLong(data.get("count"));
             hotActivityRegistrations.put(activityId, count);
         }
-        
+
         // 用户报名数量分布
         List<Map<String, Object>> userRegistrationData = registrationMapper.selectUserRegistrationDistribution();
         Map<Long, Long> userRegistrationCount = new HashMap<>();
         for (Map<String, Object> data : userRegistrationData) {
-            Long userId = (Long) data.get("userId");
-            Long count = (Long) data.get("count");
+            Long userId = toLong(data.get("userId"));
+            Long count = toLong(data.get("count"));
             userRegistrationCount.put(userId, count);
         }
         
@@ -573,15 +573,15 @@ public class AdminStatisticsService {
         List<HotActivityDTO> hotActivities = new ArrayList<>();
         for (Map<String, Object> data : activityData) {
             HotActivityDTO hotActivity = HotActivityDTO.builder()
-                    .activityId((Long) data.get("activityId"))
-                    .title((String) data.get("title"))
-                    .activityType((String) data.get("activityType"))
-                    .registrationCount((Long) data.getOrDefault("registrationCount", 0L))
-                    .collectionCount((Long) data.getOrDefault("collectionCount", 0L))
-                    .viewCount((Long) data.getOrDefault("viewCount", 0L))
-                    .status((String) data.get("status"))
-                    .startTime((String) data.get("startTime"))
-                    .location((String) data.get("location"))
+                    .activityId(toLong(data.get("activityId")))
+                    .title(toStr(data.get("title")))
+                    .activityType(toStr(data.get("activityType")))
+                    .registrationCount(toLong(data.getOrDefault("registrationCount", 0)))
+                    .collectionCount(toLong(data.getOrDefault("collectionCount", 0)))
+                    .viewCount(toLong(data.getOrDefault("viewCount", 0)))
+                    .status(toStr(data.get("status")))
+                    .startTime(toStr(data.get("startTime")))
+                    .location(toStr(data.get("location")))
                     .hotScore(calculateHotScore(data))
                     .build();
             hotActivities.add(hotActivity);
@@ -612,9 +612,9 @@ public class AdminStatisticsService {
      * 计算热度评分
      */
     private Double calculateHotScore(Map<String, Object> data) {
-        Long registrationCount = (Long) data.getOrDefault("registrationCount", 0L);
-        Long collectionCount = (Long) data.getOrDefault("collectionCount", 0L);
-        Long viewCount = (Long) data.getOrDefault("viewCount", 0L);
+        Long registrationCount = toLong(data.getOrDefault("registrationCount", 0));
+        Long collectionCount = toLong(data.getOrDefault("collectionCount", 0));
+        Long viewCount = toLong(data.getOrDefault("viewCount", 0));
         
         // 权重：报名50%，收藏30%，浏览20%
         return registrationCount * 0.5 + collectionCount * 0.3 + viewCount * 0.002;
@@ -642,7 +642,7 @@ public class AdminStatisticsService {
         return list.stream()
                 .collect(Collectors.toMap(
                         map -> String.valueOf(map.get("key")),
-                        map -> (Long) map.get("value"),
+                        map -> toLong(map.get("value")),
                         (v1, v2) -> v1,
                         HashMap::new
                 ));
@@ -661,20 +661,20 @@ public class AdminStatisticsService {
         
         for (int i = 0; i < trendData.size(); i++) {
             Map<String, Object> data = trendData.get(i);
-            Long value = (Long) data.get("value");
+            Long value = toLong(data.get("value"));
             cumulativeValue += value;
-            
+
             // 计算增长率
             Double growthRate = null;
             if (i > 0) {
-                Long previousValue = (Long) trendData.get(i - 1).get("value");
+                Long previousValue = toLong(trendData.get(i - 1).get("value"));
                 if (previousValue > 0) {
                     growthRate = ((double) (value - previousValue) / previousValue) * 100;
                 }
             }
             
             TrendDataDTO trend = TrendDataDTO.builder()
-                    .label((String) data.get("label"))
+                    .label(toStr(data.get("label")))
                     .value(value)
                     .growthRate(growthRate)
                     .cumulativeValue(cumulativeValue)
@@ -682,8 +682,41 @@ public class AdminStatisticsService {
             
             trends.add(trend);
         }
-        
+
         return trends;
+    }
+
+    /**
+     * 安全地将Number对象转换为Long
+     * MySQL的COUNT(*)返回Integer，直接强转Long会抛ClassCastException
+     * @param obj 原始对象
+     * @return Long值
+     */
+    private Long toLong(Object obj) {
+        if (obj == null) {
+            return 0L;
+        }
+        if (obj instanceof Number) {
+            return ((Number) obj).longValue();
+        }
+        try {
+            return Long.parseLong(obj.toString());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    /**
+     * 安全地将对象转换为String
+     * 数据库返回的LocalDateTime等类型不能直接强转String
+     * @param obj 原始对象
+     * @return String值，null返回null
+     */
+    private String toStr(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        return obj.toString();
     }
 
     // ==================== 旧方法保留（兼容性） ====================

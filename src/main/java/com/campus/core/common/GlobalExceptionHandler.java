@@ -3,6 +3,7 @@ package com.campus.core.common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -431,19 +432,60 @@ public class GlobalExceptionHandler {
 
     /**
      * 处理业务异常
+     * 根据错误码映射到正确的HTTP状态码
      */
     @ExceptionHandler(BusinessException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
+    public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e, HttpServletRequest request) {
         String requestId = generateRequestId();
         logBusinessException(e, requestId, request);
-        
+
         Map<String, Object> details = new HashMap<>();
         details.put("request", buildRequestContext(request));
-        
-        return Result.<Void>error(e.getCode(), e.getMessage())
-                .requestId(requestId)
-                .details(details);
+
+        // 根据错误码映射HTTP状态码
+        HttpStatus httpStatus = mapBusinessCodeToHttpStatus(e.getCode());
+
+        return ResponseEntity.status(httpStatus)
+                .body(Result.<Void>error(e.getCode(), e.getMessage())
+                        .requestId(requestId)
+                        .details(details));
+    }
+
+    /**
+     * 根据业务错误码映射HTTP状态码
+     * @param code 业务错误码
+     * @return 对应的HTTP状态码
+     */
+    private HttpStatus mapBusinessCodeToHttpStatus(Integer code) {
+        if (code == null) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        // 权限相关错误码(1xxx)返回403
+        if (code >= 1101 && code <= 1199) {
+            return HttpStatus.FORBIDDEN;
+        }
+        // 认证相关错误码(1xxx)返回401
+        if (code >= 1001 && code <= 1099) {
+            return HttpStatus.UNAUTHORIZED;
+        }
+        // NOT_FOUND相关错误码(2001-2099, 4010-4011)返回404
+        if ((code >= 2001 && code <= 2099) || code == 4010 || code == 4011) {
+            return HttpStatus.NOT_FOUND;
+        }
+        // 权限不足专用错误码(4013-4014)返回403
+        if (code == 4013 || code == 4014) {
+            return HttpStatus.FORBIDDEN;
+        }
+        // 验证错误(422, 6xxx)返回422
+        if (code == 422 || (code >= 6001 && code <= 6999)) {
+            return HttpStatus.UNPROCESSABLE_ENTITY;
+        }
+        // 限流错误(7xxx)返回429
+        if (code >= 7001 && code <= 7999) {
+            return HttpStatus.TOO_MANY_REQUESTS;
+        }
+        // 默认返回400
+        return HttpStatus.BAD_REQUEST;
     }
 
     // ==================== 系统异常处理 ====================

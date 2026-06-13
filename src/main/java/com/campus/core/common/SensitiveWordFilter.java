@@ -17,9 +17,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SensitiveWordFilter {
 
     /**
-     * 敏感词树的根节点
+     * 敏感词树的根节点（使用String作为key避免与END_FLAG冲突）
      */
-    private Map<Character, Object> sensitiveWordMap = new ConcurrentHashMap<>();
+    private Map<String, Object> sensitiveWordMap = new ConcurrentHashMap<>();
 
     /**
      * 白名单词集合
@@ -27,9 +27,19 @@ public class SensitiveWordFilter {
     private Set<String> whitelistWords = ConcurrentHashMap.newKeySet();
 
     /**
-     * 敏感词结束标识
+     * 敏感词结束标识 - 使用特殊字符串避免与字符key冲突
      */
     private static final String END_FLAG = "isEnd";
+
+    /**
+     * 结束标记值
+     */
+    private static final String END_VALUE = "1";
+
+    /**
+     * 非结束标记值
+     */
+    private static final String NOT_END_VALUE = "0";
 
     /**
      * 默认替换字符
@@ -68,26 +78,29 @@ public class SensitiveWordFilter {
         }
         
         String lowerWord = word.toLowerCase();
-        Map<Character, Object> currentMap = sensitiveWordMap;
+        Map<String, Object> currentMap = sensitiveWordMap;
         
         for (int i = 0; i < lowerWord.length(); i++) {
             char c = lowerWord.charAt(i);
+            String key = String.valueOf(c);
             
-            Object obj = currentMap.get(c);
+            Object obj = currentMap.get(key);
             if (obj == null) {
                 // 创建新节点
-                Map<Character, Object> newMap = new HashMap<>();
-                newMap.put(END_FLAG.charAt(0), "0"); // 标记为非结束节点
-                currentMap.put(c, newMap);
+                Map<String, Object> newMap = new HashMap<>();
+                newMap.put(END_FLAG, NOT_END_VALUE); // 标记为非结束节点
+                currentMap.put(key, newMap);
                 currentMap = newMap;
             } else {
                 // 节点已存在，继续向下
-                currentMap = (Map<Character, Object>) obj;
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nextMap = (Map<String, Object>) obj;
+                currentMap = nextMap;
             }
             
             // 最后一个字符，标记为结束节点
             if (i == lowerWord.length() - 1) {
-                currentMap.put(END_FLAG.charAt(0), "1");
+                currentMap.put(END_FLAG, END_VALUE);
             }
         }
     }
@@ -178,24 +191,28 @@ public class SensitiveWordFilter {
      * @return 敏感词长度，如果不是敏感词返回0
      */
     private int checkSensitiveWord(String text, int beginIndex) {
-        Map<Character, Object> currentMap = sensitiveWordMap;
+        Map<String, Object> currentMap = sensitiveWordMap;
         int matchLength = 0;
         boolean endFlag = false;
         
         for (int i = beginIndex; i < text.length(); i++) {
             char c = text.charAt(i);
-            currentMap = (Map<Character, Object>) currentMap.get(c);
+            String key = String.valueOf(c);
+            Object obj = currentMap.get(key);
             
-            if (currentMap == null) {
+            if (obj == null || !(obj instanceof Map)) {
                 // 未匹配到敏感词
                 break;
             }
             
+            @SuppressWarnings("unchecked")
+            Map<String, Object> nextMap = (Map<String, Object>) obj;
+            currentMap = nextMap;
             matchLength++;
             
             // 检查是否为结束节点
-            String flag = (String) currentMap.get(END_FLAG.charAt(0));
-            if ("1".equals(flag)) {
+            String flag = (String) currentMap.get(END_FLAG);
+            if (END_VALUE.equals(flag)) {
                 endFlag = true;
                 // 继续检查是否有更长的敏感词
             }

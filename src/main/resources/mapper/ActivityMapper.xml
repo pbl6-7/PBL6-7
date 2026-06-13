@@ -417,9 +417,9 @@
 
     <!-- 按活动类型分组统计数量 -->
     <select id="selectTypeDistribution" resultType="java.util.Map">
-        SELECT 
-            at.name as key,
-            COUNT(a.id) as value
+        SELECT
+            at.name as `key`,
+            COUNT(a.id) as `value`
         FROM activity a
         LEFT JOIN activity_type at ON a.type_id = at.id
         WHERE a.deleted_at IS NULL
@@ -428,9 +428,9 @@
 
     <!-- 按活动状态分组统计数量 -->
     <select id="selectStatusDistribution" resultType="java.util.Map">
-        SELECT 
-            status as key,
-            COUNT(*) as value
+        SELECT
+            status as `key`,
+            COUNT(*) as `value`
         FROM activity
         WHERE deleted_at IS NULL
         GROUP BY status
@@ -438,9 +438,9 @@
 
     <!-- 按审核状态分组统计数量 -->
     <select id="selectApprovalStatusDistribution" resultType="java.util.Map">
-        SELECT 
-            approval_status as key,
-            COUNT(*) as value
+        SELECT
+            approval_status as `key`,
+            COUNT(*) as `value`
         FROM activity
         WHERE deleted_at IS NULL
         GROUP BY approval_status
@@ -450,7 +450,7 @@
     <select id="selectMonthlyTrend" resultType="java.util.Map">
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m') as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM activity
         WHERE deleted_at IS NULL
         AND DATE_FORMAT(created_at, '%Y-%m') BETWEEN #{startMonth} AND #{endMonth}
@@ -460,13 +460,13 @@
 
     <!-- 按周统计活动创建趋势 -->
     <select id="selectWeeklyTrend" resultType="java.util.Map">
-        SELECT 
+        SELECT
             CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM activity
         WHERE deleted_at IS NULL
         AND CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) BETWEEN #{startWeek} AND #{endWeek}
-        GROUP BY YEAR(created_at), WEEK(created_at, 1)
+        GROUP BY CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1))
         ORDER BY label ASC
     </select>
 
@@ -474,7 +474,7 @@
     <select id="selectDailyTrend" resultType="java.util.Map">
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m-%d') as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM activity
         WHERE deleted_at IS NULL
         AND DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}

@@ -162,9 +162,9 @@
 
     <!-- 按报名状态分组统计数量 -->
     <select id="selectStatusDistribution" resultType="java.util.Map">
-        SELECT 
-            status as key,
-            COUNT(*) as value
+        SELECT
+            status as `key`,
+            COUNT(*) as `value`
         FROM activity_registration
         GROUP BY status
     </select>
@@ -173,7 +173,7 @@
     <select id="selectMonthlyTrend" resultType="java.util.Map">
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m') as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM activity_registration
         WHERE DATE_FORMAT(created_at, '%Y-%m') BETWEEN #{startMonth} AND #{endMonth}
         GROUP BY DATE_FORMAT(created_at, '%Y-%m')
@@ -182,12 +182,12 @@
 
     <!-- 按周统计报名趋势 -->
     <select id="selectWeeklyTrend" resultType="java.util.Map">
-        SELECT 
+        SELECT
             CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM activity_registration
         WHERE CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) BETWEEN #{startWeek} AND #{endWeek}
-        GROUP BY YEAR(created_at), WEEK(created_at, 1)
+        GROUP BY CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1))
         ORDER BY label ASC
     </select>
 
@@ -195,7 +195,7 @@
     <select id="selectDailyTrend" resultType="java.util.Map">
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m-%d') as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM activity_registration
         WHERE DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
         GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')

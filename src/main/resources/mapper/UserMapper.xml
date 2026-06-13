@@ -278,9 +278,9 @@
 
     <!-- 按角色分组统计用户数量 -->
     <select id="selectRoleDistribution" resultType="java.util.Map">
-        SELECT 
-            role as key,
-            COUNT(*) as value
+        SELECT
+            role as `key`,
+            COUNT(*) as `value`
         FROM user_info
         WHERE deleted_at IS NULL
         GROUP BY role
@@ -290,7 +290,7 @@
     <select id="selectMonthlyRegistrationTrend" resultType="java.util.Map">
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m') as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM user_info
         WHERE deleted_at IS NULL
         AND DATE_FORMAT(created_at, '%Y-%m') BETWEEN #{startMonth} AND #{endMonth}
@@ -300,13 +300,13 @@
 
     <!-- 按周统计用户注册趋势 -->
     <select id="selectWeeklyRegistrationTrend" resultType="java.util.Map">
-        SELECT 
+        SELECT
             CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM user_info
         WHERE deleted_at IS NULL
         AND CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) BETWEEN #{startWeek} AND #{endWeek}
-        GROUP BY YEAR(created_at), WEEK(created_at, 1)
+        GROUP BY CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1))
         ORDER BY label ASC
     </select>
 
@@ -314,7 +314,7 @@
     <select id="selectDailyRegistrationTrend" resultType="java.util.Map">
         SELECT 
             DATE_FORMAT(created_at, '%Y-%m-%d') as label,
-            COUNT(*) as value
+            COUNT(*) as `value`
         FROM user_info
         WHERE deleted_at IS NULL
         AND DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
@@ -335,15 +335,15 @@
 
     <!-- 统计用户报名数量分布 -->
     <select id="selectUserRegistrationRangeDistribution" resultType="java.util.Map">
-        SELECT 
-            CASE 
+        SELECT
+            CASE
                 WHEN registration_count = 0 THEN '0'
                 WHEN registration_count BETWEEN 1 AND 5 THEN '1-5'
                 WHEN registration_count BETWEEN 6 AND 10 THEN '6-10'
                 WHEN registration_count BETWEEN 11 AND 20 THEN '11-20'
                 ELSE '20+'
-            END as key,
-            COUNT(*) as value
+            END as `key`,
+            COUNT(*) as `value`
         FROM (
             SELECT u.id, COUNT(ar.id) as registration_count
             FROM user_info u
@@ -351,7 +351,7 @@
             WHERE u.deleted_at IS NULL
             GROUP BY u.id
         ) as counts
-        GROUP BY key
+        GROUP BY `key`
     </select>
 
 </mapper>
