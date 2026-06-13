@@ -3,6 +3,7 @@ package com.campus.activity.dto;
 import com.campus.activity.entity.Comment;
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class CommentResponse {
@@ -12,6 +13,9 @@ public class CommentResponse {
     private String username;
     private String content;
     private LocalDateTime createdAt;
+    private String replyToUsername;
+    private Integer replyCount;
+    private List<CommentResponse> replies;
 
     public static CommentResponse fromEntity(Comment comment) {
         if (comment == null) {

@@ -5,7 +5,7 @@ import java.util.List;
 
 @Data
 public class ActivityPageResponse {
-    private List<ActivityResponse> records;
+    private List<ActivityResponse> list;
     private Long total;
     private Integer page;
     private Integer size;

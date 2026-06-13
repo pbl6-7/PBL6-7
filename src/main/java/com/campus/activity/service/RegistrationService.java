@@ -54,6 +54,11 @@ public class RegistrationService extends BaseService {
     @Autowired
     private AuditService auditService;
 
+    @Override
+    protected Class<ActivityRegistration> getEntityClass() {
+        return ActivityRegistration.class;
+    }
+
     /**
      * 用户报名活动
      *
@@ -84,9 +89,7 @@ public class RegistrationService extends BaseService {
         log.info("用户 {} 报名活动 {} 成功: registrationId={}", userId, activityId, registration.getId());
 
         // 记录审计日志（报名成功）
-        User user = userMapper.selectById(userId);
-        String username = user != null ? user.getUsername() : null;
-        auditService.quickRecord(userId, username, AuditOperationConstants.REGISTRATION_CREATE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.REGISTRATION_CREATE,
                 AuditResourceTypeConstants.REGISTRATION, registration.getId(), 200, "报名活动成功: " + activity.getTitle());
 
         RegistrationResponse response = buildRegistrationResponse(registration, activity, userId);
@@ -225,15 +228,15 @@ public class RegistrationService extends BaseService {
 
         // 使用 BatchQueryUtils 批量获取活动信息
         Map<Long, Activity> activityMap = BatchQueryUtils.batchQueryToMap(
-                ids -> activityMapper.selectByIds(ids),
                 activityIds,
+                ids -> activityMapper.selectByIds(ids),
                 Activity::getId
         );
 
         // 使用 BatchQueryUtils 批量获取用户信息
         Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
-                ids -> userMapper.selectBatchIds(ids),
                 userIds,
+                ids -> userMapper.selectBatchIds(ids),
                 User::getId
         );
 
@@ -282,8 +285,8 @@ public class RegistrationService extends BaseService {
 
         // 使用 BatchQueryUtils 批量获取用户信息
         Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
-                ids -> userMapper.selectBatchIds(ids),
                 userIds,
+                ids -> userMapper.selectBatchIds(ids),
                 User::getId
         );
 
@@ -404,10 +407,9 @@ public class RegistrationService extends BaseService {
 
         // 记录审计日志（取消报名）
         User user = userMapper.selectById(userId);
-        String username = user != null ? user.getUsername() : null;
         Activity activity = activityMapper.selectById(activityId);
         String activityTitle = activity != null ? activity.getTitle() : "未知活动";
-        auditService.quickRecord(userId, username, AuditOperationConstants.REGISTRATION_CANCEL,
+        auditService.quickRecord(userId, null, AuditOperationConstants.REGISTRATION_CANCEL,
                 AuditResourceTypeConstants.REGISTRATION, registration.getId(), 200, "取消报名: " + activityTitle);
 
         sendCancellationNotification(userId, activityId);

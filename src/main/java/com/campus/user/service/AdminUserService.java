@@ -150,7 +150,7 @@ public class AdminUserService {
         userMapper.updateUserRole(userId, newRole);
 
         // 记录审计日志
-        auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.ROLE_CHANGE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.ROLE_CHANGE,
                 AuditResourceTypeConstants.USER, userId, 200, "角色变更为: " + newRole);
     }
 
@@ -215,7 +215,7 @@ public class AdminUserService {
         userMapper.updateUserStatus(userId, UserStatusConstants.ENABLED);
         
         // 记录审计日志
-        auditService.quickRecord(adminId, user.getUsername(), AuditOperationConstants.USER_ENABLE,
+        auditService.quickRecord(adminId, null, AuditOperationConstants.USER_ENABLE,
                 AuditResourceTypeConstants.USER, userId, 200, "启用用户");
         
         logger.info("管理员 {} 启用用户 {}", adminId, userId);
@@ -244,7 +244,7 @@ public class AdminUserService {
         userMapper.updateUserStatus(userId, UserStatusConstants.DISABLED);
         
         // 记录审计日志
-        auditService.quickRecord(adminId, user.getUsername(), AuditOperationConstants.USER_DISABLE,
+        auditService.quickRecord(adminId, null, AuditOperationConstants.USER_DISABLE,
                 AuditResourceTypeConstants.USER, userId, 200, "禁用用户");
         
         logger.info("管理员 {} 禁用用户 {}", adminId, userId);
@@ -284,7 +284,7 @@ public class AdminUserService {
                 successCount++;
                 
                 // 记录审计日志
-                auditService.quickRecord(adminId, user.getUsername(), AuditOperationConstants.USER_ENABLE,
+                auditService.quickRecord(adminId, null, AuditOperationConstants.USER_ENABLE,
                         AuditResourceTypeConstants.USER, userId, 200, "批量启用用户");
             } catch (Exception e) {
                 failedUserIds.add(userId);
@@ -294,7 +294,13 @@ public class AdminUserService {
         }
 
         logger.info("管理员 {} 批量启用用户: 成功 {}, 失败 {}", adminId, successCount, failedUserIds.size());
-        return new BatchOperationResponse(successCount, failedUserIds.size(), failedUserIds, failureReasons);
+        return BatchOperationResponse.builder()
+                .total(userIds.size())
+                .success(successCount)
+                .failed(failedUserIds.size())
+                .failedIds(failedUserIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                .message(failureReasons.isEmpty() ? "批量启用成功" : String.join("; ", failureReasons))
+                .build();
     }
 
     /**
@@ -331,7 +337,7 @@ public class AdminUserService {
                 successCount++;
                 
                 // 记录审计日志
-                auditService.quickRecord(adminId, user.getUsername(), AuditOperationConstants.USER_DISABLE,
+                auditService.quickRecord(adminId, null, AuditOperationConstants.USER_DISABLE,
                         AuditResourceTypeConstants.USER, userId, 200, "批量禁用用户");
             } catch (Exception e) {
                 failedUserIds.add(userId);
@@ -341,7 +347,13 @@ public class AdminUserService {
         }
 
         logger.info("管理员 {} 批量禁用用户: 成功 {}, 失败 {}", adminId, successCount, failedUserIds.size());
-        return new BatchOperationResponse(successCount, failedUserIds.size(), failedUserIds, failureReasons);
+        return BatchOperationResponse.builder()
+                .total(userIds.size())
+                .success(successCount)
+                .failed(failedUserIds.size())
+                .failedIds(failedUserIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                .message(failureReasons.isEmpty() ? "批量禁用成功" : String.join("; ", failureReasons))
+                .build();
     }
 
     /**
@@ -403,7 +415,7 @@ public class AdminUserService {
                 successCount++;
                 
                 // 记录审计日志
-                auditService.quickRecord(adminId, user.getUsername(), AuditOperationConstants.USER_DELETE,
+                auditService.quickRecord(adminId, null, AuditOperationConstants.USER_DELETE,
                         AuditResourceTypeConstants.USER, userId, 200, "批量删除用户");
             } catch (Exception e) {
                 failedUserIds.add(userId);
@@ -413,7 +425,13 @@ public class AdminUserService {
         }
 
         logger.info("管理员 {} 批量删除用户: 成功 {}, 失败 {}", adminId, successCount, failedUserIds.size());
-        return new BatchOperationResponse(successCount, failedUserIds.size(), failedUserIds, failureReasons);
+        return BatchOperationResponse.builder()
+                .total(userIds.size())
+                .success(successCount)
+                .failed(failedUserIds.size())
+                .failedIds(failedUserIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                .message(failureReasons.isEmpty() ? "批量删除成功" : String.join("; ", failureReasons))
+                .build();
     }
 
     /**
@@ -457,7 +475,7 @@ public class AdminUserService {
                 successCount++;
                 
                 // 记录审计日志
-                auditService.quickRecord(adminId, user.getUsername(), AuditOperationConstants.ROLE_CHANGE,
+                auditService.quickRecord(adminId, null, AuditOperationConstants.ROLE_CHANGE,
                         AuditResourceTypeConstants.USER, userId, 200, "批量更新角色为: " + newRole);
             } catch (Exception e) {
                 failedUserIds.add(userId);
@@ -467,7 +485,13 @@ public class AdminUserService {
         }
 
         logger.info("管理员 {} 批量更新用户角色: 成功 {}, 失败 {}", adminId, successCount, failedUserIds.size());
-        return new BatchOperationResponse(successCount, failedUserIds.size(), failedUserIds, failureReasons);
+        return BatchOperationResponse.builder()
+                .total(userIds.size())
+                .success(successCount)
+                .failed(failedUserIds.size())
+                .failedIds(failedUserIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                .message(failureReasons.isEmpty() ? "批量更新角色成功" : String.join("; ", failureReasons))
+                .build();
     }
 
     /**

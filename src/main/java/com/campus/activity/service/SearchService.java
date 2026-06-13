@@ -130,7 +130,7 @@ public class SearchService {
             String cacheKey = generateCacheKey(request);
 
             // 尝试从缓存获取
-            SearchResult<T> cachedResult = cacheService.getSearchSuggestion(cacheKey, SearchResult.class, () -> null);
+            SearchResult<T> cachedResult = (SearchResult<T>) cacheService.getSearchSuggestion(cacheKey, SearchResult.class, (Runnable) null);
             
             if (cachedResult != null) {
                 cacheHit = true;
@@ -160,7 +160,7 @@ public class SearchService {
             }
 
             // 记录搜索历史（异步执行）
-            searchHistoryService.recordSearchHistory(userId, request.getKeyword(), resultCount, request.getSearchType());
+            searchHistoryService.recordSearchHistory(userId, request.getKeyword(), request.getSearchType(), String.valueOf(resultCount));
 
             // 记录性能数据
             long timeMs = System.currentTimeMillis() - startTime;
@@ -205,10 +205,14 @@ public class SearchService {
         String cacheKey = String.format("searchSuggestion:keyword:%s:%d", keyword, limit);
 
         try {
-            return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
-                log.info("从数据库获取搜索建议，keyword={}, limit={}", keyword, limit);
-                return generateSmartSuggestions(keyword, limit);
-            });
+            List<SearchSuggestion> cached = (List<SearchSuggestion>) cacheService.getSearchSuggestion(cacheKey, List.class, null);
+            if (cached != null) {
+                return cached;
+            }
+            log.info("从数据库获取搜索建议，keyword={}, limit={}", keyword, limit);
+            List<SearchSuggestion> suggestions = generateSmartSuggestions(keyword, limit);
+            cacheService.putSearchSuggestion(cacheKey, suggestions);
+            return suggestions;
         } catch (Exception e) {
             // 缓存加载失败时，直接从数据库获取
             log.warn("搜索建议缓存加载失败，直接从数据库获取: keyword={}, error={}", keyword, e.getMessage());
@@ -237,8 +241,8 @@ public class SearchService {
         for (int i = 0; i < prefixMatches.size(); i++) {
             String match = prefixMatches.get(i);
             int relevanceScore = 100 - i; // 前缀匹配得分（越靠前得分越高）
-            Long searchCount = searchHistoryMapper.countByKeyword(match);
-            suggestions.add(new SearchSuggestion(match, relevanceScore, searchCount.intValue(), "prefix"));
+            int searchCount = searchHistoryMapper.countByKeyword(match);
+            suggestions.add(new SearchSuggestion(match, relevanceScore, searchCount, "prefix"));
         }
 
         // 2. 添加包含匹配的建议（模糊匹配）
@@ -246,8 +250,8 @@ public class SearchService {
         for (int i = 0; i < fuzzyMatches.size(); i++) {
             String match = fuzzyMatches.get(i);
             int relevanceScore = 50 - i; // 模糊匹配得分较低
-            Long searchCount = searchHistoryMapper.countByKeyword(match);
-            suggestions.add(new SearchSuggestion(match, relevanceScore, searchCount.intValue(), "fuzzy"));
+            int searchCount = searchHistoryMapper.countByKeyword(match);
+            suggestions.add(new SearchSuggestion(match, relevanceScore, searchCount, "fuzzy"));
         }
 
         // 3. 添加热门搜索词作为补充建议
@@ -256,16 +260,16 @@ public class SearchService {
             String hotKeyword = hotKeywords.get(i);
             if (!keyword.isEmpty() && hotKeyword.toLowerCase().contains(keyword.toLowerCase())) {
                 int relevanceScore = 30 - i; // 热门词匹配得分
-                Long searchCount = searchHistoryMapper.countByKeyword(hotKeyword);
-                suggestions.add(new SearchSuggestion(hotKeyword, relevanceScore, searchCount.intValue(), "hot"));
+                int searchCount = searchHistoryMapper.countByKeyword(hotKeyword);
+                suggestions.add(new SearchSuggestion(hotKeyword, relevanceScore, searchCount, "hot"));
             }
         }
 
         // 4. 按相关性排序（相关性得分 + 搜索次数权重）
         suggestions.sort((a, b) -> {
             // 综合得分 = 相关性得分 + 搜索次数权重（搜索次数越高权重越大）
-            int scoreA = a.getRelevanceScore() + Math.min(a.getSearchCount() / 10, 20);
-            int scoreB = b.getRelevanceScore() + Math.min(b.getSearchCount() / 10, 20);
+            int scoreA = a.getRelevanceScore() + Math.min((int)(a.getSearchCount() / 10), 20);
+            int scoreB = b.getRelevanceScore() + Math.min((int)(b.getSearchCount() / 10), 20);
             return Integer.compare(scoreB, scoreA);
         });
 
@@ -333,32 +337,36 @@ public class SearchService {
         String cacheKey = String.format("searchSuggestion:user:%d:%s:%d", userId, keyword, limit);
 
         try {
-            return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
-                // 获取用户最近搜索的关键词
-                List<String> userKeywords = searchHistoryService.getUserRecentKeywords(userId, limit * 2);
-                
-                List<SearchSuggestion> suggestions = new ArrayList<>();
-                
-                // 匹配用户历史关键词
-                for (int i = 0; i < userKeywords.size(); i++) {
-                    String userKeyword = userKeywords.get(i);
-                    if (userKeyword.toLowerCase().contains(keyword.toLowerCase())) {
-                        int relevanceScore = 100 - i;
-                        Long searchCount = searchHistoryMapper.countByKeyword(userKeyword);
-                        suggestions.add(new SearchSuggestion(userKeyword, relevanceScore, searchCount.intValue(), "user_history"));
-                    }
+            List<SearchSuggestion> cached = (List<SearchSuggestion>) cacheService.getSearchSuggestion(cacheKey, List.class, null);
+            if (cached != null) {
+                return cached;
+            }
+            // 获取用户最近搜索的关键词
+            List<String> userKeywords = searchHistoryService.getUserRecentKeywords(userId, limit * 2);
+            
+            List<SearchSuggestion> suggestions = new ArrayList<>();
+            
+            // 匹配用户历史关键词
+            for (int i = 0; i < userKeywords.size(); i++) {
+                String userKeyword = userKeywords.get(i);
+                if (userKeyword.toLowerCase().contains(keyword.toLowerCase())) {
+                    int relevanceScore = 100 - i;
+                    int searchCount = searchHistoryMapper.countByKeyword(userKeyword);
+                    suggestions.add(new SearchSuggestion(userKeyword, relevanceScore, searchCount, "user_history"));
                 }
-                
-                // 补充通用建议
-                if (suggestions.size() < limit) {
-                    List<SearchSuggestion> generalSuggestions = getSearchSuggestions(keyword, limit - suggestions.size());
-                    suggestions.addAll(generalSuggestions);
-                }
-                
-                // 排序并限制数量
-                suggestions.sort((a, b) -> Integer.compare(b.getRelevanceScore(), a.getRelevanceScore()));
-                return suggestions.subList(0, Math.min(limit, suggestions.size()));
-            });
+            }
+            
+            // 补充通用建议
+            if (suggestions.size() < limit) {
+                List<SearchSuggestion> generalSuggestions = getSearchSuggestions(keyword, limit - suggestions.size());
+                suggestions.addAll(generalSuggestions);
+            }
+            
+            // 排序并限制数量
+            suggestions.sort((a, b) -> Integer.compare(b.getRelevanceScore(), a.getRelevanceScore()));
+            List<SearchSuggestion> result = suggestions.subList(0, Math.min(limit, suggestions.size()));
+            cacheService.putSearchSuggestion(cacheKey, result);
+            return result;
         } catch (Exception e) {
             // 缓存加载失败时，返回空列表
             log.warn("用户搜索建议缓存加载失败: userId={}, keyword={}, error={}", userId, keyword, e.getMessage());
@@ -421,7 +429,7 @@ public class SearchService {
      * 
      * @return 性能统计数据
      */
-    public SearchPerformanceMonitor.SearchStats getPerformanceStats() {
+    public SearchPerformanceMonitor.GlobalStats getPerformanceStats() {
         return performanceMonitor.getGlobalStats();
     }
 
@@ -430,7 +438,7 @@ public class SearchService {
      * 
      * @return 性能摘要报告
      */
-    public Map<String, Object> getPerformanceSummary() {
+    public SearchPerformanceMonitor.PerformanceSummary getPerformanceSummary() {
         return performanceMonitor.getPerformanceSummary();
     }
 

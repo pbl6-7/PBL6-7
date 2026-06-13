@@ -1,5 +1,7 @@
 package com.campus.core.common;
 
+import java.util.Map;
+
 /**
  * 业务异常类
  * 用于抛出业务相关的异常，配合 GlobalExceptionHandler 返回统一格式的错误响应
@@ -19,12 +21,18 @@ public class BusinessException extends RuntimeException {
     private final String message;
 
     /**
+     * 错误详情
+     */
+    private final Map<String, Object> details;
+
+    /**
      * 构造业务异常（使用ResultCode枚举）
      */
     public BusinessException(ResultCode resultCode) {
         super(resultCode.getMessage());
         this.code = resultCode.getCode();
         this.message = resultCode.getMessage();
+        this.details = null;
     }
 
     /**
@@ -34,6 +42,7 @@ public class BusinessException extends RuntimeException {
         super(customMessage);
         this.code = resultCode.getCode();
         this.message = customMessage;
+        this.details = null;
     }
 
     /**
@@ -43,6 +52,7 @@ public class BusinessException extends RuntimeException {
         super(message);
         this.code = code;
         this.message = message;
+        this.details = null;
     }
 
     /**
@@ -52,6 +62,27 @@ public class BusinessException extends RuntimeException {
         super(message);
         this.code = ResultCode.INTERNAL_SERVER_ERROR.getCode();
         this.message = message;
+        this.details = null;
+    }
+
+    /**
+     * 构造业务异常（带详情）
+     */
+    public BusinessException(ResultCode resultCode, String customMessage, Map<String, Object> details) {
+        super(customMessage);
+        this.code = resultCode.getCode();
+        this.message = customMessage;
+        this.details = details;
+    }
+
+    /**
+     * 构造业务异常（带详情）
+     */
+    public BusinessException(Integer code, String message, Map<String, Object> details) {
+        super(message);
+        this.code = code;
+        this.message = message;
+        this.details = details;
     }
 
     public Integer getCode() {
@@ -61,5 +92,9 @@ public class BusinessException extends RuntimeException {
     @Override
     public String getMessage() {
         return message;
+    }
+
+    public Map<String, Object> getDetails() {
+        return details;
     }
 }

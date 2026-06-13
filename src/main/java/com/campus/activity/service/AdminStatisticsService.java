@@ -54,7 +54,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 OVERVIEW_CACHE_KEY, 
                 OverviewStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取概览统计数据");
@@ -84,7 +84,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 ACTIVITY_CACHE_KEY, 
                 ActivityStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取活动统计数据");
@@ -114,7 +114,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 USER_CACHE_KEY, 
                 UserStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取用户统计数据");
@@ -144,7 +144,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 REGISTRATION_CACHE_KEY, 
                 RegistrationStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取报名统计数据");
@@ -206,7 +206,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 cacheKey, 
                 List.class
-        ).orElse(null);
+        );
         
         if (cachedActivities != null) {
             log.info("从缓存获取热门活动数据");
@@ -580,7 +580,7 @@ public class AdminStatisticsService {
                     .collectionCount(toLong(data.getOrDefault("collectionCount", 0)))
                     .viewCount(toLong(data.getOrDefault("viewCount", 0)))
                     .status(toStr(data.get("status")))
-                    .startTime(toStr(data.get("startTime")))
+                    .startTime(toLocalDateTime(data.get("startTime")))
                     .location(toStr(data.get("location")))
                     .hotScore(calculateHotScore(data))
                     .build();
@@ -717,6 +717,25 @@ public class AdminStatisticsService {
             return null;
         }
         return obj.toString();
+    }
+
+    /**
+     * 安全地将对象转换为LocalDateTime
+     * @param obj 原始对象
+     * @return LocalDateTime值，null或转换失败返回null
+     */
+    private LocalDateTime toLocalDateTime(Object obj) {
+        if (obj == null) {
+            return null;
+        }
+        if (obj instanceof LocalDateTime) {
+            return (LocalDateTime) obj;
+        }
+        try {
+            return LocalDateTime.parse(obj.toString());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ==================== 旧方法保留（兼容性） ====================

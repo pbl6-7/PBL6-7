@@ -93,7 +93,8 @@ public enum ResultCode {
      */
     RATE_LIMIT_EXCEEDED(7001, "请求过于频繁"),
     RATE_LIMIT_IP_EXCEEDED(7002, "IP请求频率超限"),
-    RATE_LIMIT_USER_EXCEEDED(7003, "用户请求频率超限");
+    RATE_LIMIT_USER_EXCEEDED(7003, "用户请求频率超限"),
+    TOO_MANY_REQUESTS(429, "请求过于频繁");
 
     private final Integer code;
     private final String message;
