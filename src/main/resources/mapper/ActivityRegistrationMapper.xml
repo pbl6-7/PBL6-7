@@ -92,6 +92,11 @@
         WHERE user_id = #{userId}
     </select>
 
+    <select id="countByUserIdAndStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE user_id = #{userId} AND status = #{status}
+    </select>
+
     <select id="countAll" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity_registration
     </select>
@@ -99,6 +104,122 @@
     <select id="countRecentRegistrations" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity_registration
         WHERE created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+    </select>
+
+    <!-- ==================== 统计相关查询 ==================== -->
+
+    <!-- 按报名状态统计数量 -->
+    <select id="countByStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE status = #{status}
+    </select>
+
+    <!-- 统计指定时间范围内的报名数量 -->
+    <select id="countByTimeRange" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE created_at BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <!-- 按月统计报名数量 -->
+    <select id="countByMonth" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE YEAR(created_at) = #{year}
+        AND MONTH(created_at) = #{month}
+    </select>
+
+    <!-- 按周统计报名数量 -->
+    <select id="countByWeek" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE YEAR(created_at) = #{year}
+        AND WEEK(created_at, 1) = #{week}
+    </select>
+
+    <!-- 查询热门活动的报名数量 -->
+    <select id="selectHotActivityRegistrations" resultType="java.util.Map">
+        SELECT 
+            activity_id as activityId,
+            COUNT(*) as count
+        FROM activity_registration
+        GROUP BY activity_id
+        ORDER BY count DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 统计用户的报名活动数量 -->
+    <select id="countUserRegistrations" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 统计平均每个活动的报名人数 -->
+    <select id="selectAverageRegistrationsPerActivity" resultType="java.lang.Double">
+        SELECT AVG(registration_count) FROM (
+            SELECT COUNT(*) as registration_count
+            FROM activity_registration
+            GROUP BY activity_id
+        ) as counts
+    </select>
+
+    <!-- 按报名状态分组统计数量 -->
+    <select id="selectStatusDistribution" resultType="java.util.Map">
+        SELECT
+            status as `key`,
+            COUNT(*) as `value`
+        FROM activity_registration
+        GROUP BY status
+    </select>
+
+    <!-- 按月统计报名趋势 -->
+    <select id="selectMonthlyTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as label,
+            COUNT(*) as `value`
+        FROM activity_registration
+        WHERE DATE_FORMAT(created_at, '%Y-%m') BETWEEN #{startMonth} AND #{endMonth}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY label ASC
+    </select>
+
+    <!-- 按周统计报名趋势 -->
+    <select id="selectWeeklyTrend" resultType="java.util.Map">
+        SELECT
+            CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) as label,
+            COUNT(*) as `value`
+        FROM activity_registration
+        WHERE CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) BETWEEN #{startWeek} AND #{endWeek}
+        GROUP BY CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1))
+        ORDER BY label ASC
+    </select>
+
+    <!-- 按天统计报名趋势 -->
+    <select id="selectDailyTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as label,
+            COUNT(*) as `value`
+        FROM activity_registration
+        WHERE DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+        ORDER BY label ASC
+    </select>
+
+    <!-- 统计报名成功率 -->
+    <select id="selectConfirmationRate" resultType="java.lang.Double">
+        SELECT 
+            CASE 
+                WHEN COUNT(*) = 0 THEN 0 
+                ELSE SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) * 100.0 / COUNT(*) 
+            END as confirmation_rate
+        FROM activity_registration
+    </select>
+
+    <!-- 统计用户报名数量分布 -->
+    <select id="selectUserRegistrationDistribution" resultType="java.util.Map">
+        SELECT 
+            user_id as userId,
+            COUNT(*) as count
+        FROM activity_registration
+        GROUP BY user_id
+        ORDER BY count DESC
     </select>
 
 </mapper>

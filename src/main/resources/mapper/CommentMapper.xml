@@ -7,12 +7,13 @@
         <result column="activity_id" property="activityId"/>
         <result column="user_id" property="userId"/>
         <result column="content" property="content"/>
+        <result column="reply_to_id" property="replyToId"/>
         <result column="created_at" property="createdAt"/>
     </resultMap>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO activity_comment (activity_id, user_id, content, created_at)
-        VALUES (#{activityId}, #{userId}, #{content}, NOW())
+        INSERT INTO activity_comment (activity_id, user_id, content, reply_to_id, created_at)
+        VALUES (#{activityId}, #{userId}, #{content}, #{replyToId}, NOW())
     </insert>
 
     <select id="selectById" resultMap="BaseResultMap">
@@ -20,20 +21,76 @@
         WHERE id = #{id}
     </select>
 
-    <select id="selectByActivityId" resultMap="BaseResultMap">
+    <select id="selectRootCommentsByActivityId" resultMap="BaseResultMap">
         SELECT * FROM activity_comment
         WHERE activity_id = #{activityId}
+        AND reply_to_id IS NULL
         ORDER BY created_at DESC
         LIMIT #{offset}, #{size}
     </select>
 
-    <select id="countByActivityId" resultType="java.lang.Long">
+    <select id="selectRepliesByReplyToId" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE reply_to_id = #{replyToId}
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="countRootCommentsByActivityId" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity_comment
         WHERE activity_id = #{activityId}
+        AND reply_to_id IS NULL
     </select>
 
     <delete id="deleteById">
         DELETE FROM activity_comment WHERE id = #{id}
     </delete>
+
+    <select id="selectAllRepliesByReplyToId" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE reply_to_id = #{replyToId}
+    </select>
+
+    <delete id="deleteBatchByIds">
+        DELETE FROM activity_comment WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="selectRepliesByParentIds" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE reply_to_id IN
+        <foreach collection="parentIds" item="parentId" open="(" separator="," close=")">
+            #{parentId}
+        </foreach>
+        ORDER BY created_at ASC
+    </select>
+
+    <select id="selectBatchByIds" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!--
+        游标分页查询活动的一级评论列表（基于lastId）
+        优化说明：
+        1. 对于大数据量，使用基于ID的分页避免OFFSET性能问题
+        2. WHERE id < lastId LIMIT N 比 OFFSET性能更好
+        3. 适用于无限滚动或大数据量场景
+        4. 使用idx_activity_id和idx_created_at索引优化查询
+    -->
+    <select id="selectRootCommentsByActivityIdWithCursor" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE activity_id = #{activityId}
+        AND reply_to_id IS NULL
+        <if test="lastId != null">
+            AND id &lt; #{lastId}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{size}
+    </select>
 
 </mapper>

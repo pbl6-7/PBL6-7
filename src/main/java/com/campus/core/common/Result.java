@@ -39,6 +39,11 @@ public class Result<T> {
      */
     private String requestId;
 
+    /**
+     * 错误详情（可选）
+     */
+    private Object details;
+
     private Result() {
         this.timestamp = LocalDateTime.now();
     }
@@ -121,6 +126,14 @@ public class Result<T> {
      */
     public Result<T> requestId(String requestId) {
         this.requestId = requestId;
+        return this;
+    }
+
+    /**
+     * 设置错误详情
+     */
+    public Result<T> details(Object details) {
+        this.details = details;
         return this;
     }
 }

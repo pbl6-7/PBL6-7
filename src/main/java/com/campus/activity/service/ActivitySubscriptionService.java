@@ -7,19 +7,19 @@ import com.campus.activity.mapper.ActivitySubscriptionMapper;
 import com.campus.activity.mapper.ActivityMapper;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
+import com.campus.core.constants.ActivityStatusConstants;
+import com.campus.core.constants.ApprovalStatusConstants;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * 活动订阅服务层
- * 提供活动订阅相关的业务逻辑
- */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ActivitySubscriptionService {
 
     private final ActivitySubscriptionMapper subscriptionMapper;
@@ -27,14 +27,23 @@ public class ActivitySubscriptionService {
 
     /**
      * 订阅活动
-     * @param userId 用户ID
-     * @param activityId 活动ID
+     * 修复问题5：增加活动状态验证
      */
     @Transactional
     public void subscribeActivity(Long userId, Long activityId) {
+        log.info("用户 {} 开始订阅活动 {}", userId, activityId);
+        
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
+        }
+
+        if (!ApprovalStatusConstants.APPROVED.equals(activity.getApprovalStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "活动未通过审核，无法订阅");
+        }
+
+        if (!ActivityStatusConstants.PUBLISHED.equals(activity.getStatus())) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布，无法订阅");
         }
 
         ActivitySubscription existing = subscriptionMapper.selectByUserIdAndActivityId(userId, activityId);
@@ -46,27 +55,29 @@ public class ActivitySubscriptionService {
         subscription.setUserId(userId);
         subscription.setActivityId(activityId);
         subscriptionMapper.insert(subscription);
+        
+        log.info("用户 {} 成功订阅活动 {}", userId, activityId);
     }
 
     /**
      * 取消订阅
-     * @param userId 用户ID
-     * @param activityId 活动ID
      */
     @Transactional
     public void unsubscribeActivity(Long userId, Long activityId) {
+        log.info("用户 {} 开始取消订阅活动 {}", userId, activityId);
+        
         ActivitySubscription existing = subscriptionMapper.selectByUserIdAndActivityId(userId, activityId);
         if (existing == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST, "尚未订阅该活动");
         }
 
         subscriptionMapper.deleteByUserIdAndActivityId(userId, activityId);
+        
+        log.info("用户 {} 成功取消订阅活动 {}", userId, activityId);
     }
 
     /**
      * 获取用户订阅列表
-     * @param userId 用户ID
-     * @return 订阅列表
      */
     public List<ActivitySubscription> getUserSubscriptions(Long userId) {
         return subscriptionMapper.selectByUserId(userId);
@@ -74,8 +85,6 @@ public class ActivitySubscriptionService {
 
     /**
      * 获取用户订阅详情列表
-     * @param userId 用户ID
-     * @return 订阅详情列表
      */
     public List<SubscriptionDetailResponse> getUserSubscriptionDetails(Long userId) {
         List<ActivitySubscription> subscriptions = subscriptionMapper.selectByUserId(userId);
@@ -98,9 +107,6 @@ public class ActivitySubscriptionService {
 
     /**
      * 检查是否已订阅
-     * @param userId 用户ID
-     * @param activityId 活动ID
-     * @return 是否已订阅
      */
     public boolean isSubscribed(Long userId, Long activityId) {
         return subscriptionMapper.selectByUserIdAndActivityId(userId, activityId) != null;
@@ -108,8 +114,6 @@ public class ActivitySubscriptionService {
 
     /**
      * 获取活动订阅数
-     * @param activityId 活动ID
-     * @return 订阅数
      */
     public int getSubscriptionCount(Long activityId) {
         return subscriptionMapper.countByActivityId(activityId);
@@ -117,8 +121,6 @@ public class ActivitySubscriptionService {
 
     /**
      * 获取活动的所有订阅用户ID
-     * @param activityId 活动ID
-     * @return 订阅用户ID列表
      */
     public List<Long> getSubscribedUserIds(Long activityId) {
         return subscriptionMapper.selectUserIdsByActivityId(activityId);

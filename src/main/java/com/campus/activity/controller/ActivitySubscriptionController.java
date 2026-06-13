@@ -4,18 +4,18 @@ import com.campus.activity.dto.SubscriptionDetailResponse;
 import com.campus.activity.dto.SubscriptionResponse;
 import com.campus.activity.entity.ActivitySubscription;
 import com.campus.activity.service.ActivitySubscriptionService;
-import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * 活动订阅控制器
@@ -25,10 +25,10 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/activity-subscription")
 @RequiredArgsConstructor
+@Slf4j
 public class ActivitySubscriptionController {
 
     private final ActivitySubscriptionService subscriptionService;
-    private final JwtUtils jwtUtils;
 
     /**
      * 订阅活动
@@ -36,16 +36,13 @@ public class ActivitySubscriptionController {
     @PostMapping("/{activityId}")
     @ApiOperation("订阅活动")
     public Result<Map<String, Object>> subscribe(
-            @PathVariable Long activityId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 订阅活动 {}", userId, activityId);
 
         subscriptionService.subscribeActivity(userId, activityId);
 
@@ -62,16 +59,13 @@ public class ActivitySubscriptionController {
     @DeleteMapping("/{activityId}")
     @ApiOperation("取消订阅")
     public Result<Map<String, Object>> unsubscribe(
-            @PathVariable Long activityId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 取消订阅活动 {}", userId, activityId);
 
         subscriptionService.unsubscribeActivity(userId, activityId);
 
@@ -88,15 +82,12 @@ public class ActivitySubscriptionController {
     @GetMapping("/my")
     @ApiOperation("获取我的订阅列表")
     public Result<List<SubscriptionDetailResponse>> getMySubscriptions(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 查询订阅列表", userId);
 
         List<SubscriptionDetailResponse> subscriptions = subscriptionService.getUserSubscriptionDetails(userId);
         return Result.success(subscriptions);
@@ -108,16 +99,12 @@ public class ActivitySubscriptionController {
     @GetMapping("/{activityId}/status")
     @ApiOperation("检查是否已订阅")
     public Result<Map<String, Object>> checkSubscriptionStatus(
-            @PathVariable Long activityId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
 
         boolean subscribed = subscriptionService.isSubscribed(userId, activityId);
         int subscriptionCount = subscriptionService.getSubscriptionCount(activityId);

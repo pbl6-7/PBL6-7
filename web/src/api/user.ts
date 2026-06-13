@@ -1,42 +1,61 @@
-import request from '@/utils/request'
-import type { LoginRequest, LoginResponse, RegisterRequest, UserInfo, SecurityQuestion, ChangePasswordRequest, UpdateProfileRequest } from '@/types/user'
+import apiClient from './client';
+import type { LoginRequest, LoginResponse, RegisterRequest, ChangePasswordRequest, UpdateProfileRequest, SecurityQuestion, SetSecurityRequest, VerifySecurityRequest, ResetPasswordRequest } from '@/types/user';
+import type { User } from '@/types/user';
+import type { ApiResponse } from '@/types/common';
 
-export const userLogin = (data: LoginRequest) => {
-  return request.post<any, { data: LoginResponse }>('/users/login', data)
-}
+/** 用户登录 */
+export const login = (data: LoginRequest) =>
+  apiClient.post<ApiResponse<LoginResponse>>('/v1/users/login', data);
 
-export const userRegister = (data: RegisterRequest) => {
-  return request.post<any, { data: null }>('/users/register', data)
-}
+/** 用户注册 */
+export const register = (data: RegisterRequest) =>
+  apiClient.post<ApiResponse<void>>('/v1/users/register', data);
 
-export const getUserInfo = (id: number) => {
-  return request.get<any, { data: UserInfo }>(`/users/${id}`)
-}
+/** 获取当前用户信息 */
+export const getProfile = () =>
+  apiClient.get<ApiResponse<User>>('/v1/users/profile');
 
-export const getUserProfile = () => {
-  return request.get<any, { data: UserInfo }>('/users/profile')
-}
+/** 修改个人资料 */
+export const updateProfile = (data: UpdateProfileRequest) =>
+  apiClient.put<ApiResponse<void>>('/v1/users/profile', data);
 
-export const updateProfile = (data: UpdateProfileRequest) => {
-  return request.put<any, { data: null }>('/users/profile', data)
-}
+/** 修改密码 */
+export const changePassword = (data: ChangePasswordRequest) =>
+  apiClient.put<ApiResponse<void>>('/v1/users/password', data);
 
-export const changePassword = (data: ChangePasswordRequest) => {
-  return request.put<any, { data: null }>('/users/password', data)
-}
+/** 获取用户信息 */
+export const getUserById = (id: number) =>
+  apiClient.get<ApiResponse<User>>(`/v1/users/${id}`);
 
-export const getSecurityQuestions = () => {
-  return request.get<any, { data: SecurityQuestion[] }>('/users/security/questions')
-}
+/** 上传头像（userId从JWT获取，无需前端传递） */
+export const uploadAvatar = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiClient.post<ApiResponse<any>>('/v1/users/avatar', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
-export const getSecurityQuestionByUsername = (username: string) => {
-  return request.get<any, { data: SecurityQuestion }>(`/users/security/username/${username}`)
-}
+/** 获取密保问题列表 */
+export const getSecurityQuestions = () =>
+  apiClient.get<ApiResponse<SecurityQuestion[]>>('/v1/users/security/questions');
 
-export const verifySecurityAnswer = (data: { username: string; securityAnswer: string }) => {
-  return request.post<any, { data: null }>('/users/security/verify', data)
-}
+/** 获取当前用户的密保问题 */
+export const getUserSecurityQuestion = (userId: number) =>
+  apiClient.get<ApiResponse<SecurityQuestion>>(`/v1/users/security/user/${userId}`);
 
-export const resetPassword = (data: { username: string; securityAnswer: string; newPassword: string }) => {
-  return request.post<any, { data: null }>('/users/security/reset-password', data)
-}
+/** 根据用户名获取密保问题 */
+export const getSecurityQuestionByUsername = (username: string) =>
+  apiClient.get<ApiResponse<SecurityQuestion>>(`/v1/users/security/username/${username}`);
+
+/** 设置密保 */
+export const setSecurity = (data: SetSecurityRequest) =>
+  apiClient.post<ApiResponse<void>>('/v1/users/security/set', data);
+
+/** 验证密保 */
+export const verifySecurity = (data: VerifySecurityRequest) =>
+  apiClient.post<ApiResponse<void>>('/v1/users/security/verify', data);
+
+/** 重置密码 */
+export const resetPassword = (data: ResetPasswordRequest) =>
+  apiClient.post<ApiResponse<void>>('/v1/users/security/reset-password', data);

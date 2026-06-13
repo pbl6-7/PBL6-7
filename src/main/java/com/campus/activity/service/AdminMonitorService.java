@@ -37,7 +37,7 @@ public class AdminMonitorService {
         Long pendingActivities = activityMapper.countByApprovalStatus("pending");
         Long approvedActivities = activityMapper.countByApprovalStatus("approved");
         Long totalRegistrations = registrationMapper.countAll();
-        Long totalUsers = (long) userMapper.selectAllUsers().size();
+        Long totalUsers = userMapper.countAllUsers();
 
         return Map.of(
             "totalActivities", totalActivities,
@@ -52,10 +52,7 @@ public class AdminMonitorService {
     public Map<String, Object> getSystemMetrics() {
         Long activities7Days = activityMapper.countCreatedAfterDays(7);
         Long registrations7Days = registrationMapper.countRecentRegistrations(7);
-        Long recentUsers = userMapper.selectAllUsers().stream()
-            .filter(u -> u.getCreatedAt() != null &&
-                u.getCreatedAt().isAfter(java.time.LocalDateTime.now().minusDays(7)))
-            .count();
+        Long recentUsers = userMapper.countRecentUsers(7);
 
         return Map.of(
             "activitiesLast7Days", activities7Days,
@@ -86,10 +83,7 @@ public class AdminMonitorService {
     }
 
     public List<UserResponse> getRecentUsers() {
-        List<User> users = userMapper.selectAllUsers();
-        if (users.size() > 10) {
-            users = users.subList(0, 10);
-        }
+        List<User> users = userMapper.selectRecentUsers(10);
 
         return users.stream()
             .map(UserResponse::fromEntity)

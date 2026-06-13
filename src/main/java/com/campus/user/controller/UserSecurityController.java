@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.List;
 
@@ -63,13 +64,17 @@ public class UserSecurityController {
     }
 
     /**
-     * 设置或修改密保
+     * 设置或修改密保（需验证当前密码）
+     * userId从JWT获取，防止伪造
      */
     @PostMapping("/set")
     @ApiOperation("设置密保问题")
-    public Result<Void> setSecurity(@Valid @RequestBody SetSecurityRequest request) {
+    public Result<Void> setSecurity(HttpServletRequest httpRequest,
+                                     @Valid @RequestBody SetSecurityRequest request) {
+        Long userId = (Long) httpRequest.getAttribute("currentUserId");
         userSecurityService.setSecurity(
-            request.getUserId(),
+            userId,
+            request.getPassword(),
             request.getSecurityQuestionId(),
             request.getSecurityAnswer()
         );

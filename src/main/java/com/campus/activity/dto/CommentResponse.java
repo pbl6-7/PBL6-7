@@ -14,6 +14,10 @@ public class CommentResponse {
     private LocalDateTime createdAt;
 
     public static CommentResponse fromEntity(Comment comment) {
+        if (comment == null) {
+            return null;
+        }
+
         CommentResponse response = new CommentResponse();
         response.setId(comment.getId());
         response.setActivityId(comment.getActivityId());

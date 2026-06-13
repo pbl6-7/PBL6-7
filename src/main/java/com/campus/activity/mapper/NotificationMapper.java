@@ -13,6 +13,8 @@ import java.util.List;
 public interface NotificationMapper {
     int insert(Notification notification);
 
+    int batchInsert(@Param("list") List<Notification> notifications);
+
     int updateIsRead(@Param("id") Long id);
 
     Notification selectById(@Param("id") Long id);
@@ -24,4 +26,13 @@ public interface NotificationMapper {
     int countUnreadByUserId(@Param("userId") Long userId);
 
     List<Notification> selectByActivityId(@Param("activityId") Long activityId);
+
+    /**
+     * 游标分页查询用户通知（基于lastId）
+     * @param userId 用户ID
+     * @param lastId 上一次查询的最后一条记录ID（用于游标分页）
+     * @param size 每页数量
+     * @return 通知列表
+     */
+    List<Notification> selectByUserIdWithCursor(@Param("userId") Long userId, @Param("lastId") Long lastId, @Param("size") Integer size);
 }

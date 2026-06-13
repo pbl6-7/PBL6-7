@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS `user_info` (
     UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户信息表';
 
--- 插入测试用户 (密码: 123456, SHA-256加密)
+-- 插入测试用户 (密码: Test123456, BCrypt加密)
 INSERT INTO user_info (username, password, real_name, role, contact) VALUES
-('test', 'jZae727K08KaOmKSgOaGzww/XVqGr/PKEgIMkjrcbJI=', 'Test User', 'user', 'test@campus.edu');
+('test', '$2a$10$LK9rxjqDXCETQl28hTXpGORWNdURDhNEt4yWqxqzl8qwtxsi92zOG', 'Test User', 'user', 'test@campus.edu');

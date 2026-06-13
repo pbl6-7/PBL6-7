@@ -1,27 +1,33 @@
 package com.campus.activity.controller;
 
-import com.campus.activity.entity.ActivityCollect;
+import com.campus.activity.dto.CollectDetailResponse;
 import com.campus.activity.service.ActivityCollectService;
-import com.campus.core.common.JwtUtils;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 活动收藏控制器
+ * 提供活动收藏相关的API接口
+ * 修复问题3：统一使用拦截器注入的用户信息，与其他控制器保持一致
+ */
 @Api(tags = "活动收藏管理")
 @RestController
 @RequestMapping("/api/v1/activity-collect")
 @RequiredArgsConstructor
+@Slf4j
 public class ActivityCollectController {
 
     private final ActivityCollectService activityCollectService;
-    private final JwtUtils jwtUtils;
 
     /**
      * 收藏活动
@@ -29,16 +35,13 @@ public class ActivityCollectController {
     @PostMapping("/{activityId}")
     @ApiOperation("收藏活动")
     public Result<Map<String, Object>> collect(
-            @PathVariable Long activityId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 收藏活动 {}", userId, activityId);
         
         activityCollectService.collectActivity(userId, activityId);
         
@@ -54,16 +57,13 @@ public class ActivityCollectController {
     @DeleteMapping("/{activityId}")
     @ApiOperation("取消收藏")
     public Result<Map<String, Object>> uncollect(
-            @PathVariable Long activityId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 取消收藏活动 {}", userId, activityId);
         
         activityCollectService.uncollectActivity(userId, activityId);
         
@@ -78,18 +78,14 @@ public class ActivityCollectController {
      */
     @GetMapping("/my")
     @ApiOperation("获取我的收藏列表")
-    public Result<List<ActivityCollect>> getMyCollects(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+    public Result<List<CollectDetailResponse>> getMyCollects(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+        log.info("用户 {} 查询收藏列表", userId);
         
-        List<ActivityCollect> collects = activityCollectService.getUserCollects(userId);
+        List<CollectDetailResponse> collects = activityCollectService.getUserCollectDetails(userId);
         return Result.success(collects);
     }
 
@@ -99,16 +95,12 @@ public class ActivityCollectController {
     @GetMapping("/{activityId}/status")
     @ApiOperation("检查是否已收藏")
     public Result<Map<String, Object>> checkCollectStatus(
-            @PathVariable Long activityId,
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            HttpServletRequest request,
+            @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
         
         boolean collected = activityCollectService.isCollected(userId, activityId);
         int collectCount = activityCollectService.getCollectCount(activityId);

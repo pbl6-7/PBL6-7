@@ -12,6 +12,8 @@ public class Notification {
     private Long id;
     private Long userId;
     private Long activityId;
+    /** 通知标题（用于前端展示） */
+    private String title;
     private String type;
     private String content;
     private Boolean isRead;

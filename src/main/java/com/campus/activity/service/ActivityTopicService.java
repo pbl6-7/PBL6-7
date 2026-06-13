@@ -25,11 +25,22 @@ public class ActivityTopicService {
     private final ActivityMapper activityMapper;
     private final UserMapper userMapper;
 
+    /**
+     * 创建话题
+     * 修复问题3：添加权限验证
+     */
     @Transactional
-    public TopicResponse createTopic(Long creatorId, TopicCreateRequest request) {
+    public TopicResponse createTopic(Long creatorId, TopicCreateRequest request, String creatorRole) {
         Activity activity = activityMapper.selectById(request.getActivityId());
         if (activity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
+        }
+
+        boolean isPublisher = activity.getPublisherId().equals(creatorId);
+        boolean isAdmin = "admin".equals(creatorRole);
+
+        if (!isPublisher && !isAdmin) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只有活动发布者或管理员才能创建话题");
         }
 
         ActivityTopic topic = new ActivityTopic();

@@ -8,6 +8,8 @@
         <result column="password" property="password"/>
         <result column="real_name" property="realName"/>
         <result column="role" property="role"/>
+        <result column="status" property="status"/>
+        <result column="avatar" property="avatar"/>
         <result column="contact" property="contact"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
@@ -47,6 +49,7 @@
             <if test="password != null">password = #{password},</if>
             <if test="realName != null">real_name = #{realName},</if>
             <if test="role != null">role = #{role},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
             <if test="contact != null">contact = #{contact},</if>
             updated_at = NOW()
         </set>
@@ -61,6 +64,11 @@
         SELECT * FROM user_info
         WHERE deleted_at IS NULL
         ORDER BY created_at DESC
+    </select>
+
+    <select id="selectAllIds" resultType="java.lang.Long">
+        SELECT id FROM user_info
+        WHERE deleted_at IS NULL
     </select>
 
     <select id="selectUsersByRole" resultMap="BaseResultMap">
@@ -109,6 +117,241 @@
         SELECT COUNT(*) FROM user_info
         WHERE role = #{role}
         AND deleted_at IS NULL
+    </select>
+
+    <select id="selectRecentUsers" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!--
+        批量插入用户
+        优化说明：
+        1. 使用MyBatis的foreach标签实现批量插入
+        2. 单次批量插入建议不超过500条记录
+        3. 批量插入比循环单条插入性能提升显著
+        4. 使用idx_role索引优化按角色查询
+    -->
+    <insert id="batchInsert" parameterType="java.util.List" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO user_info (username, password, real_name, role, contact, created_at, updated_at)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.username}, #{item.password}, #{item.realName}, #{item.role}, #{item.contact}, NOW(), NOW())
+        </foreach>
+    </insert>
+
+    <!--
+        游标分页查询用户列表（基于lastId）
+        优化说明：
+        1. 对于大数据量，使用基于ID的分页避免OFFSET性能问题
+        2. WHERE id < lastId LIMIT N 比 OFFSET性能更好
+        3. 适用于无限滚动或大数据量场景
+        4. 使用idx_role索引优化按角色筛选
+    -->
+    <select id="selectUserPageListByCursor" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE deleted_at IS NULL
+        <if test="lastId != null">
+            AND id &lt; #{lastId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="role != null and role != ''">
+            AND role = #{role}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{size}
+    </select>
+
+    <!-- 用户状态管理相关SQL -->
+    
+    <!-- 更新用户状态 -->
+    <update id="updateUserStatus">
+        UPDATE user_info
+        SET status = #{status}, updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+    
+    <!-- 查询禁用用户列表 -->
+    <select id="selectDisabledUsers" resultMap="BaseResultMap">
+        SELECT * FROM user_info
+        WHERE status = 'disabled'
+        AND deleted_at IS NULL
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        ORDER BY updated_at DESC
+        LIMIT #{offset}, #{size}
+    </select>
+    
+    <!-- 统计禁用用户数量 -->
+    <select id="countDisabledUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE status = 'disabled'
+        AND deleted_at IS NULL
+        <if test="keyword != null and keyword != ''">
+            AND (username LIKE CONCAT('%', #{keyword}, '%') OR real_name LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+    </select>
+    
+    <!-- 批量更新用户状态 -->
+    <update id="batchUpdateUserStatus">
+        UPDATE user_info
+        SET status = #{status}, updated_at = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted_at IS NULL
+    </update>
+    
+    <!-- 批量删除用户 -->
+    <update id="batchDeleteUsers">
+        UPDATE user_info
+        SET deleted_at = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted_at IS NULL
+    </update>
+    
+    <!-- 批量更新用户角色 -->
+    <update id="batchUpdateUserRole">
+        UPDATE user_info
+        SET role = #{role}, updated_at = NOW()
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND deleted_at IS NULL
+    </update>
+
+    <!-- ==================== 统计相关查询 ==================== -->
+
+    <!-- 统计指定时间范围内注册的用户数量 -->
+    <select id="countByTimeRange" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE created_at BETWEEN #{startTime} AND #{endTime}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 按月统计用户注册数量 -->
+    <select id="countByMonth" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE YEAR(created_at) = #{year}
+        AND MONTH(created_at) = #{month}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 按周统计用户注册数量 -->
+    <select id="countByWeek" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE YEAR(created_at) = #{year}
+        AND WEEK(created_at, 1) = #{week}
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 统计活跃用户数量（最近登录） -->
+    <select id="countActiveUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE updated_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 统计最近注册的用户数量 -->
+    <select id="countRecentUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE created_at >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 统计不活跃用户数量 -->
+    <select id="countInactiveUsers" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info
+        WHERE updated_at &lt; DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 按角色分组统计用户数量 -->
+    <select id="selectRoleDistribution" resultType="java.util.Map">
+        SELECT
+            role as `key`,
+            COUNT(*) as `value`
+        FROM user_info
+        WHERE deleted_at IS NULL
+        GROUP BY role
+    </select>
+
+    <!-- 按月统计用户注册趋势 -->
+    <select id="selectMonthlyRegistrationTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m') as label,
+            COUNT(*) as `value`
+        FROM user_info
+        WHERE deleted_at IS NULL
+        AND DATE_FORMAT(created_at, '%Y-%m') BETWEEN #{startMonth} AND #{endMonth}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+        ORDER BY label ASC
+    </select>
+
+    <!-- 按周统计用户注册趋势 -->
+    <select id="selectWeeklyRegistrationTrend" resultType="java.util.Map">
+        SELECT
+            CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) as label,
+            COUNT(*) as `value`
+        FROM user_info
+        WHERE deleted_at IS NULL
+        AND CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1)) BETWEEN #{startWeek} AND #{endWeek}
+        GROUP BY CONCAT(YEAR(created_at), '-W', WEEK(created_at, 1))
+        ORDER BY label ASC
+    </select>
+
+    <!-- 按天统计用户注册趋势 -->
+    <select id="selectDailyRegistrationTrend" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(created_at, '%Y-%m-%d') as label,
+            COUNT(*) as `value`
+        FROM user_info
+        WHERE deleted_at IS NULL
+        AND DATE_FORMAT(created_at, '%Y-%m-%d') BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+        ORDER BY label ASC
+    </select>
+
+    <!-- 统计平均每人报名活动数量 -->
+    <select id="selectAverageRegistrationsPerUser" resultType="java.lang.Double">
+        SELECT AVG(registration_count) FROM (
+            SELECT COUNT(ar.id) as registration_count
+            FROM user_info u
+            LEFT JOIN activity_registration ar ON u.id = ar.user_id
+            WHERE u.deleted_at IS NULL
+            GROUP BY u.id
+        ) as counts
+    </select>
+
+    <!-- 统计用户报名数量分布 -->
+    <select id="selectUserRegistrationRangeDistribution" resultType="java.util.Map">
+        SELECT
+            CASE
+                WHEN registration_count = 0 THEN '0'
+                WHEN registration_count BETWEEN 1 AND 5 THEN '1-5'
+                WHEN registration_count BETWEEN 6 AND 10 THEN '6-10'
+                WHEN registration_count BETWEEN 11 AND 20 THEN '11-20'
+                ELSE '20+'
+            END as `key`,
+            COUNT(*) as `value`
+        FROM (
+            SELECT u.id, COUNT(ar.id) as registration_count
+            FROM user_info u
+            LEFT JOIN activity_registration ar ON u.id = ar.user_id
+            WHERE u.deleted_at IS NULL
+            GROUP BY u.id
+        ) as counts
+        GROUP BY `key`
     </select>
 
 </mapper>

@@ -5,480 +5,465 @@ import com.campus.activity.dto.ActivityPublishRequest;
 import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.entity.Activity;
+import com.campus.activity.entity.ActivityImage;
+import com.campus.activity.mapper.ActivityImageMapper;
 import com.campus.activity.mapper.ActivityMapper;
-import com.campus.activity.mapper.ActivityRegistrationMapper;
+import com.campus.core.constants.ActivityStatusConstants;
+import com.campus.core.constants.ApprovalStatusConstants;
+import com.campus.core.constants.AuditOperationConstants;
+import com.campus.core.constants.AuditResourceTypeConstants;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
-import com.campus.user.entity.User;
-import com.campus.user.mapper.UserMapper;
-import lombok.RequiredArgsConstructor;
+import com.campus.core.common.SensitiveWordFilter;
+import com.campus.core.service.AuditService;
+import com.campus.activity.service.NotificationService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * 活动服务类
+ *
+ * 提供活动相关的业务逻辑，包括缓存支持：
+ * - 热门活动缓存
+ * - 活动详情缓存
+ * - 缓存自动失效
+ * - 敏感词验证
+ * - 审计日志记录
+ */
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ActivityService {
 
-    private static final String APPROVAL_STATUS_APPROVED = "approved";
-    private static final String APPROVAL_STATUS_PENDING = "pending";
-    private static final String APPROVAL_STATUS_REJECTED = "rejected";
-    private static final String STATUS_PUBLISHED = "published";
-    private static final String STATUS_ENDED = "ended";
-    private static final String STATUS_CANCELLED = "cancelled";
-    private static final int MAX_PAGE_SIZE = 100;
+    @Autowired
+    private CacheService cacheService;
 
-    private final ActivityMapper activityMapper;
-    private final ActivityRegistrationMapper registrationMapper;
-    private final UserMapper userMapper;
-    private final NotificationService notificationService;
+    @Autowired
+    private ActivityMapper activityMapper;
+
+    @Autowired
+    private ActivityImageMapper activityImageMapper;
+
+    @Autowired
+    private SensitiveWordFilter sensitiveWordFilter;
+
+    @Autowired
+    private AuditService auditService;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
-     * 校验活动状态是否允许编辑
+     * 获取热门活动列表（带缓存）
+     *
+     * @param limit 限制数量
+     * @return 热门活动列表
      */
-    private void validateActivityEditable(Activity activity) {
-        if (APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "已审核通过的活动不允许修改，请重新提交审核");
-        }
+    public List<Activity> getHotActivities(int limit) {
+        String cacheKey = String.format("hotActivity:list:%d", limit);
+
+        return cacheService.getHotActivity(cacheKey, List.class, () -> {
+            log.info("从数据库获取热门活动列表，limit={}", limit);
+            return activityMapper.selectRecentActivities(limit);
+        });
     }
 
     /**
-     * 校验活动状态是否允许删除
+     * 根据ID获取活动详情（带缓存）
+     *
+     * @param id 活动ID
+     * @return 活动详情
      */
-    private void validateActivityDeletable(Activity activity) {
-        if (STATUS_ENDED.equals(activity.getStatus())) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "已结束的活动不允许删除");
-        }
-        if (APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "已审核通过的活动不允许删除");
-        }
+    public Optional<Activity> getActivityByIdOptional(Long id) {
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+
+        Activity activity = cacheService.getHotActivity(cacheKey, Activity.class, () -> {
+            log.info("从数据库获取活动详情，id={}", id);
+            return activityMapper.selectById(id);
+        });
+
+        return Optional.ofNullable(activity);
     }
 
     /**
-     * 校验活动开始时间
+     * 根据ID获取活动响应
+     *
+     * @param id 活动ID
+     * @return 活动响应DTO
      */
-    private void validateStartTime(LocalDateTime startTime) {
-        if (startTime.isBefore(LocalDateTime.now())) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "活动开始时间不能早于当前时间");
-        }
+    public ActivityResponse getActivityById(Long id) {
+        Activity activity = activityMapper.selectById(id);
+        return ActivityResponse.fromEntity(activity);
     }
 
     /**
-     * 批量查询用户信息，解决N+1问题
+     * 创建活动（自动清除相关缓存）
+     *
+     * @param activity 活动信息
+     * @return 创建后的活动
      */
-    private Map<Long, User> batchGetUsers(Set<Long> userIds) {
-        if (userIds == null || userIds.isEmpty()) {
-            return Map.of();
-        }
-        List<User> users = userMapper.selectBatchIds(new ArrayList<>(userIds));
-        return users.stream().collect(Collectors.toMap(User::getId, u -> u));
-    }
-
-    /**
-     * 设置发布者名称
-     */
-    private void setPublisherName(ActivityResponse response, Map<Long, User> userMap) {
-        if (response.getPublisherId() != null && userMap.containsKey(response.getPublisherId())) {
-            response.setPublisherName(userMap.get(response.getPublisherId()).getRealName());
-        }
-    }
-
-    /**
-     * 批量设置发布者名称
-     */
-    private List<ActivityResponse> batchSetPublisherName(List<ActivityResponse> responses, Map<Long, User> userMap) {
-        responses.forEach(response -> setPublisherName(response, userMap));
-        return responses;
-    }
-
     @Transactional
-    public ActivityResponse publishActivity(Long publisherId, ActivityPublishRequest request) {
-        User publisher = userMapper.selectById(publisherId);
-        if (publisher == null) {
-            throw new BusinessException(ResultCode.USER_NOT_FOUND, "发布者不存在");
-        }
+    public Activity createActivity(Activity activity) {
+        log.info("创建活动：{}", activity.getTitle());
 
-        validateStartTime(request.getStartTime());
-
-        if (request.getEndTime().isBefore(request.getStartTime())) {
-            throw new BusinessException(ResultCode.VALIDATION_ERROR, "活动结束时间不能早于开始时间");
-        }
-
-        Activity activity = new Activity();
-        activity.setTitle(request.getTitle());
-        activity.setPublisherId(publisherId);
-        activity.setStartTime(request.getStartTime());
-        activity.setEndTime(request.getEndTime());
-        activity.setLocation(request.getLocation());
-        activity.setDescription(request.getDescription());
-        activity.setMaxParticipants(request.getMaxParticipants() != null ? request.getMaxParticipants() : 0);
-        activity.setStatus(STATUS_PUBLISHED);
-        activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
+        activity.setCreatedAt(LocalDateTime.now());
+        activity.setUpdatedAt(LocalDateTime.now());
 
         activityMapper.insert(activity);
 
-        ActivityResponse response = ActivityResponse.fromEntity(activity);
-        response.setPublisherName(publisher.getRealName());
-        return response;
+        cacheService.clearHotActivityCache();
+        log.info("已清除热门活动列表缓存");
+
+        return activity;
     }
 
-    public ActivityResponse getActivityById(Long id) {
+    /**
+     * 发布活动
+     *
+     * @param userId 用户ID
+     * @param userRole 用户角色
+     * @param publishRequest 发布请求
+     * @return 活动响应DTO
+     */
+    @Transactional
+    public ActivityResponse publishActivity(Long userId, String userRole, ActivityPublishRequest publishRequest) {
+        log.info("用户 {} 发布活动：{}", userId, publishRequest.getTitle());
+
+        // 敏感词验证
+        validateSensitiveWords(publishRequest.getTitle(), "活动标题");
+        validateSensitiveWords(publishRequest.getDescription(), "活动描述");
+        validateSensitiveWords(publishRequest.getLocation(), "活动地点");
+
+        Activity activity = new Activity();
+        activity.setTitle(publishRequest.getTitle());
+        activity.setDescription(publishRequest.getDescription());
+        activity.setLocation(publishRequest.getLocation());
+        activity.setStartTime(publishRequest.getStartTime());
+        activity.setEndTime(publishRequest.getEndTime());
+        activity.setTypeId(publishRequest.getTypeId());
+        activity.setMaxParticipants(publishRequest.getMaxParticipants());
+        activity.setPublisherId(userId);
+        activity.setStatus(ActivityStatusConstants.DRAFT);
+        activity.setApprovalStatus(ApprovalStatusConstants.PENDING);
+        activity.setCreatedAt(LocalDateTime.now());
+        activity.setUpdatedAt(LocalDateTime.now());
+
+        activityMapper.insert(activity);
+
+        // 处理活动图片关联
+        if (publishRequest.getImageIds() != null && !publishRequest.getImageIds().isEmpty()) {
+            for (Long fileId : publishRequest.getImageIds()) {
+                ActivityImage activityImage = ActivityImage.builder()
+                        .activityId(activity.getId())
+                        .fileId(fileId)
+                        .displayOrder(publishRequest.getImageIds().indexOf(fileId))
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                activityImageMapper.insert(activityImage);
+            }
+        }
+
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_PUBLISH,
+                AuditResourceTypeConstants.ACTIVITY, activity.getId(), 200, "发布活动: " + activity.getTitle());
+
+        // 清除缓存
+        cacheService.clearHotActivityCache();
+
+        return ActivityResponse.fromEntity(activity);
+    }
+
+    /**
+     * 验证敏感词
+     * 
+     * @param content 待验证内容
+     * @param fieldName 字段名称（用于错误消息）
+     */
+    private void validateSensitiveWords(String content, String fieldName) {
+        if (content != null && !content.isEmpty() && sensitiveWordFilter.containsSensitiveWord(content)) {
+            throw new BusinessException(ResultCode.VALIDATION_ERROR, fieldName + "包含敏感词，请修改后重试");
+        }
+    }
+
+    /**
+     * 更新活动（通过请求DTO）
+     *
+     * @param id 活动ID
+     * @param userId 用户ID
+     * @param updateRequest 更新请求
+     * @return 活动响应DTO
+     */
+    @Transactional
+    public ActivityResponse updateActivity(Long id, Long userId, ActivityPublishRequest updateRequest) {
+        log.info("用户 {} 更新活动：id={}", userId, id);
+
+        // 敏感词验证
+        validateSensitiveWords(updateRequest.getTitle(), "活动标题");
+        validateSensitiveWords(updateRequest.getDescription(), "活动描述");
+        validateSensitiveWords(updateRequest.getLocation(), "活动地点");
+
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
 
-        if (!APPROVAL_STATUS_APPROVED.equals(activity.getApprovalStatus())
-                && !STATUS_PUBLISHED.equals(activity.getStatus())) {
-            throw new BusinessException(ResultCode.FORBIDDEN, "活动未发布或未通过审核");
-        }
-
-        ActivityResponse response = ActivityResponse.fromEntity(activity);
-        User publisher = userMapper.selectById(activity.getPublisherId());
-        if (publisher != null) {
-            response.setPublisherName(publisher.getRealName());
-        }
-
-        Long count = registrationMapper.countByActivityIdAndStatus(id, "confirmed");
-        response.setCurrentParticipants(count != null ? count.intValue() : 0);
-
-        return response;
-    }
-
-    public List<ActivityResponse> getActivitiesByPublisher(Long publisherId) {
-        List<Activity> activities = activityMapper.selectByPublisherId(publisherId);
-        
-        Set<Long> userIds = activities.stream()
-                .map(Activity::getPublisherId)
-                .collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(userIds);
-        
-        List<ActivityResponse> responses = activities.stream()
-                .map(ActivityResponse::fromEntity)
-                .collect(Collectors.toList());
-        
-        return batchSetPublisherName(responses, userMap);
-    }
-
-    @Transactional
-    public ActivityResponse updateActivity(Long activityId, Long publisherId, ActivityPublishRequest request) {
-        Activity activity = activityMapper.selectById(activityId);
-        if (activity == null) {
-            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
-        }
-
-        if (!activity.getPublisherId().equals(publisherId)) {
+        // 权限检查：只有活动发布者可以修改活动
+        if (!java.util.Objects.equals(activity.getPublisherId(), userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权修改此活动");
         }
 
-        validateActivityEditable(activity);
+        activity.setTitle(updateRequest.getTitle());
+        activity.setDescription(updateRequest.getDescription());
+        activity.setLocation(updateRequest.getLocation());
+        activity.setStartTime(updateRequest.getStartTime());
+        activity.setEndTime(updateRequest.getEndTime());
+        activity.setTypeId(updateRequest.getTypeId());
+        activity.setMaxParticipants(updateRequest.getMaxParticipants());
+        activity.setUpdatedAt(LocalDateTime.now());
 
-        if (request.getStartTime() != null) {
-            validateStartTime(request.getStartTime());
-        }
+        activityMapper.updateById(activity);
 
-        if (request.getEndTime() != null && request.getStartTime() != null) {
-            if (request.getEndTime().isBefore(request.getStartTime())) {
-                throw new BusinessException(ResultCode.VALIDATION_ERROR, "活动结束时间不能早于开始时间");
+        // 更新活动图片关联
+        if (updateRequest.getImageIds() != null) {
+            // 删除旧的图片关联
+            List<ActivityImage> oldImages = activityImageMapper.selectByActivityId(id);
+            for (ActivityImage oldImage : oldImages) {
+                activityImageMapper.deleteById(oldImage.getId());
+            }
+            // 添加新的图片关联
+            for (Long fileId : updateRequest.getImageIds()) {
+                ActivityImage activityImage = ActivityImage.builder()
+                        .activityId(id)
+                        .fileId(fileId)
+                        .displayOrder(updateRequest.getImageIds().indexOf(fileId))
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                activityImageMapper.insert(activityImage);
             }
         }
 
-        if (request.getTitle() != null) {
-            activity.setTitle(request.getTitle());
-        }
-        if (request.getStartTime() != null) {
-            activity.setStartTime(request.getStartTime());
-        }
-        if (request.getEndTime() != null) {
-            activity.setEndTime(request.getEndTime());
-        }
-        if (request.getLocation() != null) {
-            activity.setLocation(request.getLocation());
-        }
-        if (request.getDescription() != null) {
-            activity.setDescription(request.getDescription());
-        }
-        if (request.getMaxParticipants() != null) {
-            activity.setMaxParticipants(request.getMaxParticipants());
-        }
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_UPDATE,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "更新活动: " + activity.getTitle());
 
-        activity.setApprovalStatus(APPROVAL_STATUS_PENDING);
-        activityMapper.updateById(activity);
+        // 清除活动详情缓存
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+        cacheService.evictHotActivity(cacheKey);
+        cacheService.clearHotActivityCache();
 
-        notificationService.notifySubscribersWithTitle(
-                activityId,
-                NotificationService.TYPE_ACTIVITY_UPDATE,
-                "活动信息已更新，请查看最新信息"
-        );
-
-        ActivityResponse response = ActivityResponse.fromEntity(activity);
-        User publisher = userMapper.selectById(activity.getPublisherId());
-        if (publisher != null) {
-            response.setPublisherName(publisher.getRealName());
-        }
-        return response;
+        return ActivityResponse.fromEntity(activity);
     }
 
+    /**
+     * 删除活动（带权限验证）
+     *
+     * @param id 活动ID
+     * @param userId 用户ID
+     */
     @Transactional
-    public void deleteActivity(Long activityId, Long publisherId) {
-        Activity activity = activityMapper.selectById(activityId);
+    public void deleteActivity(Long id, Long userId) {
+        log.info("用户 {} 删除活动：id={}", userId, id);
+        Activity activity = activityMapper.selectById(id);
         if (activity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
-
-        if (!activity.getPublisherId().equals(publisherId)) {
+        
+        // 权限检查：只有活动发布者可以删除活动
+        if (!java.util.Objects.equals(activity.getPublisherId(), userId)) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此活动");
         }
+        
+        String activityTitle = activity.getTitle();
+        activityMapper.deleteById(id);
 
-        validateActivityDeletable(activity);
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_DELETE,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "删除活动: " + activityTitle);
 
-        activityMapper.deleteById(activityId);
+        // 清除活动详情缓存
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+        cacheService.evictHotActivity(cacheKey);
+        cacheService.clearHotActivityCache();
     }
 
+    /**
+     * 更新活动状态（自动清除缓存）
+     *
+     * @param id 活动ID
+     * @param status 新状态
+     */
     @Transactional
-    /**
-     * 分页查询活动列表
-     */
-    public ActivityPageResponse getActivityList(Long publisherId, ActivityQueryRequest request) {
-        Integer page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
-        Integer size = request.getSize() != null && request.getSize() > 0 ? request.getSize() : 10;
-        if (size > MAX_PAGE_SIZE) {
-            size = MAX_PAGE_SIZE;
+    public void updateActivityStatus(Long id, Integer status) {
+        log.info("更新活动状态：id={}, status={}", id, status);
+
+        Activity activity = activityMapper.selectById(id);
+        if (activity == null) {
+            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.NOT_FOUND, "活动不存在");
         }
-        
-        String sortBy = request.getSortBy();
-        String sortOrder = request.getSortOrder();
+        activity.setStatus(String.valueOf(status));
+        activity.setUpdatedAt(LocalDateTime.now());
+        activityMapper.updateById(activity);
 
-        Integer offset = (int) ((long) (page - 1) * size);
-
-        List<Activity> activities = activityMapper.selectList(
-                publisherId,
-                request.getKeyword(),
-                request.getStatus(),
-                request.getApprovalStatus(),
-                request.getActivityType(),
-                request.getLocation(),
-                request.getStartTimeFrom(),
-                request.getStartTimeTo(),
-                request.getTagId(),
-                sortBy,
-                sortOrder,
-                offset,
-                size
-        );
-
-        Long total = activityMapper.count(
-                publisherId,
-                request.getKeyword(),
-                request.getStatus(),
-                request.getApprovalStatus(),
-                request.getActivityType(),
-                request.getLocation(),
-                request.getStartTimeFrom(),
-                request.getStartTimeTo(),
-                request.getTagId()
-        );
-
-        Set<Long> userIds = activities.stream()
-                .map(Activity::getPublisherId)
-                .collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(userIds);
-
-        List<ActivityResponse> activityResponses = activities.stream()
-                .map(ActivityResponse::fromEntity)
-                .collect(Collectors.toList());
-        
-        batchSetPublisherName(activityResponses, userMap);
-
-        ActivityPageResponse pageResponse = new ActivityPageResponse();
-        pageResponse.setRecords(activityResponses);
-        pageResponse.setTotal(total);
-        pageResponse.setPage(page);
-        pageResponse.setSize(size);
-        pageResponse.setTotalPages((int) Math.ceil((double) total / size));
-
-        return pageResponse;
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+        cacheService.evictHotActivity(cacheKey);
+        cacheService.clearHotActivityCache();
     }
 
     /**
-     * 获取公开的活动列表（首页展示）
-     * @param request 查询条件
-     * @return 活动分页列表
+     * 获取指定发布者的活动列表
+     *
+     * @param publisherId 发布者ID
+     * @return 活动响应列表
      */
-    public ActivityPageResponse getPublicActivityList(ActivityQueryRequest request) {
-        Integer page = request.getPage() != null && request.getPage() > 0 ? request.getPage() : 1;
-        Integer size = request.getSize() != null && request.getSize() > 0 ? request.getSize() : 12;
-        if (size > MAX_PAGE_SIZE) {
-            size = MAX_PAGE_SIZE;
-        }
+    public List<ActivityResponse> getActivitiesByPublisher(Long publisherId) {
+        List<Activity> activities = activityMapper.selectByPublisherId(publisherId);
+        return activities.stream().map(ActivityResponse::fromEntity).collect(Collectors.toList());
+    }
 
-        String sortBy = request.getSortBy();
-        String sortOrder = request.getSortOrder();
-        Integer offset = (page - 1) * size;
+    /**
+     * 获取活动列表（带筛选和分页）
+     *
+     * @param userId 用户ID
+     * @param queryRequest 查询请求
+     * @return 活动分页响应
+     */
+    public ActivityPageResponse getActivityList(Long userId, ActivityQueryRequest queryRequest) {
+        if (queryRequest.getPage() == null || queryRequest.getPage() < 1) queryRequest.setPage(1);
+        if (queryRequest.getSize() == null || queryRequest.getSize() < 1) queryRequest.setSize(10);
+        if (queryRequest.getSize() > 100) queryRequest.setSize(100);
+
+        int page = queryRequest.getPage();
+        int size = queryRequest.getSize() != null ? queryRequest.getSize() : 10;
+        int offset = (page - 1) * size;
 
         List<Activity> activities = activityMapper.selectList(
                 null,
-                request.getKeyword(),
-                STATUS_PUBLISHED,
-                APPROVAL_STATUS_APPROVED,
-                request.getActivityType(),
-                request.getLocation(),
-                request.getStartTimeFrom(),
-                request.getStartTimeTo(),
-                request.getTagId(),
-                sortBy,
-                sortOrder,
+                queryRequest.getKeyword(),
+                queryRequest.getStatus(),
+                queryRequest.getApprovalStatus(),
+                queryRequest.getTypeId(),
+                queryRequest.getLocation(),
+                queryRequest.getStartTimeFrom(),
+                queryRequest.getStartTimeTo(),
+                queryRequest.getSortBy(),
+                queryRequest.getSortOrder(),
                 offset,
                 size
         );
 
         Long total = activityMapper.count(
                 null,
-                request.getKeyword(),
-                STATUS_PUBLISHED,
-                APPROVAL_STATUS_APPROVED,
-                request.getActivityType(),
-                request.getLocation(),
-                request.getStartTimeFrom(),
-                request.getStartTimeTo(),
-                request.getTagId()
+                queryRequest.getKeyword(),
+                queryRequest.getStatus(),
+                queryRequest.getApprovalStatus(),
+                queryRequest.getTypeId(),
+                queryRequest.getLocation(),
+                queryRequest.getStartTimeFrom(),
+                queryRequest.getStartTimeTo()
         );
 
-        Set<Long> userIds = activities.stream()
-                .map(Activity::getPublisherId)
-                .collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(userIds);
-
-        List<ActivityResponse> activityResponses = activities.stream()
-                .map(ActivityResponse::fromEntity)
-                .collect(Collectors.toList());
-
-        batchSetPublisherName(activityResponses, userMap);
-
-        ActivityPageResponse pageResponse = new ActivityPageResponse();
-        pageResponse.setRecords(activityResponses);
-        pageResponse.setTotal(total);
-        pageResponse.setPage(page);
-        pageResponse.setSize(size);
-        pageResponse.setTotalPages((int) Math.ceil((double) total / size));
-
-        return pageResponse;
+        ActivityPageResponse response = new ActivityPageResponse();
+        response.setList(activities.stream().map(ActivityResponse::fromEntity).collect(Collectors.toList()));
+        response.setTotal(total);
+        response.setPage(page);
+        response.setSize(size);
+        response.setTotalPages((int) Math.ceil((double) total / size));
+        return response;
     }
 
     /**
      * 获取待审核活动列表
-     * @return 待审核活动列表
+     *
+     * @return 活动响应列表
      */
     public List<ActivityResponse> getPendingActivities() {
         List<Activity> activities = activityMapper.selectPendingActivities();
-        
-        Set<Long> userIds = activities.stream()
-                .map(Activity::getPublisherId)
-                .collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(userIds);
-        
-        List<ActivityResponse> responses = activities.stream()
-                .map(ActivityResponse::fromEntity)
-                .collect(Collectors.toList());
-        
-        return batchSetPublisherName(responses, userMap);
+        return activities.stream().map(ActivityResponse::fromEntity).collect(Collectors.toList());
     }
 
     /**
      * 按审核状态获取活动列表
+     *
      * @param approvalStatus 审核状态
-     * @return 活动列表
+     * @return 活动响应列表
      */
     public List<ActivityResponse> getActivitiesByApprovalStatus(String approvalStatus) {
         List<Activity> activities = activityMapper.selectByApprovalStatus(approvalStatus);
-        
-        Set<Long> userIds = activities.stream()
-                .map(Activity::getPublisherId)
-                .collect(Collectors.toSet());
-        Map<Long, User> userMap = batchGetUsers(userIds);
-        
-        List<ActivityResponse> responses = activities.stream()
-                .map(ActivityResponse::fromEntity)
-                .collect(Collectors.toList());
-        
-        return batchSetPublisherName(responses, userMap);
+        return activities.stream().map(ActivityResponse::fromEntity).collect(Collectors.toList());
     }
 
     /**
      * 审核通过活动
-     * @param activityId 活动ID
-     * @return 活动响应
+     *
+     * @param id 活动ID
+     * @param adminId 管理员ID
+     * @return 活动响应DTO
      */
     @Transactional
-    public ActivityResponse approveActivity(Long activityId) {
-        Activity activity = activityMapper.selectById(activityId);
+    public ActivityResponse approveActivity(Long id, Long adminId) {
+        log.info("审核通过活动：id={}, adminId={}", id, adminId);
+        Activity activity = activityMapper.selectById(id);
         if (activity == null) {
-            throw new BusinessException(ResultCode.ACTIVITY_NOT_FOUND);
+            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
-
-        if (!APPROVAL_STATUS_PENDING.equals(activity.getApprovalStatus())) {
-            throw new BusinessException(ResultCode.ACTIVITY_NOT_PENDING);
-        }
-
-        activity.setApprovalStatus(APPROVAL_STATUS_APPROVED);
-        activity.setStatus(STATUS_PUBLISHED);
+        activity.setApprovalStatus(ApprovalStatusConstants.APPROVED);
+        activity.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
 
-        User publisher = userMapper.selectById(activity.getPublisherId());
-        notificationService.notifyUser(
-                activity.getPublisherId(),
-                NotificationService.TYPE_APPROVAL_RESULT,
-                "您的活动《" + activity.getTitle() + "》已通过审核"
-        );
+        // 记录审计日志
+        auditService.quickRecord(adminId, null, AuditOperationConstants.ACTIVITY_APPROVE,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "审核通过活动: " + activity.getTitle());
 
-        ActivityResponse response = ActivityResponse.fromEntity(activity);
-        if (publisher != null) {
-            response.setPublisherName(publisher.getRealName());
-        }
-        return response;
+        // 发送通知给活动发布者
+        notificationService.notifyUser(activity.getPublisherId(), "activity_approved", 
+                "活动审核通过", "您的活动「" + activity.getTitle() + "」已审核通过，可以开始报名了！");
+
+        // 清除活动详情缓存
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+        cacheService.evictHotActivity(cacheKey);
+        cacheService.clearHotActivityCache();
+
+        return ActivityResponse.fromEntity(activity);
     }
 
     /**
      * 审核拒绝活动
-     * @param activityId 活动ID
+     *
+     * @param id 活动ID
      * @param reason 拒绝原因
-     * @return 活动响应
+     * @param adminId 管理员ID
+     * @return 活动响应DTO
      */
     @Transactional
-    public ActivityResponse rejectActivity(Long activityId, String reason) {
-        Activity activity = activityMapper.selectById(activityId);
+    public ActivityResponse rejectActivity(Long id, String reason, Long adminId) {
+        log.info("审核拒绝活动：id={}, reason={}, adminId={}", id, reason, adminId);
+        Activity activity = activityMapper.selectById(id);
         if (activity == null) {
-            throw new BusinessException(ResultCode.ACTIVITY_NOT_FOUND);
+            throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
-
-        if (!APPROVAL_STATUS_PENDING.equals(activity.getApprovalStatus())) {
-            throw new BusinessException(ResultCode.ACTIVITY_NOT_PENDING);
-        }
-
-        activity.setApprovalStatus(APPROVAL_STATUS_REJECTED);
+        activity.setApprovalStatus(ApprovalStatusConstants.REJECTED);
+        activity.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
 
-        User publisher = userMapper.selectById(activity.getPublisherId());
-        String notificationMessage = "您的活动《" + activity.getTitle() + "》未通过审核";
-        if (reason != null && !reason.trim().isEmpty()) {
-            notificationMessage += "。原因：" + reason;
-        }
-        notificationService.notifyUser(
-                activity.getPublisherId(),
-                NotificationService.TYPE_APPROVAL_RESULT,
-                notificationMessage
-        );
+        // 记录审计日志
+        auditService.quickRecord(adminId, null, AuditOperationConstants.ACTIVITY_REJECT,
+                AuditResourceTypeConstants.ACTIVITY, id, 200, "审核拒绝活动: " + activity.getTitle() + ", 原因: " + reason);
 
-        ActivityResponse response = ActivityResponse.fromEntity(activity);
-        if (publisher != null) {
-            response.setPublisherName(publisher.getRealName());
-        }
-        return response;
+        // 发送通知给活动发布者
+        notificationService.notifyUser(activity.getPublisherId(), "activity_rejected",
+                "活动审核拒绝", "您的活动「" + activity.getTitle() + "」审核被拒绝。原因：" + reason);
+
+        // 清除活动详情缓存
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+        cacheService.evictHotActivity(cacheKey);
+        cacheService.clearHotActivityCache();
+
+        return ActivityResponse.fromEntity(activity);
     }
 }

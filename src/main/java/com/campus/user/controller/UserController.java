@@ -1,8 +1,10 @@
 package com.campus.user.controller;
 
-import com.campus.core.common.JwtUtils;
+import com.campus.core.common.BusinessException;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.validation.group.CreateGroup;
+import com.campus.core.validation.group.UpdateGroup;
 import com.campus.user.dto.ChangePasswordRequest;
 import com.campus.user.dto.LoginRequest;
 import com.campus.user.dto.LoginResponse;
@@ -12,9 +14,10 @@ import com.campus.user.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -23,11 +26,10 @@ import javax.validation.Valid;
 public class UserController {
 
     private final UserService userService;
-    private final JwtUtils jwtUtils;
 
     @PostMapping("/login")
     @ApiOperation("用户登录")
-    public Result<LoginResponse> login(@RequestBody LoginRequest request) {
+    public Result<LoginResponse> login(@Validated({CreateGroup.class, UpdateGroup.class}) @RequestBody LoginRequest request) {
         LoginResponse response = userService.login(request);
         return Result.success(response);
     }
@@ -45,7 +47,7 @@ public class UserController {
 
     @PostMapping("/register")
     @ApiOperation("用户注册")
-    public Result<Void> register(@RequestBody User user) {
+    public Result<Void> register(@Validated({CreateGroup.class}) @RequestBody User user) {
         userService.register(user, user.getSecurityQuestionId(), user.getSecurityAnswer());
         return Result.success(null, "注册成功");
     }
@@ -53,17 +55,13 @@ public class UserController {
     @PutMapping("/password")
     @ApiOperation("修改密码")
     public Result<Void> changePassword(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody ChangePasswordRequest request) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            return Result.error(ResultCode.UNAUTHORIZED);
+            HttpServletRequest request,
+            @Validated({UpdateGroup.class}) @RequestBody ChangePasswordRequest changeRequest) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
-        userService.changePassword(userId, request.getOldPassword(), request.getNewPassword());
+        userService.changePassword(userId, changeRequest.getOldPassword(), changeRequest.getNewPassword());
         return Result.success(null, "密码修改成功");
     }
 
@@ -73,16 +71,8 @@ public class UserController {
      */
     @GetMapping("/profile")
     @ApiOperation("获取当前用户个人信息")
-    public Result<User> getCurrentUserProfile(
-            @RequestHeader(value = "Authorization", required = false) String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            return Result.error(ResultCode.UNAUTHORIZED);
-        }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
+    public Result<User> getCurrentUserProfile(HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
         User user = userService.getUserById(userId);
         if (user == null) {
             return Result.error(ResultCode.USER_NOT_FOUND);
@@ -98,17 +88,13 @@ public class UserController {
     @PutMapping("/profile")
     @ApiOperation("修改个人资料")
     public Result<Void> updateProfile(
-            @RequestHeader(value = "Authorization", required = false) String authorization,
-            @Valid @RequestBody UpdateProfileRequest request) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
-            return Result.error(ResultCode.UNAUTHORIZED);
+            HttpServletRequest request,
+            @Validated({UpdateGroup.class}) @RequestBody UpdateProfileRequest updateRequest) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
         }
-        String token = authorization.substring(7);
-        if (!jwtUtils.validateToken(token)) {
-            return Result.error(ResultCode.TOKEN_INVALID);
-        }
-        Long userId = jwtUtils.getUserIdFromToken(token);
-        userService.updateProfile(userId, request.getRealName(), request.getContact());
+        userService.updateProfile(userId, updateRequest.getRealName(), updateRequest.getContact());
         return Result.success(null, "个人资料修改成功");
     }
 }

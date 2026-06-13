@@ -6,6 +6,8 @@ package com.campus.core.common;
  */
 public class BusinessException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * 错误码
      */
