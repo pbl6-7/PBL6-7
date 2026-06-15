@@ -36,7 +36,6 @@ logs/
 .github/
 .trae/
 _bmad*/
-*
 
 *.xlsx
 *.xls
