@@ -10,7 +10,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:cwy262626}
+    password: ${DB_PASSWORD:As2004125}
     driver-class-name: com.mysql.cj.jdbc.Driver
   cache:
     type: caffeine
