@@ -8,9 +8,9 @@ spring:
   application:
     name: campus-activity-platform
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:As2004125}
+    password: ${DB_PASSWORD:cwy262626}
     driver-class-name: com.mysql.cj.jdbc.Driver
   cache:
     type: caffeine
@@ -36,11 +36,11 @@ mybatis:
 
 # JWT配置
 jwt:
-  secret: ${JWT_SECRET_KEY:campus-activity-platform-jwt-secret-key-2024-development-only-please-change-in-production}
+  secret: ${JWT_SECRET_KEY:Q2FtcHVzQWN0aXZpdHlTZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb24yMDI0TXVzdEJlTG9uZ0Vub3VnaA==}
   expiration: 86400000
   key:
-    # 是否启用密钥管理功能
-    management-enabled: true
+    # 是否启用密钥管理功能（暂时禁用，使用配置文件密钥）
+    management-enabled: false
     # 密钥轮换周期（天）
     rotation-days: 30
     # 旧密钥保留时间（天）
@@ -65,8 +65,8 @@ search:
 # 文件上传配置
 file:
   upload:
-    # 文件存储路径（相对于项目根目录）
-    path: uploads
+    # 文件存储路径（绝对路径）
+    path: D:/PBL6-7/uploads
     # 文件大小限制（字节），默认10MB
     max-size: 10485760
     # 允许的文件类型

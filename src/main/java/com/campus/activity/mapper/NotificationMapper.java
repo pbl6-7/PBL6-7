@@ -35,4 +35,11 @@ public interface NotificationMapper {
      * @return 通知列表
      */
     List<Notification> selectByUserIdWithCursor(@Param("userId") Long userId, @Param("lastId") Long lastId, @Param("size") Integer size);
+
+    /**
+     * 标记用户所有通知为已读
+     * @param userId 用户ID
+     * @return 更新记录数
+     */
+    int updateAllReadByUserId(@Param("userId") Long userId);
 }

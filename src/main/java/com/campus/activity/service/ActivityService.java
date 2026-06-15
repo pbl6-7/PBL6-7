@@ -4,6 +4,7 @@ import com.campus.activity.dto.ActivityPageResponse;
 import com.campus.activity.dto.ActivityPublishRequest;
 import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.ActivityResponse;
+import com.campus.activity.dto.TagResponse;
 import com.campus.activity.entity.Activity;
 import com.campus.activity.entity.ActivityImage;
 import com.campus.activity.mapper.ActivityImageMapper;
@@ -59,6 +60,9 @@ public class ActivityService {
     @Autowired
     private NotificationService notificationService;
 
+    @Autowired
+    private ActivityTagService activityTagService;
+
     /**
      * 获取热门活动列表（带缓存）
      *
@@ -99,7 +103,11 @@ public class ActivityService {
      */
     public ActivityResponse getActivityById(Long id) {
         Activity activity = activityMapper.selectById(id);
-        return ActivityResponse.fromEntity(activity);
+        ActivityResponse response = ActivityResponse.fromEntity(activity);
+        if (response != null) {
+            response.setTags(activityTagService.getTagsByActivityId(id));
+        }
+        return response;
     }
 
     /**
@@ -169,6 +177,11 @@ public class ActivityService {
             }
         }
 
+        // 处理活动标签关联
+        if (publishRequest.getTags() != null && !publishRequest.getTags().isEmpty()) {
+            activityTagService.createTagsForActivity(activity.getId(), publishRequest.getTags());
+        }
+
         // 记录审计日志
         auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_PUBLISH,
                 AuditResourceTypeConstants.ACTIVITY, activity.getId(), 200, "发布活动: " + activity.getTitle());
@@ -176,7 +189,12 @@ public class ActivityService {
         // 清除缓存
         cacheService.clearHotActivityCache();
 
-        return ActivityResponse.fromEntity(activity);
+        // 构建响应并加载标签
+        ActivityResponse response = ActivityResponse.fromEntity(activity);
+        List<TagResponse> tags = activityTagService.getTagsByActivityId(activity.getId());
+        response.setTags(tags);
+
+        return response;
     }
 
     /**
@@ -369,7 +387,14 @@ public class ActivityService {
         );
 
         ActivityPageResponse response = new ActivityPageResponse();
-        response.setList(activities.stream().map(ActivityResponse::fromEntity).collect(Collectors.toList()));
+        List<ActivityResponse> activityResponses = activities.stream()
+                .map(activity -> {
+                    ActivityResponse ar = ActivityResponse.fromEntity(activity);
+                    ar.setTags(activityTagService.getTagsByActivityId(activity.getId()));
+                    return ar;
+                })
+                .collect(Collectors.toList());
+        response.setList(activityResponses);
         response.setTotal(total);
         response.setPage(page);
         response.setSize(size);
@@ -413,6 +438,7 @@ public class ActivityService {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
         activity.setApprovalStatus(ApprovalStatusConstants.APPROVED);
+        activity.setStatus("published"); // 审核通过后设置状态为已发布
         activity.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
 

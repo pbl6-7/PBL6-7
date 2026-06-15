@@ -90,9 +90,6 @@ public class GlobalExceptionHandler {
             }
         } else if (exception instanceof DuplicateResourceException) {
             DuplicateResourceException e = (DuplicateResourceException) exception;
-            if (e.getResourceType() != null) {
-                details.put("resourceType", e.getResourceType());
-            }
             if (e.getConflictField() != null) {
                 details.put("conflictField", e.getConflictField());
             }
@@ -101,14 +98,11 @@ public class GlobalExceptionHandler {
             }
         } else if (exception instanceof OperationNotAllowedException) {
             OperationNotAllowedException e = (OperationNotAllowedException) exception;
-            if (e.getOperationType() != null) {
-                details.put("operationType", e.getOperationType());
+            if (e.getOperation() != null) {
+                details.put("operation", e.getOperation());
             }
-            if (e.getResourceType() != null) {
-                details.put("resourceType", e.getResourceType());
-            }
-            if (e.getResourceId() != null) {
-                details.put("resourceId", e.getResourceId());
+            if (e.getReason() != null) {
+                details.put("reason", e.getReason());
             }
         } else if (exception instanceof ValidationException) {
             ValidationException e = (ValidationException) exception;
@@ -178,9 +172,6 @@ public class GlobalExceptionHandler {
         logBusinessException(e, requestId, request);
         
         Map<String, Object> details = buildErrorDetails(e, request);
-        if (e.getDetails() != null) {
-            details.put("additionalInfo", e.getDetails());
-        }
         
         return Result.<Void>error(e.getCode(), e.getMessage())
                 .requestId(requestId)
@@ -197,9 +188,6 @@ public class GlobalExceptionHandler {
         logBusinessException(e, requestId, request);
         
         Map<String, Object> details = buildErrorDetails(e, request);
-        if (e.getDetails() != null) {
-            details.put("additionalInfo", e.getDetails());
-        }
         
         return Result.<Void>error(e.getCode(), e.getMessage())
                 .requestId(requestId)
@@ -218,9 +206,6 @@ public class GlobalExceptionHandler {
         logBusinessException(e, requestId, request);
         
         Map<String, Object> details = buildErrorDetails(e, request);
-        if (e.getDetails() != null) {
-            details.put("additionalInfo", e.getDetails());
-        }
         
         return Result.<Void>error(e.getCode(), e.getMessage())
                 .requestId(requestId)
@@ -237,9 +222,6 @@ public class GlobalExceptionHandler {
         logBusinessException(e, requestId, request);
         
         Map<String, Object> details = buildErrorDetails(e, request);
-        if (e.getDetails() != null) {
-            details.put("additionalInfo", e.getDetails());
-        }
         
         return Result.<Void>error(e.getCode(), e.getMessage())
                 .requestId(requestId)
@@ -258,9 +240,6 @@ public class GlobalExceptionHandler {
         logBusinessException(e, requestId, request);
         
         Map<String, Object> details = buildErrorDetails(e, request);
-        if (e.getDetails() != null) {
-            details.put("additionalInfo", e.getDetails());
-        }
         
         return Result.<Void>error(e.getCode(), e.getMessage())
                 .requestId(requestId)
@@ -279,9 +258,6 @@ public class GlobalExceptionHandler {
         logBusinessException(e, requestId, request);
         
         Map<String, Object> details = buildErrorDetails(e, request);
-        if (e.getDetails() != null) {
-            details.put("additionalInfo", e.getDetails());
-        }
         
         return Result.<Void>error(e.getCode(), e.getMessage())
                 .requestId(requestId)

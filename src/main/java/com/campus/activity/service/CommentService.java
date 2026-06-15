@@ -120,7 +120,7 @@ public class CommentService {
         }
 
         // 记录审计日志（评论发布）
-        auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.COMMENT_CREATE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.COMMENT_CREATE,
                 AuditResourceTypeConstants.COMMENT, comment.getId(), 200, "发布评论成功");
 
         CommentResponse response = CommentResponse.fromEntity(comment);
@@ -213,8 +213,8 @@ public class CommentService {
 
         // 使用 BatchQueryUtils 批量获取用户信息
         Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
-                ids -> userMapper.selectBatchIds(ids),
                 allUserIds,
+                ids -> userMapper.selectBatchIds(ids),
                 User::getId
         );
 
@@ -368,8 +368,7 @@ public class CommentService {
         log.info("用户 {} 成功删除评论: commentId={}, 删除总数={}", userId, commentId, idsToDelete.size());
 
         // 记录审计日志（评论删除）
-        String username = user != null ? user.getUsername() : null;
-        auditService.quickRecord(userId, username, AuditOperationConstants.COMMENT_DELETE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.COMMENT_DELETE,
                 AuditResourceTypeConstants.COMMENT, commentId, 200, "删除评论成功，删除总数: " + idsToDelete.size());
     }
 

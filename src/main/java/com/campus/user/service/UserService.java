@@ -44,7 +44,7 @@ public class UserService {
         if (loginLockService.isUserLocked(username)) {
             logger.warn("用户登录被锁定: {}", username);
             // 记录审计日志（登录失败）
-            auditService.quickRecord(null, username, AuditOperationConstants.LOGIN,
+            auditService.quickRecord(null, null, AuditOperationConstants.LOGIN,
                     AuditResourceTypeConstants.USER, null, 403, "登录失败次数过多，账号被锁定");
             throw new BusinessException(ResultCode.FORBIDDEN, "登录失败次数过多，请15分钟后再试");
         }
@@ -52,7 +52,7 @@ public class UserService {
         User user = userMapper.selectByUsername(username);
         if (user == null) {
             // 记录审计日志（用户不存在）
-            auditService.quickRecord(null, username, AuditOperationConstants.LOGIN,
+            auditService.quickRecord(null, null, AuditOperationConstants.LOGIN,
                     AuditResourceTypeConstants.USER, null, 404, "用户不存在");
             throw new BusinessException(ResultCode.USER_NOT_FOUND);
         }
@@ -61,7 +61,7 @@ public class UserService {
         if (UserStatusConstants.isDisabled(user.getStatus())) {
             logger.warn("用户登录失败: {}, 用户已被禁用", username);
             // 记录审计日志（用户被禁用）
-            auditService.quickRecord(user.getId(), username, AuditOperationConstants.LOGIN,
+            auditService.quickRecord(user.getId(), null, AuditOperationConstants.LOGIN,
                     AuditResourceTypeConstants.USER, user.getId(), 403, "用户已被禁用，禁止登录");
             throw new BusinessException(ResultCode.AUTHENTICATION_ACCOUNT_DISABLED, "账户已被禁用，请联系管理员");
         }
@@ -72,7 +72,7 @@ public class UserService {
             logger.warn("用户登录失败: {}, 失败次数: {}", username, failCount);
             
             // 记录审计日志（密码错误）
-            auditService.quickRecord(user.getId(), username, AuditOperationConstants.LOGIN,
+            auditService.quickRecord(user.getId(), null, AuditOperationConstants.LOGIN,
                     AuditResourceTypeConstants.USER, user.getId(), 401, "密码错误，失败次数: " + failCount);
             
             // 检查是否达到锁定阈值
@@ -89,7 +89,7 @@ public class UserService {
 
         // 记录审计日志（登录成功）
         int executionTime = (int) (System.currentTimeMillis() - startTime);
-        auditService.quickRecord(user.getId(), username, AuditOperationConstants.LOGIN,
+        auditService.quickRecord(user.getId(), null, AuditOperationConstants.LOGIN,
                 AuditResourceTypeConstants.USER, user.getId(), 200, "登录成功");
 
         String token = jwtUtils.generateToken(user.getId(), user.getUsername(), user.getRole());
@@ -104,7 +104,7 @@ public class UserService {
         User existUser = userMapper.selectByUsername(user.getUsername());
         if (existUser != null) {
             // 记录审计日志（用户已存在）
-            auditService.quickRecord(null, user.getUsername(), AuditOperationConstants.REGISTER,
+            auditService.quickRecord(null, null, AuditOperationConstants.REGISTER,
                     AuditResourceTypeConstants.USER, null, 409, "用户名已存在");
             throw new BusinessException(ResultCode.USER_ALREADY_EXISTS);
         }
@@ -123,7 +123,7 @@ public class UserService {
         userSecurityService.setSecurityOnRegister(user.getId(), securityQuestionId, securityAnswer);
 
         // 记录审计日志（注册成功）
-        auditService.quickRecord(user.getId(), user.getUsername(), AuditOperationConstants.REGISTER,
+        auditService.quickRecord(user.getId(), null, AuditOperationConstants.REGISTER,
                 AuditResourceTypeConstants.USER, user.getId(), 200, "用户注册成功");
     }
 
@@ -155,7 +155,7 @@ public class UserService {
         }
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             // 记录审计日志（旧密码错误）
-            auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.PASSWORD_CHANGE,
+            auditService.quickRecord(userId, null, AuditOperationConstants.PASSWORD_CHANGE,
                     AuditResourceTypeConstants.USER, userId, 401, "旧密码错误");
             throw new BusinessException(ResultCode.PASSWORD_ERROR, "旧密码错误");
         }
@@ -164,7 +164,7 @@ public class UserService {
         userMapper.updateById(user);
 
         // 记录审计日志（密码修改成功）
-        auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.PASSWORD_CHANGE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.PASSWORD_CHANGE,
                 AuditResourceTypeConstants.USER, userId, 200, "密码修改成功");
     }
 

@@ -158,3 +158,14 @@ export interface ActivityApprovalStatistics {
 export interface ActivityApprovalRequest {
   reason?: string;
 }
+
+/** 报名记录 */
+export interface Registration {
+  id: number;
+  activityId: number;
+  activityTitle?: string;
+  location?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  createdAt: string;
+  updatedAt?: string;
+}

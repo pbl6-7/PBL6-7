@@ -6,33 +6,28 @@
         <id column="id" property="id"/>
         <result column="user_id" property="userId"/>
         <result column="activity_id" property="activityId"/>
-        <result column="create_time" property="createTime"/>
+        <result column="created_at" property="createTime"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.campus.activity.entity.ActivityCollect" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO activity_collect (user_id, activity_id, create_time)
+        INSERT INTO activity_collect (user_id, activity_id, created_at)
         VALUES (#{userId}, #{activityId}, NOW())
     </insert>
 
     <delete id="deleteByUserIdAndActivityId">
-        DELETE FROM activity_collect
-        WHERE user_id = #{userId} AND activity_id = #{activityId}
+        DELETE FROM activity_collect WHERE user_id = #{userId} AND activity_id = #{activityId}
     </delete>
 
     <select id="selectByUserIdAndActivityId" resultMap="BaseResultMap">
-        SELECT * FROM activity_collect
-        WHERE user_id = #{userId} AND activity_id = #{activityId}
+        SELECT * FROM activity_collect WHERE user_id = #{userId} AND activity_id = #{activityId}
     </select>
 
     <select id="selectByUserId" resultMap="BaseResultMap">
-        SELECT * FROM activity_collect
-        WHERE user_id = #{userId}
-        ORDER BY create_time DESC
+        SELECT * FROM activity_collect WHERE user_id = #{userId} ORDER BY created_at DESC
     </select>
 
     <select id="countByActivityId" resultType="int">
-        SELECT COUNT(*) FROM activity_collect
-        WHERE activity_id = #{activityId}
+        SELECT COUNT(*) FROM activity_collect WHERE activity_id = #{activityId}
     </select>
 
 </mapper>

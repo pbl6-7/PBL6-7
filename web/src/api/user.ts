@@ -5,57 +5,57 @@ import type { ApiResponse } from '@/types/common';
 
 /** 用户登录 */
 export const login = (data: LoginRequest) =>
-  apiClient.post<ApiResponse<LoginResponse>>('/v1/users/login', data);
+  apiClient.post<ApiResponse<LoginResponse>>('/users/login', data);
 
 /** 用户注册 */
 export const register = (data: RegisterRequest) =>
-  apiClient.post<ApiResponse<void>>('/v1/users/register', data);
+  apiClient.post<ApiResponse<void>>('/users/register', data);
 
 /** 获取当前用户信息 */
 export const getProfile = () =>
-  apiClient.get<ApiResponse<User>>('/v1/users/profile');
+  apiClient.get<ApiResponse<User>>('/users/profile');
 
 /** 修改个人资料 */
 export const updateProfile = (data: UpdateProfileRequest) =>
-  apiClient.put<ApiResponse<void>>('/v1/users/profile', data);
+  apiClient.put<ApiResponse<void>>('/users/profile', data);
 
 /** 修改密码 */
 export const changePassword = (data: ChangePasswordRequest) =>
-  apiClient.put<ApiResponse<void>>('/v1/users/password', data);
+  apiClient.post<ApiResponse<void>>('/users/change-password', data);
 
 /** 获取用户信息 */
 export const getUserById = (id: number) =>
-  apiClient.get<ApiResponse<User>>(`/v1/users/${id}`);
+  apiClient.get<ApiResponse<User>>(`/users/${id}`);
 
-/** 上传头像（userId从JWT获取，无需前端传递） */
+/** 上传头像 */
 export const uploadAvatar = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-  return apiClient.post<ApiResponse<any>>('/v1/users/avatar', formData, {
+  return apiClient.post<ApiResponse<any>>('/users/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
 
 /** 获取密保问题列表 */
 export const getSecurityQuestions = () =>
-  apiClient.get<ApiResponse<SecurityQuestion[]>>('/v1/users/security/questions');
+  apiClient.get<ApiResponse<SecurityQuestion[]>>('/users/security/questions');
 
 /** 获取当前用户的密保问题 */
 export const getUserSecurityQuestion = (userId: number) =>
-  apiClient.get<ApiResponse<SecurityQuestion>>(`/v1/users/security/user/${userId}`);
+  apiClient.get<ApiResponse<SecurityQuestion>>(`/users/security/user/${userId}`);
 
 /** 根据用户名获取密保问题 */
 export const getSecurityQuestionByUsername = (username: string) =>
-  apiClient.get<ApiResponse<SecurityQuestion>>(`/v1/users/security/username/${username}`);
+  apiClient.get<ApiResponse<SecurityQuestion>>(`/users/security/username/${username}`);
 
 /** 设置密保 */
 export const setSecurity = (data: SetSecurityRequest) =>
-  apiClient.post<ApiResponse<void>>('/v1/users/security/set', data);
+  apiClient.post<ApiResponse<void>>('/users/security/set', data);
 
 /** 验证密保 */
 export const verifySecurity = (data: VerifySecurityRequest) =>
-  apiClient.post<ApiResponse<void>>('/v1/users/security/verify', data);
+  apiClient.post<ApiResponse<void>>('/users/security/verify', data);
 
 /** 重置密码 */
 export const resetPassword = (data: ResetPasswordRequest) =>
-  apiClient.post<ApiResponse<void>>('/v1/users/security/reset-password', data);
+  apiClient.post<ApiResponse<void>>('/users/security/reset-password', data);

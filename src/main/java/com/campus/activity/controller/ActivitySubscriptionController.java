@@ -36,9 +36,8 @@ public class ActivitySubscriptionController {
     @PostMapping("/{activityId}")
     @ApiOperation("订阅活动")
     public Result<Map<String, Object>> subscribe(
-            HttpServletRequest request,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long activityId) {
-        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -59,9 +58,8 @@ public class ActivitySubscriptionController {
     @DeleteMapping("/{activityId}")
     @ApiOperation("取消订阅")
     public Result<Map<String, Object>> unsubscribe(
-            HttpServletRequest request,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long activityId) {
-        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -82,8 +80,7 @@ public class ActivitySubscriptionController {
     @GetMapping("/my")
     @ApiOperation("获取我的订阅列表")
     public Result<List<SubscriptionDetailResponse>> getMySubscriptions(
-            HttpServletRequest request) {
-        Long userId = (Long) request.getAttribute("currentUserId");
+            @RequestHeader("X-User-Id") Long userId) {
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -99,9 +96,8 @@ public class ActivitySubscriptionController {
     @GetMapping("/{activityId}/status")
     @ApiOperation("检查是否已订阅")
     public Result<Map<String, Object>> checkSubscriptionStatus(
-            HttpServletRequest request,
+            @RequestHeader("X-User-Id") Long userId,
             @PathVariable Long activityId) {
-        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }

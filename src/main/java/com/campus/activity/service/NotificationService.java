@@ -69,4 +69,11 @@ public interface NotificationService {
      * @return 未读通知数量
      */
     int getUnreadCount(Long userId);
+
+    /**
+     * 标记用户所有通知为已读
+     *
+     * @param userId 用户ID
+     */
+    void markAllAsRead(Long userId);
 }

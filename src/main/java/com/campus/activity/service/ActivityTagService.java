@@ -220,7 +220,7 @@ public class ActivityTagService {
             if (tag == null) {
                 throw new BusinessException(ResultCode.NOT_FOUND, "标签不存在: " + tagId);
             }
-            activityTagMapper.insertRelation(activityId, tagId);
+            activityTagMapper.insertRelation(activityId, tag.getName(), tag.getColor());
         }
     }
 }

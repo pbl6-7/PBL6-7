@@ -54,7 +54,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 OVERVIEW_CACHE_KEY, 
                 OverviewStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取概览统计数据");
@@ -84,7 +84,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 ACTIVITY_CACHE_KEY, 
                 ActivityStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取活动统计数据");
@@ -114,7 +114,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 USER_CACHE_KEY, 
                 UserStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取用户统计数据");
@@ -144,7 +144,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 REGISTRATION_CACHE_KEY, 
                 RegistrationStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取报名统计数据");
@@ -206,7 +206,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 cacheKey, 
                 List.class
-        ).orElse(null);
+        );
         
         if (cachedActivities != null) {
             log.info("从缓存获取热门活动数据");
@@ -302,40 +302,14 @@ public class AdminStatisticsService {
                 activityMapper.selectTypeDistribution()
         );
         
-        // 月度趋势（最近12个月）
-        LocalDateTime now = LocalDateTime.now();
-        String startMonth = now.minusMonths(12).format(DateTimeFormatter.ofPattern("yyyy-MM"));
-        String endMonth = now.format(DateTimeFormatter.ofPattern("yyyy-MM"));
-        List<TrendDataDTO> monthlyTrend = convertTrendList(
-                activityMapper.selectMonthlyTrend(startMonth, endMonth)
-        );
-        
-        // 周度趋势（最近12周）
-        String startWeek = calculateWeekString(now.minusWeeks(12));
-        String endWeek = calculateWeekString(now);
-        List<TrendDataDTO> weeklyTrend = convertTrendList(
-                activityMapper.selectWeeklyTrend(startWeek, endWeek)
-        );
-        
-        // 热门活动
-        List<HotActivityDTO> hotActivitiesByRegistration = calculateHotActivities(10, "registration");
-        List<HotActivityDTO> hotActivitiesByCollection = calculateHotActivities(10, "collection");
-        
-        // 平均值统计
-        Double averageRegistrations = activityMapper.selectAverageRegistrations();
-        Double averageViewCount = activityMapper.selectAverageViewCount();
-        
         return ActivityStatisticsDTO.builder()
                 .totalActivities(totalActivities)
+                .publishedActivities(statusDistribution.getOrDefault("published", 0L))
+                .draftActivities(statusDistribution.getOrDefault("draft", 0L))
+                .cancelledActivities(statusDistribution.getOrDefault("cancelled", 0L))
                 .statusDistribution(statusDistribution)
                 .approvalStatusDistribution(approvalStatusDistribution)
                 .typeDistribution(typeDistribution)
-                .monthlyTrend(monthlyTrend)
-                .weeklyTrend(weeklyTrend)
-                .hotActivitiesByRegistration(hotActivitiesByRegistration)
-                .hotActivitiesByCollection(hotActivitiesByCollection)
-                .averageRegistrations(averageRegistrations != null ? averageRegistrations : 0.0)
-                .averageViewCount(averageViewCount != null ? averageViewCount : 0.0)
                 .build();
     }
 
@@ -580,7 +554,7 @@ public class AdminStatisticsService {
                     .collectionCount(toLong(data.getOrDefault("collectionCount", 0)))
                     .viewCount(toLong(data.getOrDefault("viewCount", 0)))
                     .status(toStr(data.get("status")))
-                    .startTime(toStr(data.get("startTime")))
+                    .startTime(LocalDateTime.parse(toStr(data.get("startTime")), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
                     .location(toStr(data.get("location")))
                     .hotScore(calculateHotScore(data))
                     .build();

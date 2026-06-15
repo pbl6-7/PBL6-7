@@ -18,6 +18,11 @@
         VALUES (#{userId}, #{activityId}, #{title}, #{type}, #{content}, #{isRead}, NOW())
     </insert>
 
+    <insert id="insertWithoutActivity" parameterType="com.campus.activity.entity.Notification" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notification (user_id, title, type, content, is_read, create_time)
+        VALUES (#{userId}, #{title}, #{type}, #{content}, #{isRead}, NOW())
+    </insert>
+
     <!--
         批量插入通知
         优化说明：
@@ -85,5 +90,14 @@
         ORDER BY id DESC
         LIMIT #{size}
     </select>
+
+    <!--
+        标记用户所有通知为已读
+    -->
+    <update id="updateAllReadByUserId">
+        UPDATE notification
+        SET is_read = 1
+        WHERE user_id = #{userId} AND is_read = 0
+    </update>
 
 </mapper>

@@ -130,7 +130,7 @@ public class SearchService {
             String cacheKey = generateCacheKey(request);
 
             // 尝试从缓存获取
-            SearchResult<T> cachedResult = cacheService.getSearchSuggestion(cacheKey, SearchResult.class, () -> null);
+            SearchResult<T> cachedResult = cacheService.getSearchSuggestion(cacheKey, SearchResult.class, () -> { });
             
             if (cachedResult != null) {
                 cacheHit = true;
@@ -160,7 +160,7 @@ public class SearchService {
             }
 
             // 记录搜索历史（异步执行）
-            searchHistoryService.recordSearchHistory(userId, request.getKeyword(), resultCount, request.getSearchType());
+            searchHistoryService.recordSearchHistory(userId, request.getKeyword(), String.valueOf(resultCount), request.getSearchType());
 
             // 记录性能数据
             long timeMs = System.currentTimeMillis() - startTime;
@@ -207,7 +207,7 @@ public class SearchService {
         try {
             return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
                 log.info("从数据库获取搜索建议，keyword={}, limit={}", keyword, limit);
-                return generateSmartSuggestions(keyword, limit);
+                generateSmartSuggestions(keyword, limit);
             });
         } catch (Exception e) {
             // 缓存加载失败时，直接从数据库获取
@@ -237,8 +237,8 @@ public class SearchService {
         for (int i = 0; i < prefixMatches.size(); i++) {
             String match = prefixMatches.get(i);
             int relevanceScore = 100 - i; // 前缀匹配得分（越靠前得分越高）
-            Long searchCount = searchHistoryMapper.countByKeyword(match);
-            suggestions.add(new SearchSuggestion(match, relevanceScore, searchCount.intValue(), "prefix"));
+            long searchCount = searchHistoryMapper.countByKeyword(match);
+            suggestions.add(new SearchSuggestion(match, relevanceScore, (int) searchCount, "prefix"));
         }
 
         // 2. 添加包含匹配的建议（模糊匹配）
@@ -246,8 +246,8 @@ public class SearchService {
         for (int i = 0; i < fuzzyMatches.size(); i++) {
             String match = fuzzyMatches.get(i);
             int relevanceScore = 50 - i; // 模糊匹配得分较低
-            Long searchCount = searchHistoryMapper.countByKeyword(match);
-            suggestions.add(new SearchSuggestion(match, relevanceScore, searchCount.intValue(), "fuzzy"));
+            long searchCount = searchHistoryMapper.countByKeyword(match);
+            suggestions.add(new SearchSuggestion(match, relevanceScore, (int) searchCount, "fuzzy"));
         }
 
         // 3. 添加热门搜索词作为补充建议
@@ -256,8 +256,8 @@ public class SearchService {
             String hotKeyword = hotKeywords.get(i);
             if (!keyword.isEmpty() && hotKeyword.toLowerCase().contains(keyword.toLowerCase())) {
                 int relevanceScore = 30 - i; // 热门词匹配得分
-                Long searchCount = searchHistoryMapper.countByKeyword(hotKeyword);
-                suggestions.add(new SearchSuggestion(hotKeyword, relevanceScore, searchCount.intValue(), "hot"));
+                long searchCount = searchHistoryMapper.countByKeyword(hotKeyword);
+                suggestions.add(new SearchSuggestion(hotKeyword, relevanceScore, (int) searchCount, "hot"));
             }
         }
 
@@ -344,8 +344,8 @@ public class SearchService {
                     String userKeyword = userKeywords.get(i);
                     if (userKeyword.toLowerCase().contains(keyword.toLowerCase())) {
                         int relevanceScore = 100 - i;
-                        Long searchCount = searchHistoryMapper.countByKeyword(userKeyword);
-                        suggestions.add(new SearchSuggestion(userKeyword, relevanceScore, searchCount.intValue(), "user_history"));
+                        long searchCount = searchHistoryMapper.countByKeyword(userKeyword);
+                        suggestions.add(new SearchSuggestion(userKeyword, relevanceScore, (int) searchCount, "user_history"));
                     }
                 }
                 
@@ -357,7 +357,7 @@ public class SearchService {
                 
                 // 排序并限制数量
                 suggestions.sort((a, b) -> Integer.compare(b.getRelevanceScore(), a.getRelevanceScore()));
-                return suggestions.subList(0, Math.min(limit, suggestions.size()));
+                suggestions.subList(0, Math.min(limit, suggestions.size()));
             });
         } catch (Exception e) {
             // 缓存加载失败时，返回空列表
@@ -421,7 +421,7 @@ public class SearchService {
      * 
      * @return 性能统计数据
      */
-    public SearchPerformanceMonitor.SearchStats getPerformanceStats() {
+    public SearchPerformanceMonitor.GlobalStats getPerformanceStats() {
         return performanceMonitor.getGlobalStats();
     }
 
@@ -430,7 +430,7 @@ public class SearchService {
      * 
      * @return 性能摘要报告
      */
-    public Map<String, Object> getPerformanceSummary() {
+    public SearchPerformanceMonitor.PerformanceSummary getPerformanceSummary() {
         return performanceMonitor.getPerformanceSummary();
     }
 

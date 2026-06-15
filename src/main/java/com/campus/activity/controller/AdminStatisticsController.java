@@ -28,7 +28,7 @@ import java.util.Map;
 @Api(tags = "管理员-数据统计")
 public class AdminStatisticsController {
 
-    private static final String ROLE_ADMIN = "admin";
+    private static final String ROLE_ADMIN = "ADMIN";
 
     private final AdminStatisticsService adminStatisticsService;
     private final JwtUtils jwtUtils;
