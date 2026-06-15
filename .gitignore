@@ -48,3 +48,6 @@ web/*.local
 .env
 .env.local
 .env.*.local
+*.md
+*.csv
+*.txt
