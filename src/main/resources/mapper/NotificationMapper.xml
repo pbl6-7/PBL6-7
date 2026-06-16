@@ -100,4 +100,12 @@
         WHERE user_id = #{userId} AND is_read = 0
     </update>
 
+    <delete id="deleteById">
+        DELETE FROM notification WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteOldNotifications">
+        DELETE FROM notification WHERE is_read = 1 AND create_time &lt; #{cutoff}
+    </delete>
+
 </mapper>

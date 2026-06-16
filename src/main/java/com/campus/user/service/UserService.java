@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 用户服务
@@ -100,6 +101,7 @@ public class UserService {
         return userMapper.selectById(id);
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public void register(User user, Integer securityQuestionId, String securityAnswer) {
         User existUser = userMapper.selectByUsername(user.getUsername());
         if (existUser != null) {
@@ -185,6 +187,20 @@ public class UserService {
         if (contact != null) {
             user.setContact(contact.trim());
         }
+        userMapper.updateById(user);
+    }
+
+    /**
+     * 更新用户头像
+     * @param userId 用户ID
+     * @param avatarUrl 头像URL
+     */
+    public void updateAvatar(Long userId, String avatarUrl) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCode.USER_NOT_FOUND);
+        }
+        user.setAvatar(avatarUrl);
         userMapper.updateById(user);
     }
 }

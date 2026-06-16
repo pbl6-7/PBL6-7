@@ -117,3 +117,17 @@ cleanup:
   deleted-file:
     # 已删除文件信息保留天数（默认30天）
     retention-days: 30
+
+# 限流配置
+rate-limit:
+  # 时间窗口（秒）
+  window-seconds: 60
+  # 最大请求数
+  max-requests: 100
+
+# 登录锁定配置
+login-lock:
+  # 最大失败次数
+  max-failures: 5
+  # 锁定时长（分钟）
+  lock-duration-minutes: 30

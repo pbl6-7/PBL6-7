@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +34,9 @@ public class ActivityCollectController {
     @PostMapping("/{activityId}")
     @ApiOperation("收藏活动")
     public Result<Map<String, Object>> collectActivity(
-            @RequestHeader("X-User-Id") Long userId,
+            HttpServletRequest request,
             @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -55,8 +57,9 @@ public class ActivityCollectController {
     @DeleteMapping("/{activityId}")
     @ApiOperation("取消收藏")
     public Result<Map<String, Object>> uncollectActivity(
-            @RequestHeader("X-User-Id") Long userId,
+            HttpServletRequest request,
             @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -77,7 +80,8 @@ public class ActivityCollectController {
     @GetMapping("/my")
     @ApiOperation("获取我的收藏列表")
     public Result<List<CollectDetailResponse>> getMyCollects(
-            @RequestHeader("X-User-Id") Long userId) {
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
@@ -93,8 +97,9 @@ public class ActivityCollectController {
     @GetMapping("/{activityId}/status")
     @ApiOperation("检查收藏状态")
     public Result<Map<String, Object>> checkCollectStatus(
-            @RequestHeader("X-User-Id") Long userId,
+            HttpServletRequest request,
             @PathVariable Long activityId) {
+        Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }

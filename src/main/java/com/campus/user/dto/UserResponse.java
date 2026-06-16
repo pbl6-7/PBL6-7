@@ -10,6 +10,8 @@ public class UserResponse {
     private String username;
     private String realName;
     private String role;
+    private String status;
+    private String avatar;
     private String contact;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -20,6 +22,8 @@ public class UserResponse {
         response.setUsername(user.getUsername());
         response.setRealName(user.getRealName());
         response.setRole(user.getRole());
+        response.setStatus(user.getStatus());
+        response.setAvatar(user.getAvatar());
         response.setContact(user.getContact());
         response.setCreatedAt(user.getCreatedAt());
         response.setUpdatedAt(user.getUpdatedAt());

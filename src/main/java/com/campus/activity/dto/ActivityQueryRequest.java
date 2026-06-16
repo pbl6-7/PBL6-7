@@ -36,6 +36,12 @@ public class ActivityQueryRequest {
     private String approvalStatus;
 
     /**
+     * 活动类型（用于搜索过滤）
+     */
+    @Size(max = 50, message = "活动类型不能超过50个字符")
+    private String type;
+
+    /**
      * 活动类型ID
      */
     @Min(value = 1, message = "活动类型ID必须大于0")

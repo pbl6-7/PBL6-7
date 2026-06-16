@@ -58,6 +58,16 @@ public class ActivityTopicService {
         return response;
     }
 
+    /**
+     * 获取所有话题列表
+     */
+    public List<TopicResponse> getAllTopics() {
+        List<ActivityTopic> topics = activityTopicMapper.selectAll();
+        return topics.stream()
+                .map(this::enrichTopicResponse)
+                .collect(Collectors.toList());
+    }
+
     public List<TopicResponse> getTopicsByActivityId(Long activityId) {
         Activity activity = activityMapper.selectById(activityId);
         if (activity == null) {

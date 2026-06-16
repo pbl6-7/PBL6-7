@@ -28,7 +28,7 @@ public class SearchHistoryService {
     public void recordSearch(Long userId, String keyword, String searchType, String searchResult) {
         SearchHistory history = new SearchHistory();
         history.setUserId(userId);
-        history.setKeyword(keyword);
+        history.setSearchKeyword(keyword);
         history.setSearchType(searchType);
         history.setSearchTime(LocalDateTime.now());
         searchHistoryMapper.insert(history);
@@ -47,7 +47,7 @@ public class SearchHistoryService {
     public List<String> getUserRecentKeywords(Long userId, int limit) {
         List<SearchHistory> histories = searchHistoryMapper.selectByUserId(userId, limit);
         return histories.stream()
-                .map(SearchHistory::getKeyword)
+                .map(SearchHistory::getSearchKeyword)
                 .distinct()
                 .collect(Collectors.toList());
     }
@@ -71,8 +71,23 @@ public class SearchHistoryService {
      * 获取热门关键词
      */
     public List<String> getHotKeywords(int days, int limit) {
-        // 简化实现，返回空列表
-        return new ArrayList<>();
+        try {
+            List<SearchHistory> recentSearches = searchHistoryMapper.selectByUserId(null, limit * 10);
+            return recentSearches.stream()
+                    .filter(h -> h.getSearchTime() != null &&
+                            h.getSearchTime().isAfter(LocalDateTime.now().minusDays(days)))
+                    .map(SearchHistory::getSearchKeyword)
+                    .filter(k -> k != null && !k.trim().isEmpty())
+                    .collect(Collectors.groupingBy(k -> k, Collectors.counting()))
+                    .entrySet().stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(limit)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("获取热门关键词失败: {}", e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     /**

@@ -214,12 +214,17 @@
 
     <!-- 统计用户报名数量分布 -->
     <select id="selectUserRegistrationDistribution" resultType="java.util.Map">
-        SELECT 
+        SELECT
             user_id as userId,
             COUNT(*) as count
         FROM activity_registration
         GROUP BY user_id
         ORDER BY count DESC
+    </select>
+
+    <select id="selectRegisteredUserIdsByActivityId" resultType="java.lang.Long">
+        SELECT user_id FROM activity_registration
+        WHERE activity_id = #{activityId} AND status IN ('pending', 'confirmed')
     </select>
 
 </mapper>

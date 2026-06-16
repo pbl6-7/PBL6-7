@@ -18,4 +18,6 @@ public interface ActivityTopicMapper {
     List<ActivityTopic> selectByActivityId(@Param("activityId") Long activityId);
 
     List<ActivityTopic> selectByCreatorId(@Param("creatorId") Long creatorId);
+
+    List<ActivityTopic> selectAll();
 }

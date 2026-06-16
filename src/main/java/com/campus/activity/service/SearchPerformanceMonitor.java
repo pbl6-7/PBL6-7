@@ -3,19 +3,32 @@ package com.campus.activity.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 /**
  * 搜索性能监控服务
+ * 记录搜索耗时、统计性能指标、检测慢查询
  */
 @Slf4j
 @Service
 public class SearchPerformanceMonitor {
 
+    /**
+     * 最大记录数，防止内存溢出
+     */
+    private static final int MAX_RECORDS = 1000;
+
     private final Map<String, AtomicLong> searchCounts = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> searchTimes = new ConcurrentHashMap<>();
+    private final Queue<SearchRecord> slowSearchRecords = new ConcurrentLinkedQueue<>();
+    private final AtomicLong totalSearchTime = new AtomicLong();
+    private final AtomicLong totalSearchCount = new AtomicLong();
+    private final AtomicLong maxSearchTime = new AtomicLong();
+    private final AtomicLong minSearchTime = new AtomicLong(Long.MAX_VALUE);
 
     /**
      * 记录搜索耗时
@@ -23,6 +36,34 @@ public class SearchPerformanceMonitor {
     public void recordSearchTime(String keyword, long timeMs) {
         searchCounts.computeIfAbsent(keyword, k -> new AtomicLong()).incrementAndGet();
         searchTimes.computeIfAbsent(keyword, k -> new AtomicLong()).addAndGet(timeMs);
+        totalSearchCount.incrementAndGet();
+        totalSearchTime.addAndGet(timeMs);
+
+        // 更新最大最小值
+        long currentMax;
+        do {
+            currentMax = maxSearchTime.get();
+            if (timeMs <= currentMax) break;
+        } while (!maxSearchTime.compareAndSet(currentMax, timeMs));
+
+        long currentMin;
+        do {
+            currentMin = minSearchTime.get();
+            if (timeMs >= currentMin) break;
+        } while (!minSearchTime.compareAndSet(currentMin, timeMs));
+
+        // 记录慢查询（超过500ms）
+        if (timeMs > 500) {
+            SearchRecord record = new SearchRecord();
+            record.keyword = keyword;
+            record.searchTime = timeMs;
+            record.timestamp = System.currentTimeMillis();
+            slowSearchRecords.add(record);
+            // 限制记录数量
+            while (slowSearchRecords.size() > MAX_RECORDS) {
+                slowSearchRecords.poll();
+            }
+        }
     }
 
     /**
@@ -50,15 +91,22 @@ public class SearchPerformanceMonitor {
      */
     public SearchStats getPerformanceStats() {
         SearchStats stats = new SearchStats();
-        stats.totalSearches = searchCounts.values().stream().mapToLong(AtomicLong::get).sum();
+        stats.totalSearches = totalSearchCount.get();
+        stats.averageTime = totalSearchCount.get() > 0
+                ? (double) totalSearchTime.get() / totalSearchCount.get()
+                : 0;
         return stats;
     }
 
     /**
      * 获取慢查询列表
      */
-    public java.util.List<SearchRecord> getSlowSearches(long thresholdMs) {
-        return new java.util.ArrayList<>();
+    public List<SearchRecord> getSlowSearches(long thresholdMs) {
+        return slowSearchRecords.stream()
+                .filter(r -> r.searchTime >= thresholdMs)
+                .sorted((a, b) -> Long.compare(b.searchTime, a.searchTime))
+                .limit(50)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -66,7 +114,10 @@ public class SearchPerformanceMonitor {
      */
     public GlobalStats getGlobalStats() {
         GlobalStats stats = new GlobalStats();
-        stats.totalSearches = searchCounts.values().stream().mapToLong(AtomicLong::get).sum();
+        stats.totalSearches = totalSearchCount.get();
+        stats.averageTime = totalSearchCount.get() > 0
+                ? (double) totalSearchTime.get() / totalSearchCount.get()
+                : 0;
         return stats;
     }
 
@@ -74,7 +125,14 @@ public class SearchPerformanceMonitor {
      * 性能摘要
      */
     public PerformanceSummary getPerformanceSummary() {
-        return new PerformanceSummary();
+        PerformanceSummary summary = new PerformanceSummary();
+        summary.totalSearches = totalSearchCount.get();
+        summary.averageTime = totalSearchCount.get() > 0
+                ? (double) totalSearchTime.get() / totalSearchCount.get()
+                : 0;
+        summary.maxTime = maxSearchTime.get();
+        summary.minTime = totalSearchCount.get() > 0 ? minSearchTime.get() : 0;
+        return summary;
     }
 
     /**
@@ -83,6 +141,11 @@ public class SearchPerformanceMonitor {
     public void clearStats() {
         searchCounts.clear();
         searchTimes.clear();
+        slowSearchRecords.clear();
+        totalSearchTime.set(0);
+        totalSearchCount.set(0);
+        maxSearchTime.set(0);
+        minSearchTime.set(Long.MAX_VALUE);
     }
 
     /**

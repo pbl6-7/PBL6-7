@@ -178,15 +178,15 @@ public interface ActivityMapper {
     // ==================== 定时任务相关方法 ====================
 
     /**
-     * 查询即将开始的活动（用于活动提醒定时任务）
-     * @param startTimeFrom 开始时间范围起点
-     * @param startTimeTo 开始时间范围终点
-     * @return 活动列表
+     * 查询即将开始的活动
      */
-    List<Activity> selectUpcomingActivities(
-            @Param("startTimeFrom") LocalDateTime startTimeFrom,
-            @Param("startTimeTo") LocalDateTime startTimeTo
-    );
+    List<Map<String, Object>> selectUpcomingActivities(@Param("now") java.time.LocalDateTime now,
+                                                        @Param("oneHourLater") java.time.LocalDateTime oneHourLater);
+
+    /**
+     * 自动结束已过期活动
+     */
+    int autoEndExpiredActivities(@Param("now") java.time.LocalDateTime now);
 
     /**
      * 查询已结束的活动（用于状态更新定时任务）

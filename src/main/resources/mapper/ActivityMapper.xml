@@ -262,14 +262,21 @@
         2. 只查询已审核通过且已发布的活动
         3. 避免查询已取消或已结束的活动
     -->
-    <select id="selectUpcomingActivities" resultMap="BaseResultMap">
-        SELECT * FROM activity
+    <select id="selectUpcomingActivities" resultType="java.util.HashMap">
+        SELECT id, title, start_time, publisher_id
+        FROM activity
         WHERE deleted_at IS NULL
-        AND status = 'published'
-        AND approval_status = 'approved'
-        AND start_time BETWEEN #{startTimeFrom} AND #{startTimeTo}
-        ORDER BY start_time ASC
+          AND status = 'published'
+          AND start_time BETWEEN #{now} AND #{oneHourLater}
     </select>
+
+    <update id="autoEndExpiredActivities">
+        UPDATE activity
+        SET status = 'ended'
+        WHERE deleted_at IS NULL
+          AND status = 'published'
+          AND end_time &lt; #{now}
+    </update>
 
     <!--
         查询已结束的活动（用于状态更新定时任务）

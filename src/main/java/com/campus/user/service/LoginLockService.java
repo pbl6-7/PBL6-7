@@ -1,41 +1,35 @@
 package com.campus.user.service;
 
 import com.campus.user.entity.LoginLock;
+import com.campus.user.mapper.LoginLockMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 登录锁定服务类
- * 提供登录失败次数统计和账户锁定功能
+ * 提供登录失败次数统计和账户锁定功能，数据持久化到数据库
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class LoginLockService {
 
-    /**
-     * 最大登录失败次数
-     */
-    private static final int MAX_LOGIN_FAIL_COUNT = 5;
+    private final LoginLockMapper loginLockMapper;
 
-    /**
-     * 锁定时间（分钟）
-     */
-    private static final int LOCK_TIME_MINUTES = 15;
+    @Value("${login-lock.max-failures:5}")
+    private int maxFailures;
 
-    /**
-     * 登录失败记录存储（使用 ConcurrentHashMap 模拟数据库）
-     * key: username, value: failCount
-     */
-    private final ConcurrentHashMap<String, Integer> loginFailures = new ConcurrentHashMap<>();
-
-    /**
-     * 锁定记录存储（使用 ConcurrentHashMap 模拟数据库）
-     * key: username, value: LoginLock
-     */
-    private final ConcurrentHashMap<String, LoginLock> lockRecords = new ConcurrentHashMap<>();
+    @Value("${login-lock.lock-duration-minutes:15}")
+    private int lockDurationMinutes;
 
     /**
      * 检查用户是否被锁定
@@ -44,7 +38,7 @@ public class LoginLockService {
      * @return 是否被锁定
      */
     public boolean isUserLocked(String username) {
-        LoginLock lock = lockRecords.get(username);
+        LoginLock lock = loginLockMapper.selectActiveByUsername(username);
         if (lock == null) {
             return false;
         }
@@ -65,8 +59,14 @@ public class LoginLockService {
      * @param username 用户名
      * @return 当前失败次数
      */
+    @Transactional(rollbackFor = Exception.class)
     public int recordLoginFailure(String username) {
-        int failCount = loginFailures.merge(username, 1, Integer::sum);
+        // 先查询当前失败次数
+        Integer currentCount = loginLockMapper.selectFailCount(username);
+        int failCount = (currentCount != null ? currentCount : 0) + 1;
+
+        // 更新失败次数到数据库
+        loginLockMapper.upsertFailCount(username, failCount);
         log.info("用户 {} 登录失败，失败次数: {}", username, failCount);
         return failCount;
     }
@@ -77,7 +77,7 @@ public class LoginLockService {
      * @return 最大失败次数
      */
     public int getMaxLoginFailCount() {
-        return MAX_LOGIN_FAIL_COUNT;
+        return maxFailures;
     }
 
     /**
@@ -85,18 +85,21 @@ public class LoginLockService {
      *
      * @param username 用户名
      */
+    @Transactional(rollbackFor = Exception.class)
     public void lockUser(String username) {
+        Integer failCount = loginLockMapper.selectFailCount(username);
+
         LoginLock lock = new LoginLock();
         lock.setUsername(username);
         lock.setLockTime(LocalDateTime.now());
-        lock.setUnlockTime(LocalDateTime.now().plusMinutes(LOCK_TIME_MINUTES));
-        lock.setFailCount(loginFailures.getOrDefault(username, 0));
+        lock.setUnlockTime(LocalDateTime.now().plusMinutes(lockDurationMinutes));
+        lock.setFailCount(failCount != null ? failCount : maxFailures);
         lock.setLockReason("登录失败次数过多");
         lock.setIsLocked(true);
         lock.setCreatedAt(LocalDateTime.now());
         lock.setUpdatedAt(LocalDateTime.now());
 
-        lockRecords.put(username, lock);
+        loginLockMapper.insert(lock);
         log.info("用户 {} 被锁定，解锁时间: {}", username, lock.getUnlockTime());
     }
 
@@ -105,9 +108,9 @@ public class LoginLockService {
      *
      * @param username 用户名
      */
+    @Transactional(rollbackFor = Exception.class)
     public void unlockUser(String username) {
-        lockRecords.remove(username);
-        loginFailures.remove(username);
+        loginLockMapper.unlockByUsername(username);
         log.info("用户 {} 已解锁", username);
     }
 
@@ -116,8 +119,9 @@ public class LoginLockService {
      *
      * @param username 用户名
      */
+    @Transactional(rollbackFor = Exception.class)
     public void clearLoginFailure(String username) {
-        loginFailures.remove(username);
+        loginLockMapper.unlockByUsername(username);
         log.debug("清除用户 {} 的登录失败记录", username);
     }
 
@@ -128,6 +132,31 @@ public class LoginLockService {
      * @return 失败次数
      */
     public int getLoginFailCount(String username) {
-        return loginFailures.getOrDefault(username, 0);
+        Integer count = loginLockMapper.selectFailCount(username);
+        return count != null ? count : 0;
+    }
+
+    /**
+     * 获取所有锁定用户列表
+     */
+    public List<Map<String, Object>> getLockedList() {
+        List<LoginLock> activeLocks = loginLockMapper.selectAllActive();
+        List<Map<String, Object>> result = new ArrayList<>();
+        LocalDateTime currentTime = LocalDateTime.now();
+
+        for (LoginLock record : activeLocks) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("username", record.getUsername());
+            item.put("lockTime", record.getLockTime());
+            item.put("unlockTime", record.getUnlockTime());
+            item.put("failCount", record.getFailCount());
+            item.put("lockReason", record.getLockReason());
+            if (record.getUnlockTime() != null) {
+                long remainingMinutes = java.time.Duration.between(currentTime, record.getUnlockTime()).toMinutes();
+                item.put("remainingMinutes", Math.max(0, remainingMinutes));
+            }
+            result.add(item);
+        }
+        return result;
     }
 }

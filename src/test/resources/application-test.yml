@@ -1,0 +1,39 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/campus_activity?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:As2004125}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  main:
+    allow-circular-references: true
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.campus.activity.entity,com.campus.user.entity,com.campus.core.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: testSecretKeyForCampusActivityPlatform2024UnitTest!
+  expiration: 86400000
+  key:
+    management-enabled: false
+    auto-rotation-enabled: false
+
+rate-limit:
+  window-seconds: 60
+  max-requests: 10000
+
+login-lock:
+  max-failures: 5
+  lock-duration-minutes: 15
+
+logging:
+  level:
+    com.campus: DEBUG

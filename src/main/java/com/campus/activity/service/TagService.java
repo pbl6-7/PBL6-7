@@ -56,4 +56,21 @@ public class TagService {
         }
         tagMapper.deleteById(id);
     }
+
+    /**
+     * 更新标签
+     */
+    @Transactional
+    public TagResponse updateTag(Long id, TagCreateRequest request) {
+        Tag tag = tagMapper.selectById(id);
+        if (tag == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "标签不存在");
+        }
+        tag.setName(request.getName());
+        if (request.getColor() != null) {
+            tag.setColor(request.getColor());
+        }
+        tagMapper.updateById(tag);
+        return TagResponse.fromTagEntity(tag);
+    }
 }

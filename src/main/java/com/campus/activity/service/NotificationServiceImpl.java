@@ -23,6 +23,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Autowired
     private NotificationMapper notificationMapper;
 
+    @Autowired
+    private com.campus.user.mapper.UserMapper userMapper;
+
+    @Autowired
+    private WebSocketNotificationService webSocketNotificationService;
+
     @Override
     public void notifyUser(Long userId, String notificationType, String message) {
         notifyUser(userId, notificationType, null, message);
@@ -47,6 +53,13 @@ public class NotificationServiceImpl implements NotificationService {
         try {
             int result = notificationMapper.insert(notification);
             log.info("通知插入结果: affectedRows={}, generatedId={}", result, notification.getId());
+
+            // 通过WebSocket实时推送通知
+            try {
+                webSocketNotificationService.sendToUser(userId, notificationType, "系统通知", message);
+            } catch (Exception wsEx) {
+                log.warn("WebSocket推送失败，不影响数据库通知: {}", wsEx.getMessage());
+            }
         } catch (Exception e) {
             log.error("通知插入失败: userId={}, type={}, error={}", userId, notificationType, e.getMessage(), e);
         }
@@ -63,8 +76,16 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyAllUsers(String notificationType, String message) {
-        log.info("系统通知: type={}, message={}", notificationType, message);
-        // 实现通知所有用户的逻辑
+        log.info("发送系统通知: type={}, message={}", notificationType, message);
+        try {
+            List<Long> allUserIds = userMapper.selectAllIds();
+            for (Long userId : allUserIds) {
+                notifyUser(userId, notificationType, "系统通知", message);
+            }
+            log.info("系统通知发送完成，共通知{}个用户", allUserIds.size());
+        } catch (Exception e) {
+            log.error("发送系统通知失败: {}", e.getMessage(), e);
+        }
     }
 
     @Override
@@ -92,6 +113,17 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public void markAsRead(Long notificationId, Long userId) {
         try {
+            // 先验证通知是否属于当前用户
+            Notification notification = notificationMapper.selectById(notificationId);
+            if (notification == null) {
+                log.warn("通知不存在: notificationId={}", notificationId);
+                return;
+            }
+            if (!notification.getUserId().equals(userId)) {
+                log.warn("用户尝试标记非自己的通知: userId={}, notificationId={}, ownerUserId={}",
+                        userId, notificationId, notification.getUserId());
+                return;
+            }
             notificationMapper.updateIsRead(notificationId);
             log.info("标记通知为已读: notificationId={}, userId={}", notificationId, userId);
         } catch (Exception e) {
@@ -116,6 +148,25 @@ public class NotificationServiceImpl implements NotificationService {
             log.info("标记所有通知为已读: userId={}", userId);
         } catch (Exception e) {
             log.warn("标记所有通知已读失败: userId={}, error={}", userId, e.getMessage());
+        }
+    }
+
+    @Override
+    public void deleteNotification(Long notificationId, Long userId) {
+        try {
+            Notification notification = notificationMapper.selectById(notificationId);
+            if (notification == null) {
+                log.warn("通知不存在: notificationId={}", notificationId);
+                return;
+            }
+            if (!notification.getUserId().equals(userId)) {
+                log.warn("用户尝试删除非自己的通知: userId={}, notificationId={}", userId, notificationId);
+                return;
+            }
+            notificationMapper.deleteById(notificationId);
+            log.info("删除通知成功: notificationId={}, userId={}", notificationId, userId);
+        } catch (Exception e) {
+            log.error("删除通知失败: notificationId={}, userId={}, error={}", notificationId, userId, e.getMessage(), e);
         }
     }
 }

@@ -23,7 +23,7 @@ public class SearchHistory {
     /**
      * 搜索关键词
      */
-    private String keyword;
+    private String searchKeyword;
 
     /**
      * 搜索类型（activity-活动，user-用户，all-全部）

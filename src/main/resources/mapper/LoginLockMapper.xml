@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.user.mapper.LoginLockMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.user.entity.LoginLock">
+        <id column="id" property="id"/>
+        <result column="username" property="username"/>
+        <result column="lock_time" property="lockTime"/>
+        <result column="unlock_time" property="unlockTime"/>
+        <result column="fail_count" property="failCount"/>
+        <result column="lock_reason" property="lockReason"/>
+        <result column="is_locked" property="isLocked"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO login_lock (username, lock_time, unlock_time, fail_count, lock_reason, is_locked, created_at, updated_at)
+        VALUES (#{username}, #{lockTime}, #{unlockTime}, #{failCount}, #{lockReason}, #{isLocked}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="selectActiveByUsername" resultMap="BaseResultMap">
+        SELECT * FROM login_lock
+        WHERE username = #{username} AND is_locked = 1 AND unlock_time > NOW()
+        LIMIT 1
+    </select>
+
+    <update id="unlockByUsername">
+        UPDATE login_lock SET is_locked = 0, updated_at = NOW()
+        WHERE username = #{username} AND is_locked = 1
+    </update>
+
+    <select id="selectAllActive" resultMap="BaseResultMap">
+        SELECT * FROM login_lock
+        WHERE is_locked = 1 AND unlock_time > NOW()
+        ORDER BY lock_time DESC
+    </select>
+
+    <delete id="deleteExpired">
+        DELETE FROM login_lock WHERE is_locked = 0 OR unlock_time &lt;= NOW()
+    </delete>
+
+    <update id="updateFailCount">
+        UPDATE login_lock SET fail_count = #{failCount}, updated_at = NOW()
+        WHERE username = #{username}
+    </update>
+
+    <select id="selectFailCount" resultType="java.lang.Integer">
+        SELECT fail_count FROM login_lock
+        WHERE username = #{username} AND is_locked = 1
+    </select>
+
+    <insert id="upsertFailCount">
+        INSERT INTO login_lock (username, fail_count, is_locked, created_at, updated_at)
+        VALUES (#{username}, #{failCount}, 0, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE fail_count = #{failCount}, updated_at = NOW()
+    </insert>
+
+</mapper>

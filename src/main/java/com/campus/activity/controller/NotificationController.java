@@ -114,4 +114,26 @@ public class NotificationController {
         data.put("isRead", true);
         return Result.success(data, "标记全部已读成功");
     }
+
+    /**
+     * 删除通知
+     */
+    @DeleteMapping("/{id}")
+    @ApiOperation("删除通知")
+    public Result<Map<String, Object>> deleteNotification(
+            @PathVariable Long id,
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            return Result.error(ResultCode.UNAUTHORIZED);
+        }
+        log.info("用户 {} 删除通知 {}", userId, id);
+
+        notificationService.deleteNotification(id, userId);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", id);
+        data.put("deleted", true);
+        return Result.success(data, "删除成功");
+    }
 }

@@ -161,4 +161,9 @@ public interface ActivityRegistrationMapper {
      * @return 用户报名分布数据（userId, count）
      */
     List<Map<String, Object>> selectUserRegistrationDistribution();
+
+    /**
+     * 获取活动的已报名用户ID列表
+     */
+    List<Long> selectRegisteredUserIdsByActivityId(@Param("activityId") Long activityId);
 }

@@ -1,5 +1,7 @@
 package com.campus.activity.service;
 
+import com.campus.activity.dto.ActivityPageResponse;
+import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.SearchSuggestionResponse;
 import com.campus.activity.mapper.SearchHistoryMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,9 @@ public class SearchService {
 
     @Autowired
     private SearchPerformanceMonitor performanceMonitor;
+
+    @Autowired
+    private ActivityService activityService;
 
     /**
      * 搜索建议结果类
@@ -205,15 +210,26 @@ public class SearchService {
         String cacheKey = String.format("searchSuggestion:keyword:%s:%d", keyword, limit);
 
         try {
-            return cacheService.getSearchSuggestion(cacheKey, List.class, () -> {
-                log.info("从数据库获取搜索建议，keyword={}, limit={}", keyword, limit);
-                generateSmartSuggestions(keyword, limit);
-            });
+            // 先从缓存获取
+            List<SearchSuggestion> cached = cacheService.getSearchSuggestion(cacheKey, List.class, null);
+            if (cached != null) {
+                return cached;
+            }
         } catch (Exception e) {
-            // 缓存加载失败时，直接从数据库获取
-            log.warn("搜索建议缓存加载失败，直接从数据库获取: keyword={}, error={}", keyword, e.getMessage());
-            return generateSmartSuggestions(keyword, limit);
+            log.warn("搜索建议缓存读取失败: keyword={}, error={}", keyword, e.getMessage());
         }
+
+        // 缓存未命中，从数据库获取
+        List<SearchSuggestion> suggestions = generateSmartSuggestions(keyword, limit);
+
+        // 写入缓存
+        try {
+            cacheService.putSearchSuggestion(cacheKey, suggestions);
+        } catch (Exception e) {
+            log.warn("搜索建议缓存写入失败: keyword={}, error={}", keyword, e.getMessage());
+        }
+
+        return suggestions;
     }
 
     /**
@@ -494,10 +510,24 @@ public class SearchService {
 
     /**
      * 获取热门搜索（适配SearchController）
-     * 
+     *
      * @return 热门搜索列表
      */
     public List<String> getHotSearches() {
         return getHotKeywords(10);
+    }
+
+    /**
+     * 搜索活动（适配SearchController）
+     *
+     * @param queryRequest 活动查询请求
+     * @param userId 用户ID
+     * @return 活动分页响应
+     */
+    public ActivityPageResponse searchActivities(ActivityQueryRequest queryRequest, Long userId) {
+        log.info("执行活动搜索: keyword={}, type={}, status={}, page={}, size={}",
+                queryRequest.getKeyword(), queryRequest.getType(), queryRequest.getStatus(),
+                queryRequest.getPage(), queryRequest.getSize());
+        return activityService.getActivityList(userId, queryRequest);
     }
 }

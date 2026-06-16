@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 用户密保Controller
@@ -30,6 +33,34 @@ public class UserSecurityController {
 
     private final UserSecurityService userSecurityService;
     private final UserMapper userMapper;
+
+    /**
+     * 密保验证Token存储
+     * key: username, value: {token, expireTime}
+     */
+    private final Map<String, TokenRecord> verifyTokenStore = new ConcurrentHashMap<>();
+
+    /**
+     * Token有效期（毫秒），10分钟
+     */
+    private static final long TOKEN_EXPIRE_MS = 10 * 60 * 1000;
+
+    /**
+     * Token记录内部类
+     */
+    private static class TokenRecord {
+        String token;
+        long expireTime;
+
+        TokenRecord(String token, long expireTime) {
+            this.token = token;
+            this.expireTime = expireTime;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() > expireTime;
+        }
+    }
 
     /**
      * 获取密保问题列表
@@ -83,17 +114,25 @@ public class UserSecurityController {
 
     /**
      * 验证密保答案（用于找回密码时验证）
+     * 验证成功后返回一次性Token，用于后续重置密码
      */
     @PostMapping("/verify")
     @ApiOperation("验证密保答案")
-    public Result<Void> verifySecurityAnswer(@Valid @RequestBody VerifySecurityRequest request) {
+    public Result<Map<String, Object>> verifySecurityAnswer(@Valid @RequestBody VerifySecurityRequest request) {
         var user = userMapper.selectByUsername(request.getUsername());
         if (user == null) {
             return Result.error(ResultCode.USER_NOT_FOUND);
         }
         boolean verified = userSecurityService.verifyAnswer(user.getId(), request.getSecurityAnswer());
         if (verified) {
-            return Result.success(null, "验证成功");
+            // 生成一次性验证Token
+            String verifyToken = UUID.randomUUID().toString().replace("-", "");
+            verifyTokenStore.put(request.getUsername(), new TokenRecord(verifyToken, System.currentTimeMillis() + TOKEN_EXPIRE_MS));
+
+            Map<String, Object> data = new java.util.HashMap<>();
+            data.put("verifyToken", verifyToken);
+            data.put("message", "验证成功，请使用verifyToken重置密码");
+            return Result.success(data, "验证成功");
         } else {
             return Result.error(ResultCode.SECURITY_ANSWER_ERROR);
         }
@@ -101,10 +140,20 @@ public class UserSecurityController {
 
     /**
      * 重置密码
+     * 需要验证密保验证Token，确保密保验证和密码重置是关联的
      */
     @PostMapping("/reset-password")
     @ApiOperation("重置密码")
     public Result<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        // 验证密保验证Token
+        TokenRecord tokenRecord = verifyTokenStore.get(request.getUsername());
+        if (tokenRecord == null || tokenRecord.isExpired() || !tokenRecord.token.equals(request.getVerifyToken())) {
+            return Result.error(ResultCode.BAD_REQUEST, "密保验证Token无效或已过期，请重新验证密保");
+        }
+
+        // Token使用后立即删除（一次性Token）
+        verifyTokenStore.remove(request.getUsername());
+
         userSecurityService.resetPassword(
             request.getUsername(),
             request.getSecurityAnswer(),

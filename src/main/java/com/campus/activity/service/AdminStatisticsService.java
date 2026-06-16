@@ -554,7 +554,7 @@ public class AdminStatisticsService {
                     .collectionCount(toLong(data.getOrDefault("collectionCount", 0)))
                     .viewCount(toLong(data.getOrDefault("viewCount", 0)))
                     .status(toStr(data.get("status")))
-                    .startTime(LocalDateTime.parse(toStr(data.get("startTime")), DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    .startTime(parseDateTime(toStr(data.get("startTime"))))
                     .location(toStr(data.get("location")))
                     .hotScore(calculateHotScore(data))
                     .build();
@@ -691,6 +691,36 @@ public class AdminStatisticsService {
             return null;
         }
         return obj.toString();
+    }
+
+    /**
+     * 安全地解析日期时间字符串
+     * 支持多种格式：ISO格式(含T)、标准格式(空格)、LocalDateTime.toString()输出
+     *
+     * @param dateStr 日期时间字符串
+     * @return LocalDateTime对象，解析失败返回null
+     */
+    private LocalDateTime parseDateTime(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // 尝试ISO格式（含T分隔符）
+            return LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (Exception e1) {
+            try {
+                // 尝试标准格式（空格分隔符）
+                return LocalDateTime.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            } catch (Exception e2) {
+                try {
+                    // 尝试直接解析（LocalDateTime.toString()输出格式）
+                    return LocalDateTime.parse(dateStr);
+                } catch (Exception e3) {
+                    log.warn("无法解析日期时间: {}", dateStr);
+                    return null;
+                }
+            }
+        }
     }
 
     // ==================== 旧方法保留（兼容性） ====================

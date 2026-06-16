@@ -1,5 +1,7 @@
 package com.campus.activity.controller;
 
+import com.campus.activity.dto.ActivityPageResponse;
+import com.campus.activity.dto.ActivityQueryRequest;
 import com.campus.activity.dto.SearchSuggestionResponse;
 import com.campus.activity.entity.SearchHistory;
 import com.campus.activity.service.SearchHistoryService;
@@ -79,5 +81,36 @@ public class SearchController {
         Long userId = (Long) request.getAttribute("currentUserId");
         List<SearchHistory> histories = searchHistoryService.getUserSearchHistory(userId, 20);
         return Result.success(histories);
+    }
+
+    /**
+     * 执行搜索
+     */
+    @GetMapping("/execute")
+    @ApiOperation("执行搜索")
+    public Result<ActivityPageResponse> executeSearch(
+            @RequestParam String keyword,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "1") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            HttpServletRequest request) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+
+        ActivityQueryRequest queryRequest = new ActivityQueryRequest();
+        queryRequest.setKeyword(keyword);
+        queryRequest.setType(type);
+        queryRequest.setStatus(status);
+        queryRequest.setPage(page);
+        queryRequest.setSize(size);
+
+        ActivityPageResponse results = searchService.searchActivities(queryRequest, userId);
+
+        // 记录搜索历史
+        if (userId != null && keyword != null && !keyword.trim().isEmpty()) {
+            searchHistoryService.recordSearch(userId, keyword, "activity", null);
+        }
+
+        return Result.success(results);
     }
 }

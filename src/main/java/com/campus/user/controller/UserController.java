@@ -18,6 +18,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -96,5 +98,67 @@ public class UserController {
         }
         userService.updateProfile(userId, updateRequest.getRealName(), updateRequest.getContact());
         return Result.success(null, "个人资料修改成功");
+    }
+
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/avatar")
+    @ApiOperation("上传用户头像")
+    public Result<Map<String, Object>> uploadAvatar(
+            HttpServletRequest request,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
+        if (file.isEmpty()) {
+            return Result.error(ResultCode.BAD_REQUEST, "请选择要上传的文件");
+        }
+
+        try {
+            // 获取上传路径
+            String uploadPath = "uploads/avatars";
+            java.io.File uploadDir = new java.io.File(uploadPath);
+            if (!uploadDir.exists()) {
+                uploadDir.mkdirs();
+            }
+
+            // 生成文件名
+            String originalFilename = file.getOriginalFilename();
+            String extension = "";
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+            String filename = userId + "_" + System.currentTimeMillis() + extension;
+            java.io.File dest = new java.io.File(uploadDir, filename);
+            file.transferTo(dest);
+
+            // 更新用户头像URL
+            String avatarUrl = "/uploads/avatars/" + filename;
+            userService.updateAvatar(userId, avatarUrl);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("avatarUrl", avatarUrl);
+            return Result.success(data, "头像上传成功");
+        } catch (Exception e) {
+            return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "头像上传失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取用户头像
+     */
+    @GetMapping("/{id}/avatar")
+    @ApiOperation("获取用户头像")
+    public Result<Map<String, Object>> getUserAvatar(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        if (user == null) {
+            return Result.error(ResultCode.USER_NOT_FOUND);
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", id);
+        data.put("avatarUrl", user.getAvatar());
+        return Result.success(data);
     }
 }

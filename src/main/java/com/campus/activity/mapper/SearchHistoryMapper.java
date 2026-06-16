@@ -11,8 +11,8 @@ import java.util.List;
 @Mapper
 public interface SearchHistoryMapper {
 
-    @Insert("INSERT INTO search_history (user_id, keyword, search_type, search_time) " +
-            "VALUES (#{userId}, #{keyword}, #{searchType}, #{searchTime})")
+    @Insert("INSERT INTO search_history (user_id, search_keyword, search_type, search_time) " +
+            "VALUES (#{userId}, #{searchKeyword}, #{searchType}, #{searchTime})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     void insert(SearchHistory searchHistory);
 
@@ -25,9 +25,14 @@ public interface SearchHistoryMapper {
     @Delete("DELETE FROM search_history WHERE id = #{id}")
     void deleteById(Long id);
 
-    @Select("SELECT DISTINCT keyword FROM search_history WHERE keyword LIKE CONCAT(#{prefix}, '%') ORDER BY COUNT(*) DESC LIMIT #{limit}")
+    @Select("SELECT DISTINCT search_keyword FROM search_history WHERE search_keyword LIKE CONCAT(#{prefix}, '%') ORDER BY COUNT(*) DESC LIMIT #{limit}")
     List<String> selectSuggestionsByPrefix(@Param("prefix") String prefix, @Param("limit") int limit);
 
-    @Select("SELECT COUNT(*) FROM search_history WHERE keyword = #{keyword}")
+    @Select("SELECT COUNT(*) FROM search_history WHERE search_keyword = #{keyword}")
     int countByKeyword(@Param("keyword") String keyword);
+
+    /**
+     * 删除过期的搜索历史
+     */
+    void deleteOldSearchHistory(@Param("cutoff") java.time.LocalDateTime cutoff);
 }

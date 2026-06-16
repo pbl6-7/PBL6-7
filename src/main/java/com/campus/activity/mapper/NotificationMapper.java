@@ -42,4 +42,15 @@ public interface NotificationMapper {
      * @return 更新记录数
      */
     int updateAllReadByUserId(@Param("userId") Long userId);
+
+    /**
+     * 根据ID删除通知
+     * @param id 通知ID
+     */
+    int deleteById(@Param("id") Long id);
+
+    /**
+     * 删除过期的已读通知
+     */
+    void deleteOldNotifications(@Param("cutoff") java.time.LocalDateTime cutoff);
 }

@@ -113,6 +113,14 @@
         WHERE deleted_at IS NULL
     </select>
 
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info WHERE deleted_at IS NULL
+    </select>
+
+    <select id="countByStatus" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM user_info WHERE status = #{status} AND deleted_at IS NULL
+    </select>
+
     <select id="countUsersByRole" resultType="java.lang.Long">
         SELECT COUNT(*) FROM user_info
         WHERE role = #{role}

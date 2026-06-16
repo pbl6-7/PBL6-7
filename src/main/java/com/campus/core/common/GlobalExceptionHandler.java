@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
         context.put("queryString", request.getQueryString());
         
         // 获取用户ID（从请求属性中获取，由拦截器设置）
-        Object userId = request.getAttribute("userId");
+        Object userId = request.getAttribute("currentUserId");
         if (userId != null) {
             context.put("userId", userId);
         }

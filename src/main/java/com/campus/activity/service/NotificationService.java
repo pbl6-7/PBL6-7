@@ -76,4 +76,11 @@ public interface NotificationService {
      * @param userId 用户ID
      */
     void markAllAsRead(Long userId);
+
+    /**
+     * 删除通知
+     * @param notificationId 通知ID
+     * @param userId 用户ID（用于权限校验）
+     */
+    void deleteNotification(Long notificationId, Long userId);
 }

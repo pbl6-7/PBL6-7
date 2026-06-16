@@ -334,6 +334,36 @@ public class ActivityService {
     }
 
     /**
+     * 更新活动状态（带权限校验，返回ActivityResponse）
+     *
+     * @param id 活动ID
+     * @param userId 操作用户ID
+     * @param status 新状态字符串
+     * @return 活动响应
+     */
+    @Transactional
+    public ActivityResponse updateActivityStatus(Long id, Long userId, String status) {
+        log.info("更新活动状态：id={}, userId={}, status={}", id, userId, status);
+
+        Activity activity = activityMapper.selectById(id);
+        if (activity == null) {
+            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.NOT_FOUND, "活动不存在");
+        }
+        if (!activity.getPublisherId().equals(userId)) {
+            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.FORBIDDEN, "无权操作此活动");
+        }
+        activity.setStatus(status);
+        activity.setUpdatedAt(LocalDateTime.now());
+        activityMapper.updateById(activity);
+
+        String cacheKey = String.format("hotActivity:detail:%d", id);
+        cacheService.evictHotActivity(cacheKey);
+        cacheService.clearHotActivityCache();
+
+        return ActivityResponse.fromEntity(activity);
+    }
+
+    /**
      * 获取指定发布者的活动列表
      *
      * @param publisherId 发布者ID
