@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.core.mapper.JwtKeyMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.core.entity.JwtKey">
+        <id column="id" property="id"/>
+        <result column="key_value" property="keyValue"/>
+        <result column="version" property="version"/>
+        <result column="is_active" property="isActive"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="activated_at" property="activatedAt"/>
+        <result column="expires_at" property="expiresAt"/>
+        <result column="created_by" property="createdBy"/>
+    </resultMap>
+
+    <!-- 插入密钥记录 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO jwt_key (key_value, version, is_active, created_at, activated_at, expires_at, created_by)
+        VALUES (#{keyValue}, #{version}, #{isActive}, NOW(), #{activatedAt}, #{expiresAt}, #{createdBy})
+    </insert>
+
+    <!-- 根据版本号查询密钥 -->
+    <select id="selectByVersion" resultMap="BaseResultMap">
+        SELECT * FROM jwt_key WHERE version = #{version}
+    </select>
+
+    <!-- 查询当前激活的密钥 -->
+    <select id="selectActiveKey" resultMap="BaseResultMap">
+        SELECT * FROM jwt_key WHERE is_active = true ORDER BY version DESC LIMIT 1
+    </select>
+
+    <!-- 查询所有激活的密钥 -->
+    <select id="selectAllActiveKeys" resultMap="BaseResultMap">
+        SELECT * FROM jwt_key WHERE is_active = true ORDER BY version DESC
+    </select>
+
+    <!-- 更新密钥激活状态 -->
+    <update id="updateActiveStatus">
+        UPDATE jwt_key SET is_active = #{isActive} WHERE version = #{version}
+    </update>
+
+    <!-- 更新密钥激活时间 -->
+    <update id="updateActivatedAt">
+        UPDATE jwt_key SET activated_at = NOW() WHERE version = #{version}
+    </update>
+
+    <!-- 删除过期的密钥 -->
+    <delete id="deleteExpiredKeys">
+        DELETE FROM jwt_key WHERE expires_at &lt; #{cutoff} AND is_active = false
+    </delete>
+
+    <!-- 查询密钥总数 -->
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM jwt_key
+    </select>
+
+</mapper>
