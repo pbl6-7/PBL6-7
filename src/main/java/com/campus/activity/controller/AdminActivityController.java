@@ -62,6 +62,27 @@ public class AdminActivityController {
         return Result.success(activities);
     }
 
+    @GetMapping("/status/{status}")
+    @ApiOperation("按活动状态获取活动列表")
+    public Result<List<ActivityResponse>> getActivitiesByStatus(
+            HttpServletRequest request,
+            @PathVariable String status) {
+        validateAdmin(request);
+        List<ActivityResponse> activities = activityService.getActivitiesByStatus(status);
+        return Result.success(activities);
+    }
+
+    @DeleteMapping("/{id}")
+    @ApiOperation("删除活动")
+    public Result<Void> deleteActivity(
+            HttpServletRequest request,
+            @PathVariable Long id) {
+        validateAdmin(request);
+        Long adminId = (Long) request.getAttribute("currentUserId");
+        activityService.deleteActivity(id, adminId, UserRoleConstants.ADMIN);
+        return Result.success(null, "活动已删除");
+    }
+
     @PutMapping("/{id}/approve")
     @ApiOperation("审核通过")
     public Result<ActivityResponse> approveActivity(

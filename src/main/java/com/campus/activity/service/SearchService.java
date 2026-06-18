@@ -373,7 +373,7 @@ public class SearchService {
                 
                 // 排序并限制数量
                 suggestions.sort((a, b) -> Integer.compare(b.getRelevanceScore(), a.getRelevanceScore()));
-                suggestions.subList(0, Math.min(limit, suggestions.size()));
+                suggestions = new ArrayList<>(suggestions.subList(0, Math.min(limit, suggestions.size())));
             });
         } catch (Exception e) {
             // 缓存加载失败时，返回空列表

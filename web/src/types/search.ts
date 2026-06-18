@@ -10,9 +10,10 @@ export interface SearchSuggestionResponse {
 // 搜索历史
 export interface SearchHistory {
   id: number;
-  keyword: string;
+  userId?: number;
+  searchKeyword: string;
+  searchType?: string;
   searchTime: string;
-  resultCount: number;
 }
 
 // 搜索结果

@@ -52,4 +52,60 @@
         DELETE FROM audit_log WHERE created_at &lt; #{cutoff}
     </delete>
 
+    <!-- 分页查询审计日志（支持多条件筛选） -->
+    <select id="selectByConditions" resultMap="BaseResultMap">
+        SELECT * FROM audit_log
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="operation != null and operation != ''">
+                AND operation = #{operation}
+            </if>
+            <if test="resourceType != null and resourceType != ''">
+                AND resource_type = #{resourceType}
+            </if>
+            <if test="startTime != null">
+                AND created_at &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND created_at &lt;= #{endTime}
+            </if>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 按条件统计审计日志数量 -->
+    <select id="countByConditions" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM audit_log
+        <where>
+            <if test="userId != null">
+                AND user_id = #{userId}
+            </if>
+            <if test="operation != null and operation != ''">
+                AND operation = #{operation}
+            </if>
+            <if test="resourceType != null and resourceType != ''">
+                AND resource_type = #{resourceType}
+            </if>
+            <if test="startTime != null">
+                AND created_at &gt;= #{startTime}
+            </if>
+            <if test="endTime != null">
+                AND created_at &lt;= #{endTime}
+            </if>
+        </where>
+    </select>
+
+    <!-- 统计不同操作用户的数量（活跃用户数） -->
+    <select id="countDistinctUsers" resultType="java.lang.Long">
+        SELECT COUNT(DISTINCT user_id) FROM audit_log
+    </select>
+
+    <!-- 统计异常操作数量（响应状态码>=400的操作） -->
+    <select id="countAbnormalOperations" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM audit_log WHERE response_status &gt;= 400
+    </select>
+
 </mapper>

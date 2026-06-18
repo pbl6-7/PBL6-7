@@ -2,6 +2,7 @@ package com.campus.activity.service;
 
 import com.campus.activity.mapper.ActivityMapper;
 import com.campus.activity.mapper.ActivityRegistrationMapper;
+import com.campus.activity.mapper.ActivitySubscriptionMapper;
 import com.campus.activity.mapper.SearchHistoryMapper;
 import com.campus.activity.mapper.NotificationMapper;
 import com.campus.core.service.AuditService;
@@ -25,6 +26,7 @@ public class ScheduledTaskService {
 
     private final ActivityMapper activityMapper;
     private final ActivityRegistrationMapper registrationMapper;
+    private final ActivitySubscriptionMapper subscriptionMapper;
     private final SearchHistoryMapper searchHistoryMapper;
     private final NotificationMapper notificationMapper;
     private final NotificationServiceImpl notificationService;
@@ -35,7 +37,7 @@ public class ScheduledTaskService {
 
     /**
      * 活动开始前提醒
-     * 每小时检查一次即将开始的活动（1小时内），通知已报名用户
+     * 每小时检查一次即将开始的活动（1小时内），通知已报名用户和订阅用户
      */
     @Scheduled(cron = "0 0 * * * ?")
     public void remindUpcomingActivities() {
@@ -51,15 +53,29 @@ public class ScheduledTaskService {
                 Long activityId = (Long) activity.get("id");
                 String title = (String) activity.get("title");
 
-                // 获取已报名用户列表
+                // 通知已报名用户
                 List<Long> registeredUserIds = registrationMapper.selectRegisteredUserIdsByActivityId(activityId);
-
                 for (Long userId : registeredUserIds) {
                     try {
                         notificationService.notifyUser(userId, "ACTIVITY_REMINDER",
                                 "活动即将开始", "您报名的活动「" + title + "」即将在1小时内开始，请做好准备。");
                     } catch (Exception e) {
                         log.warn("发送活动提醒失败: userId={}, activityId={}, error={}", userId, activityId, e.getMessage());
+                    }
+                }
+
+                // 通知订阅用户
+                List<Long> subscribedUserIds = subscriptionMapper.selectUserIdsByActivityId(activityId);
+                for (Long userId : subscribedUserIds) {
+                    // 跳过已报名用户（避免重复通知）
+                    if (registeredUserIds.contains(userId)) {
+                        continue;
+                    }
+                    try {
+                        notificationService.notifyUser(userId, "ACTIVITY_REMINDER",
+                                "活动即将开始", "您订阅的活动「" + title + "」即将在1小时内开始。");
+                    } catch (Exception e) {
+                        log.warn("发送订阅活动提醒失败: userId={}, activityId={}, error={}", userId, activityId, e.getMessage());
                     }
                 }
             }
@@ -74,7 +90,7 @@ public class ScheduledTaskService {
 
     /**
      * 活动状态自动更新
-     * 每30分钟检查一次，将已过期的活动状态自动更新为ended
+     * 每30分钟检查一次，将已过期的活动状态自动更新为ended，并通知订阅用户
      */
     @Scheduled(cron = "0 */30 * * * ?")
     public void autoUpdateActivityStatus() {
@@ -82,11 +98,33 @@ public class ScheduledTaskService {
         try {
             LocalDateTime now = LocalDateTime.now();
 
-            // 将已结束但状态仍为published的活动更新为ended
+            // 先查询即将过期的活动（用于发送通知）
+            List<Map<String, Object>> expiredActivities = activityMapper.selectExpiredButActiveActivities(now);
+
+            // 批量更新状态
             int updated = activityMapper.autoEndExpiredActivities(now);
             if (updated > 0) {
                 log.info("自动结束{}个已过期活动", updated);
                 cacheService.clearHotActivityCache();
+
+                // 通知订阅用户活动已自动结束
+                for (Map<String, Object> activity : expiredActivities) {
+                    Long activityId = (Long) activity.get("id");
+                    String title = (String) activity.get("title");
+                    try {
+                        List<Long> subscriberIds = subscriptionMapper.selectUserIdsByActivityId(activityId);
+                        for (Long userId : subscriberIds) {
+                            try {
+                                notificationService.notifyUser(userId, "activity_ended", "活动已结束",
+                                        "您订阅的活动「" + title + "」已结束，感谢您的关注。");
+                            } catch (Exception e) {
+                                log.warn("通知订阅用户活动结束失败: userId={}, activityId={}, error={}", userId, activityId, e.getMessage());
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.warn("获取订阅用户列表失败: activityId={}, error={}", activityId, e.getMessage());
+                    }
+                }
             }
         } catch (Exception e) {
             log.error("活动状态自动更新定时任务执行失败: {}", e.getMessage(), e);

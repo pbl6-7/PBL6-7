@@ -93,4 +93,18 @@
         LIMIT #{size}
     </select>
 
+    <!-- 更新评论内容 -->
+    <update id="updateContent">
+        UPDATE activity_comment
+        SET content = #{content}
+        WHERE id = #{id}
+    </update>
+
+    <!-- 查询活动的全部评论（用于构建无限嵌套树） -->
+    <select id="selectAllByActivityId" resultMap="BaseResultMap">
+        SELECT * FROM activity_comment
+        WHERE activity_id = #{activityId}
+        ORDER BY created_at ASC
+    </select>
+
 </mapper>

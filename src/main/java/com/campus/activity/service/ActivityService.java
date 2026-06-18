@@ -7,17 +7,24 @@ import com.campus.activity.dto.ActivityResponse;
 import com.campus.activity.dto.TagResponse;
 import com.campus.activity.entity.Activity;
 import com.campus.activity.entity.ActivityImage;
+import com.campus.activity.entity.ActivityType;
 import com.campus.activity.mapper.ActivityImageMapper;
 import com.campus.activity.mapper.ActivityMapper;
+import com.campus.activity.mapper.ActivityRegistrationMapper;
+import com.campus.activity.mapper.ActivitySubscriptionMapper;
+import com.campus.activity.mapper.ActivityTypeMapper;
 import com.campus.core.constants.ActivityStatusConstants;
 import com.campus.core.constants.ApprovalStatusConstants;
 import com.campus.core.constants.AuditOperationConstants;
 import com.campus.core.constants.AuditResourceTypeConstants;
+import com.campus.core.constants.UserRoleConstants;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.ResultCode;
 import com.campus.core.common.SensitiveWordFilter;
 import com.campus.core.service.AuditService;
 import com.campus.activity.service.NotificationService;
+import com.campus.user.entity.User;
+import com.campus.user.mapper.UserMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -25,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -61,7 +69,19 @@ public class ActivityService {
     private NotificationService notificationService;
 
     @Autowired
+    private ActivitySubscriptionMapper subscriptionMapper;
+
+    @Autowired
     private ActivityTagService activityTagService;
+
+    @Autowired
+    private ActivityTypeMapper activityTypeMapper;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private ActivityRegistrationMapper registrationMapper;
 
     /**
      * 获取热门活动列表（带缓存）
@@ -106,8 +126,37 @@ public class ActivityService {
         ActivityResponse response = ActivityResponse.fromEntity(activity);
         if (response != null) {
             response.setTags(activityTagService.getTagsByActivityId(id));
+            enrichActivityResponse(response);
         }
         return response;
+    }
+
+    /**
+     * 填充活动响应的关联字段（发布者名称、活动类型名称、当前报名人数）
+     *
+     * @param response 活动响应DTO
+     */
+    private void enrichActivityResponse(ActivityResponse response) {
+        if (response == null) return;
+        /* 填充发布者名称 */
+        if (response.getPublisherId() != null && response.getPublisherName() == null) {
+            User publisher = userMapper.selectById(response.getPublisherId());
+            if (publisher != null) {
+                response.setPublisherName(publisher.getRealName() != null ? publisher.getRealName() : publisher.getUsername());
+            }
+        }
+        /* 填充活动类型名称 */
+        if (response.getTypeId() != null && response.getActivityTypeName() == null) {
+            ActivityType type = activityTypeMapper.selectById(response.getTypeId());
+            if (type != null) {
+                response.setActivityTypeName(type.getName());
+            }
+        }
+        /* 填充当前报名人数（已确认的报名数） */
+        if (response.getId() != null) {
+            Long count = registrationMapper.countByActivityIdAndStatus(response.getId(), "confirmed");
+            response.setCurrentParticipants(count != null ? count : 0L);
+        }
     }
 
     /**
@@ -270,6 +319,10 @@ public class ActivityService {
         auditService.quickRecord(userId, null, AuditOperationConstants.ACTIVITY_UPDATE,
                 AuditResourceTypeConstants.ACTIVITY, id, 200, "更新活动: " + activity.getTitle());
 
+        // 通知订阅用户活动信息已更新
+        notifySubscribers(id, "activity_updated", "活动信息更新",
+                "您订阅的活动「" + activity.getTitle() + "」信息已更新，请查看最新详情。");
+
         // 清除活动详情缓存
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
@@ -279,21 +332,25 @@ public class ActivityService {
     }
 
     /**
-     * 删除活动（带权限验证）
+     * 删除活动
+     * 活动发布者和管理员均可删除活动
      *
      * @param id 活动ID
-     * @param userId 用户ID
+     * @param userId 操作用户ID
+     * @param role 操作用户角色
      */
     @Transactional
-    public void deleteActivity(Long id, Long userId) {
+    public void deleteActivity(Long id, Long userId, String role) {
         log.info("用户 {} 删除活动：id={}", userId, id);
         Activity activity = activityMapper.selectById(id);
         if (activity == null) {
             throw new BusinessException(ResultCode.NOT_FOUND, "活动不存在");
         }
         
-        // 权限检查：只有活动发布者可以删除活动
-        if (!java.util.Objects.equals(activity.getPublisherId(), userId)) {
+        // 权限检查：活动发布者或管理员可以删除活动
+        boolean isOwner = java.util.Objects.equals(activity.getPublisherId(), userId);
+        boolean isAdmin = UserRoleConstants.ADMIN.equals(role);
+        if (!isOwner && !isAdmin) {
             throw new BusinessException(ResultCode.FORBIDDEN, "无权删除此活动");
         }
         
@@ -335,6 +392,7 @@ public class ActivityService {
 
     /**
      * 更新活动状态（带权限校验，返回ActivityResponse）
+     * 安全修复：发布活动时必须先通过审核
      *
      * @param id 活动ID
      * @param userId 操作用户ID
@@ -352,9 +410,34 @@ public class ActivityService {
         if (!activity.getPublisherId().equals(userId)) {
             throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.FORBIDDEN, "无权操作此活动");
         }
+
+        // 安全校验：发布活动时必须已通过审核
+        if ("published".equals(status) && !ApprovalStatusConstants.APPROVED.equals(activity.getApprovalStatus())) {
+            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.FORBIDDEN, "活动未通过审核，无法发布");
+        }
+
+        // 状态流转校验：已取消或已结束的活动不能再变更状态
+        String currentStatus = activity.getStatus();
+        if ("cancelled".equals(currentStatus) || "ended".equals(currentStatus)) {
+            throw new com.campus.core.common.BusinessException(com.campus.core.common.ResultCode.BAD_REQUEST, "已" + currentStatus + "的活动无法变更状态");
+        }
+
+        String oldStatus = activity.getStatus();
         activity.setStatus(status);
         activity.setUpdatedAt(LocalDateTime.now());
         activityMapper.updateById(activity);
+
+        // 活动取消时通知订阅用户
+        if ("cancelled".equals(status) && !"cancelled".equals(oldStatus)) {
+            notifySubscribers(id, "activity_cancelled", "活动已取消",
+                    "您订阅的活动「" + activity.getTitle() + "」已被发布者取消。");
+        }
+
+        // 活动结束时通知订阅用户
+        if ("ended".equals(status) && !"ended".equals(oldStatus)) {
+            notifySubscribers(id, "activity_ended", "活动已结束",
+                    "您订阅的活动「" + activity.getTitle() + "」已结束，感谢您的关注。");
+        }
 
         String cacheKey = String.format("hotActivity:detail:%d", id);
         cacheService.evictHotActivity(cacheKey);
@@ -385,6 +468,12 @@ public class ActivityService {
         if (queryRequest.getPage() == null || queryRequest.getPage() < 1) queryRequest.setPage(1);
         if (queryRequest.getSize() == null || queryRequest.getSize() < 1) queryRequest.setSize(10);
         if (queryRequest.getSize() > 100) queryRequest.setSize(100);
+
+        // 安全修复：普通用户查看活动列表时，默认只显示已审核通过的活动
+        // 管理员或按发布者查询时可以看到所有状态的活动
+        if (queryRequest.getApprovalStatus() == null || queryRequest.getApprovalStatus().trim().isEmpty()) {
+            queryRequest.setApprovalStatus(ApprovalStatusConstants.APPROVED);
+        }
 
         int page = queryRequest.getPage();
         int size = queryRequest.getSize() != null ? queryRequest.getSize() : 10;
@@ -421,6 +510,7 @@ public class ActivityService {
                 .map(activity -> {
                     ActivityResponse ar = ActivityResponse.fromEntity(activity);
                     ar.setTags(activityTagService.getTagsByActivityId(activity.getId()));
+                    enrichActivityResponse(ar);
                     return ar;
                 })
                 .collect(Collectors.toList());
@@ -454,6 +544,21 @@ public class ActivityService {
     }
 
     /**
+     * 按活动状态获取活动列表
+     *
+     * @param status 活动状态（draft/published/cancelled/ended）
+     * @return 活动响应列表
+     */
+    public List<ActivityResponse> getActivitiesByStatus(String status) {
+        List<Activity> activities = activityMapper.selectByStatus(status);
+        return activities.stream().map(activity -> {
+            ActivityResponse response = ActivityResponse.fromEntity(activity);
+            enrichActivityResponse(response);
+            return response;
+        }).collect(Collectors.toList());
+    }
+
+    /**
      * 审核通过活动
      *
      * @param id 活动ID
@@ -479,6 +584,10 @@ public class ActivityService {
         // 发送通知给活动发布者
         notificationService.notifyUser(activity.getPublisherId(), "activity_approved", 
                 "活动审核通过", "您的活动「" + activity.getTitle() + "」已审核通过，可以开始报名了！");
+
+        // 通知订阅用户活动已审核通过
+        notifySubscribers(id, "activity_approved", "活动审核通过",
+                "您订阅的活动「" + activity.getTitle() + "」已审核通过，可以开始报名了！");
 
         // 清除活动详情缓存
         String cacheKey = String.format("hotActivity:detail:%d", id);
@@ -521,5 +630,59 @@ public class ActivityService {
         cacheService.clearHotActivityCache();
 
         return ActivityResponse.fromEntity(activity);
+    }
+
+    /**
+     * 获取热门活动（按报名人数排序）
+     * @param limit 返回数量限制
+     * @return 热门活动列表
+     */
+    public List<Map<String, Object>> getHotActivitiesByRegistration(Integer limit) {
+        return activityMapper.selectHotActivitiesByRegistration(limit);
+    }
+
+    /**
+     * 获取热门活动（按收藏人数排序）
+     * @param limit 返回数量限制
+     * @return 热门活动列表
+     */
+    public List<Map<String, Object>> getHotActivitiesByCollection(Integer limit) {
+        return activityMapper.selectHotActivitiesByCollection(limit);
+    }
+
+    /**
+     * 获取热门活动（按浏览量排序）
+     * @param limit 返回数量限制
+     * @return 热门活动列表
+     */
+    public List<Map<String, Object>> getHotActivitiesByView(Integer limit) {
+        return activityMapper.selectHotActivitiesByView(limit);
+    }
+
+    /**
+     * 通知活动的所有订阅用户
+     *
+     * @param activityId 活动ID
+     * @param type 通知类型
+     * @param title 通知标题
+     * @param message 通知内容
+     */
+    private void notifySubscribers(Long activityId, String type, String title, String message) {
+        try {
+            List<Long> subscriberIds = subscriptionMapper.selectUserIdsByActivityId(activityId);
+            for (Long userId : subscriberIds) {
+                try {
+                    notificationService.notifyUser(userId, type, title, message);
+                } catch (Exception e) {
+                    log.warn("通知订阅用户失败: userId={}, activityId={}, type={}, error={}",
+                            userId, activityId, type, e.getMessage());
+                }
+            }
+            if (!subscriberIds.isEmpty()) {
+                log.debug("已通知{}个订阅用户: activityId={}, type={}", subscriberIds.size(), activityId, type);
+            }
+        } catch (Exception e) {
+            log.error("获取订阅用户列表失败: activityId={}, error={}", activityId, e.getMessage());
+        }
     }
 }

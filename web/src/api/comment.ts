@@ -13,3 +13,7 @@ export const getComments = (activityId: number, page?: number, size?: number) =>
 /** 删除评论 */
 export const deleteComment = (commentId: number) =>
   apiClient.delete<ApiResponse<void>>(`/comments/${commentId}`);
+
+/** 更新评论 */
+export const updateComment = (commentId: number, content: string) =>
+  apiClient.put<ApiResponse<CommentResponse>>(`/comments/${commentId}`, { content });

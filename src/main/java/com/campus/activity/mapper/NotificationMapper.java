@@ -53,4 +53,42 @@ public interface NotificationMapper {
      * 删除过期的已读通知
      */
     void deleteOldNotifications(@Param("cutoff") java.time.LocalDateTime cutoff);
+
+    /**
+     * 查询所有通知（管理员用，分页）
+     * @param offset 偏移量
+     * @param limit 限制数量
+     * @return 通知列表
+     */
+    List<Notification> selectAllRecent(@Param("offset") int offset, @Param("limit") int limit);
+
+    /**
+     * 统计通知总数
+     * @return 通知总数
+     */
+    Long countAll();
+
+    /**
+     * 查询去重后的系统公告列表（按title+content分组，只取每个公告的一条记录）
+     * @param type 通知类型（如 SYSTEM_ANNOUNCEMENT）
+     * @param offset 偏移量
+     * @param limit 限制数量
+     * @return 去重后的公告通知列表
+     */
+    List<Notification> selectDistinctByType(@Param("type") String type, @Param("offset") int offset, @Param("limit") int limit);
+
+    /**
+     * 统计去重后的系统公告数量
+     * @param type 通知类型
+     * @return 去重后的公告数量
+     */
+    Long countDistinctByType(@Param("type") String type);
+
+    /**
+     * 根据标题和内容删除所有匹配的通知（用于删除公告时清理所有用户的通知副本）
+     * @param title 通知标题
+     * @param content 通知内容
+     * @return 删除的记录数
+     */
+    int deleteByTitleAndContent(@Param("title") String title, @Param("content") String content);
 }

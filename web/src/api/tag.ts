@@ -1,43 +1,60 @@
-import request from '@/utils/request'
+import apiClient from './client';
+import type { ApiResponse } from '@/types/common';
 
+/** 标签响应接口 */
 export interface TagResponse {
-  id: number
-  name: string
-  color: string
-  type: string
+  /** 标签ID */
+  id: number;
+  /** 标签名称 */
+  name: string;
+  /** 标签颜色 */
+  color: string;
+  /** 标签类型 */
+  type: string;
 }
 
+/** 标签创建请求接口 */
 export interface TagCreateRequest {
-  name: string
-  color?: string
-  type?: string
+  /** 标签名称 */
+  name: string;
+  /** 标签颜色 */
+  color?: string;
+  /** 标签类型 */
+  type?: string;
 }
 
+/** 活动标签设置请求接口 */
 export interface ActivityTagRequest {
-  activityId: number
-  tagIds: number[]
+  /** 活动ID */
+  activityId: number;
+  /** 标签ID列表 */
+  tagIds: number[];
 }
 
-export const getAllTags = () => {
-  return request.get<any, { data: TagResponse[] }>('/tags')
-}
+/** 获取所有标签 */
+export const getAllTags = () =>
+  apiClient.get<ApiResponse<TagResponse[]>>('/tags');
 
-export const getTagById = (id: number) => {
-  return request.get<any, { data: TagResponse }>(`/tags/${id}`)
-}
+/** 根据ID获取标签 */
+export const getTagById = (id: number) =>
+  apiClient.get<ApiResponse<TagResponse>>(`/tags/${id}`);
 
-export const createTag = (data: TagCreateRequest) => {
-  return request.post<any, { data: TagResponse }>('/tags', data)
-}
+/** 创建标签 */
+export const createTag = (data: TagCreateRequest) =>
+  apiClient.post<ApiResponse<TagResponse>>('/tags', data);
 
-export const deleteTag = (id: number) => {
-  return request.delete<any, { data: null }>(`/tags/${id}`)
-}
+/** 更新标签 */
+export const updateTag = (id: number, data: TagCreateRequest) =>
+  apiClient.put<ApiResponse<TagResponse>>(`/tags/${id}`, data);
 
-export const getTagsByActivityId = (activityId: number) => {
-  return request.get<any, { data: TagResponse[] }>(`/tags/activity/${activityId}`)
-}
+/** 删除标签 */
+export const deleteTag = (id: number) =>
+  apiClient.delete<ApiResponse<void>>(`/tags/${id}`);
 
-export const setActivityTags = (data: ActivityTagRequest) => {
-  return request.post<any, { data: null }>('/tags/activity', data)
-}
+/** 根据活动ID获取标签 */
+export const getTagsByActivityId = (activityId: number) =>
+  apiClient.get<ApiResponse<TagResponse[]>>(`/tags/activity/${activityId}`);
+
+/** 设置活动标签 */
+export const setActivityTags = (data: ActivityTagRequest) =>
+  apiClient.post<ApiResponse<void>>('/tags/activity', data);

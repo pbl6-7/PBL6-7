@@ -28,6 +28,11 @@ public interface SensitiveWordMapper {
     List<SensitiveWord> selectByType(@Param("type") String type);
 
     /**
+     * 根据敏感词内容查询
+     */
+    SensitiveWord selectByWord(@Param("word") String word);
+
+    /**
      * 插入敏感词
      */
     void insert(SensitiveWord sensitiveWord);

@@ -135,6 +135,55 @@ public class SensitiveWordController {
     }
 
     /**
+     * 批量添加敏感词
+     * 支持两种格式：字符串列表或对象列表
+     * 字符串格式：{"words": ["词1", "词2"]}
+     * 对象格式：{"words": [{"word": "词1", "level": 1}, {"word": "词2", "category": "other"}]}
+     */
+    @PostMapping("/batch")
+    @ApiOperation("批量添加敏感词")
+    public Result<Map<String, Object>> batchAddSensitiveWords(
+            HttpServletRequest request,
+            @RequestBody Map<String, Object> body) {
+        validateAdmin(request);
+        @SuppressWarnings("unchecked")
+        List<Object> wordList = (List<Object>) body.get("words");
+        if (wordList == null || wordList.isEmpty()) {
+            return Result.error(ResultCode.BAD_REQUEST, "敏感词列表不能为空");
+        }
+        List<SensitiveWord> words = new java.util.ArrayList<>();
+        for (Object item : wordList) {
+            SensitiveWord sw = new SensitiveWord();
+            if (item instanceof String) {
+                // 简单字符串格式
+                sw.setWord((String) item);
+                sw.setType("other");
+            } else if (item instanceof Map) {
+                // 对象格式
+                @SuppressWarnings("unchecked")
+                Map<String, Object> map = (Map<String, Object>) item;
+                sw.setWord((String) map.get("word"));
+                if (map.get("level") != null) {
+                    sw.setIsWhitelist(((Number) map.get("level")).intValue() == 0 ? 1 : 0);
+                }
+                if (map.get("category") != null) {
+                    sw.setType((String) map.get("category"));
+                } else {
+                    sw.setType("other");
+                }
+            } else {
+                continue;
+            }
+            words.add(sw);
+        }
+        int added = sensitiveWordService.batchAddSensitiveWords(words);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("added", added);
+        result.put("total", wordList.size());
+        return Result.success(result, "批量添加完成");
+    }
+
+    /**
      * 获取敏感词统计
      */
     @GetMapping("/stats")

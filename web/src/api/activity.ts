@@ -27,21 +27,21 @@ export const deleteActivity = (id: number) =>
 export const getActivityList = (params: ActivityQueryRequest) =>
   apiClient.get<ApiResponse<ActivityPageResponse>>('/activities/list', { params });
 
-/** 发布活动（状态变更） */
+/** 发布活动（状态变更） - 后端使用 PUT */
 export const publishActivityStatus = (id: number) =>
-  apiClient.post<ApiResponse<any>>(`/activities/${id}/publish`);
+  apiClient.put<ApiResponse<any>>(`/activities/${id}/publish`);
 
-/** 取消活动 */
+/** 取消活动 - 后端使用 PUT */
 export const cancelActivity = (id: number, reason?: string) =>
-  apiClient.post<ApiResponse<any>>(`/activities/${id}/cancel`, null, { params: { reason } });
+  apiClient.put<ApiResponse<any>>(`/activities/${id}/cancel`, reason ? { reason } : undefined);
 
-/** 结束活动 */
+/** 结束活动 - 后端使用 PUT */
 export const endActivity = (id: number, reason?: string) =>
-  apiClient.post<ApiResponse<any>>(`/activities/${id}/end`, null, { params: { reason } });
+  apiClient.put<ApiResponse<any>>(`/activities/${id}/end`, reason ? { reason } : undefined);
 
-/** 更新活动状态 */
+/** 更新活动状态 - 后端使用 RequestBody */
 export const updateActivityStatus = (id: number, newStatus: string, reason?: string) =>
-  apiClient.put<ApiResponse<any>>(`/activities/${id}/status`, null, { params: { newStatus, reason } });
+  apiClient.put<ApiResponse<any>>(`/activities/${id}/status`, { status: newStatus, reason });
 
 /** 获取活动状态信息 */
 export const getActivityStatus = (id: number) =>
@@ -55,19 +55,22 @@ export const shareActivity = (id: number, shareChannel?: string) =>
 export const getShareCount = (id: number) =>
   apiClient.get<ApiResponse<any>>(`/activities/${id}/share-count`);
 
-/** 获取我分享的活动 */
-export const getMySharedActivities = () =>
-  apiClient.get<ApiResponse<any[]>>('/activities/my/shared');
-
 /** 获取活动图片 */
 export const getActivityImages = (activityId: number) =>
   apiClient.get<ApiResponse<any[]>>(`/activities/${activityId}/images`);
 
-/** 上传活动图片 */
-export const uploadActivityImages = (activityId: number, files: File[]) => {
+/** 上传活动图片 - 后端接受单文件 + description + sortOrder */
+export const uploadActivityImage = (
+  activityId: number,
+  file: File,
+  description: string = '',
+  sortOrder: number = 0
+) => {
   const formData = new FormData();
-  files.forEach(file => formData.append('files', file));
-  return apiClient.post<ApiResponse<any[]>>(`/activities/${activityId}/images`, formData, {
+  formData.append('file', file);
+  formData.append('description', description);
+  formData.append('sortOrder', String(sortOrder));
+  return apiClient.post<ApiResponse<any>>(`/activities/${activityId}/images`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
@@ -83,3 +86,11 @@ export const getAllTags = () =>
 /** 获取我的报名记录 */
 export const getMyRegistrations = () =>
   apiClient.get<ApiResponse<RegistrationPageResponse>>('/registrations/my');
+
+/** 获取热门活动 */
+export const getHotActivities = (limit: number = 10, sortBy: string = 'registration') =>
+  apiClient.get<ApiResponse<any>>('/activities/hot', { params: { limit, sortBy } });
+
+/** 获取活动列表（根路径） */
+export const getActivityListRoot = (params?: any) =>
+  apiClient.get<ApiResponse<any>>('/activities', { params });

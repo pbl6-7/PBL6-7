@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { X, Upload, Trash2, Image as ImageIcon } from 'lucide-react';
 import { getActivityAlbums, uploadAlbum, deleteAlbum } from '@/api/album';
+import { useToastStore } from '@/components/Toast';
+import apiClient from '@/api/client';
 import type { Album } from '@/types/album';
+
+/** 从 apiClient 的 baseURL 提取服务器根地址，用于拼接图片路径 */
+const SERVER_ORIGIN = apiClient.defaults.baseURL?.replace(/\/api\/v1\/?$/, '') || '';
+
+/** 根据相册 URL 生成完整图片地址 */
+const getImageUrl = (url: string) => `${SERVER_ORIGIN}/uploads/${url}`;
 
 interface ActivityAlbumProps {
   activityId: number;
@@ -9,9 +17,11 @@ interface ActivityAlbumProps {
 }
 
 export default function ActivityAlbum({ activityId, isOwner }: ActivityAlbumProps) {
+  const { addToast } = useToastStore();
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [description, setDescription] = useState('');
 
@@ -41,20 +51,22 @@ export default function ActivityAlbum({ activityId, isOwner }: ActivityAlbumProp
       await loadAlbums();
     } catch (err) {
       console.error('上传失败', err);
-      alert('上传失败，请重试');
+      addToast('error', '上传失败，请重试');
     } finally {
       setUploading(false);
     }
   };
 
   const handleDelete = async (albumId: number) => {
-    if (!confirm('确定要删除这张图片吗？')) return;
     try {
       await deleteAlbum(albumId);
+      addToast('success', '图片已删除');
       await loadAlbums();
     } catch (err) {
       console.error('删除失败', err);
-      alert('删除失败，请重试');
+      addToast('error', '删除失败，请重试');
+    } finally {
+      setDeleteConfirmId(null);
     }
   };
 
@@ -99,14 +111,14 @@ export default function ActivityAlbum({ activityId, isOwner }: ActivityAlbumProp
           {albums.map((album) => (
             <div key={album.id} className="relative group">
               <img
-                src={`http://localhost:8080/uploads/${album.url}`}
+                src={getImageUrl(album.url)}
                 alt={album.description || '活动照片'}
                 className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => setSelectedImage(`http://localhost:8080/uploads/${album.url}`)}
+                onClick={() => setSelectedImage(getImageUrl(album.url))}
               />
               {isOwner && (
                 <button
-                  onClick={() => handleDelete(album.id)}
+                  onClick={() => setDeleteConfirmId(album.id)}
                   className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -117,6 +129,36 @@ export default function ActivityAlbum({ activityId, isOwner }: ActivityAlbumProp
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 删除确认弹窗 */}
+      {deleteConfirmId !== null && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setDeleteConfirmId(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 shadow-xl max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">确认删除</h3>
+            <p className="text-gray-600 mb-6">确定要删除这张图片吗？此操作不可撤销。</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
+              >
+                删除
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

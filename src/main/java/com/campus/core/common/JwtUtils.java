@@ -14,12 +14,12 @@ import javax.annotation.PostConstruct;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-
 /**
  * JWT工具类
  * 支持多密钥版本验证和密钥管理
  */
 @Component
+@org.springframework.context.annotation.DependsOn("jwtKeyManager")
 public class JwtUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
@@ -33,6 +33,9 @@ public class JwtUtils {
     @Value("${jwt.key.management-enabled:true}")
     private boolean keyManagementEnabled;
 
+    /**
+     * 依赖 JwtKeyManager，确保其先于本 Bean 初始化
+     */
     @Autowired(required = false)
     private JwtKeyManager jwtKeyManager;
 

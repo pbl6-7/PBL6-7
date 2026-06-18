@@ -95,4 +95,19 @@ public interface CommentMapper {
             @Param("lastId") Long lastId,
             @Param("size") Integer size
     );
+
+    /**
+     * 更新评论内容
+     * @param id 评论ID
+     * @param content 新内容
+     * @return 影响行数
+     */
+    int updateContent(@Param("id") Long id, @Param("content") String content);
+
+    /**
+     * 查询活动的全部评论（用于构建无限嵌套树）
+     * @param activityId 活动ID
+     * @return 该活动下所有评论（含所有层级）
+     */
+    List<Comment> selectAllByActivityId(@Param("activityId") Long activityId);
 }

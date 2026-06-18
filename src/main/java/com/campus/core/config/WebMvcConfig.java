@@ -39,16 +39,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addResourceLocations("file:" + uploadPath + "/");
     }
 
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173", "http://localhost:5174", "http://localhost:8080", "http://127.0.0.1:5173", "http://127.0.0.1:5174")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                .allowedHeaders("*")
-                .exposedHeaders("Authorization", "X-User-Id")
-                .allowCredentials(true)
-                .maxAge(3600);
-    }
+    // CORS 配置已迁移到 CorsConfig 中使用 CorsFilter 方式注册
+    // CorsFilter 优先级高于拦截器，确保 OPTIONS 预检请求正确处理
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

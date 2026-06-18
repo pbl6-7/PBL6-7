@@ -11,6 +11,7 @@ import com.campus.user.dto.LoginResponse;
 import com.campus.user.dto.UpdateProfileRequest;
 import com.campus.user.entity.User;
 import com.campus.user.service.UserService;
+import com.campus.activity.util.FileUploadUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final FileUploadUtil fileUploadUtil;
 
     @PostMapping("/login")
     @ApiOperation("用户登录")
@@ -112,37 +114,19 @@ public class UserController {
         if (userId == null) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
         }
-        if (file.isEmpty()) {
-            return Result.error(ResultCode.BAD_REQUEST, "请选择要上传的文件");
-        }
 
         try {
-            // 获取上传路径
-            String uploadPath = "uploads/avatars";
-            java.io.File uploadDir = new java.io.File(uploadPath);
-            if (!uploadDir.exists()) {
-                uploadDir.mkdirs();
-            }
-
-            // 生成文件名
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = userId + "_" + System.currentTimeMillis() + extension;
-            java.io.File dest = new java.io.File(uploadDir, filename);
-            file.transferTo(dest);
-
-            // 更新用户头像URL
-            String avatarUrl = "/uploads/avatars/" + filename;
+            // 使用 FileUploadUtil 统一安全上传（含类型白名单、Magic Number校验、路径遍历防护）
+            String avatarUrl = fileUploadUtil.uploadImageToSubDir(file, "avatars", String.valueOf(userId));
             userService.updateAvatar(userId, avatarUrl);
 
             Map<String, Object> data = new HashMap<>();
             data.put("avatarUrl", avatarUrl);
             return Result.success(data, "头像上传成功");
+        } catch (IllegalArgumentException e) {
+            return Result.error(ResultCode.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
-            return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "头像上传失败: " + e.getMessage());
+            return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "头像上传失败");
         }
     }
 

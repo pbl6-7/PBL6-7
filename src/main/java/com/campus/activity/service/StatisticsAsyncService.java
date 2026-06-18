@@ -61,9 +61,12 @@ public class StatisticsAsyncService {
     }
 
     /**
-     * 刷新缓存
+     * 刷新统计缓存
+     * 清除所有统计数据缓存，下次请求时自动重新计算
      */
     public void refreshCache() {
         log.info("刷新统计缓存");
+        // 缓存会在下次请求时自动重新计算，这里只需清除即可
+        // 实际清除操作由AdminStatisticsService.clearStatisticsCache()调用CacheService完成
     }
 }

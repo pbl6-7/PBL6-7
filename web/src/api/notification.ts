@@ -14,7 +14,7 @@ export const getNotifications = (page = 1, size = 10) =>
  * 获取未读通知数量
  */
 export const getUnreadCount = () =>
-  apiClient.get<ApiResponse<{ count: number }>>('/notifications/unread-count');
+  apiClient.get<ApiResponse<{ unreadCount: number }>>('/notifications/unread-count');
 
 /**
  * 标记通知已读
@@ -28,3 +28,10 @@ export const markAsRead = (id: number) =>
  */
 export const markAllAsRead = () =>
   apiClient.patch<ApiResponse<void>>('/notifications/read-all');
+
+/**
+ * 删除通知
+ * @param id - 通知ID
+ */
+export const deleteNotification = (id: number) =>
+  apiClient.delete<ApiResponse<void>>(`/notifications/${id}`);

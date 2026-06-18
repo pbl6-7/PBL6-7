@@ -22,13 +22,15 @@ public class WebSocketNotificationService {
     /**
      * 向指定用户推送通知
      * @param userId 用户ID
+     * @param notificationId 通知ID
      * @param type 通知类型
      * @param title 通知标题
      * @param message 通知内容
      */
-    public void sendToUser(Long userId, String type, String title, String message) {
+    public void sendToUser(Long userId, Long notificationId, String type, String title, String message) {
         try {
             Map<String, Object> notification = new HashMap<>();
+            notification.put("id", notificationId);
             notification.put("type", type);
             notification.put("title", title);
             notification.put("message", message);
@@ -43,6 +45,17 @@ public class WebSocketNotificationService {
         } catch (Exception e) {
             log.warn("WebSocket推送通知失败: userId={}, error={}", userId, e.getMessage());
         }
+    }
+
+    /**
+     * 向指定用户推送通知（兼容旧调用方式）
+     * @param userId 用户ID
+     * @param type 通知类型
+     * @param title 通知标题
+     * @param message 通知内容
+     */
+    public void sendToUser(Long userId, String type, String title, String message) {
+        sendToUser(userId, null, type, title, message);
     }
 
     /**

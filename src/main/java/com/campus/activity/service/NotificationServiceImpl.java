@@ -8,8 +8,10 @@ import com.campus.core.util.PageUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,8 +38,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyUser(Long userId, String notificationType, String title, String message) {
-        log.info("=== notifyUser 开始 ===");
-        log.info("userId: {}, notificationType: {}, title: {}, message: {}", userId, notificationType, title, message);
+        log.debug("发送通知: userId={}, type={}, title={}", userId, notificationType, title);
         
         Notification notification = new Notification();
         notification.setUserId(userId);
@@ -48,23 +49,20 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setCreateTime(LocalDateTime.now());
         notification.setIsRead(false);
 
-        log.info("通知对象创建完成: {}", notification);
-        
         try {
             int result = notificationMapper.insert(notification);
-            log.info("通知插入结果: affectedRows={}, generatedId={}", result, notification.getId());
+            log.debug("通知插入成功: id={}", notification.getId());
 
-            // 通过WebSocket实时推送通知
+            // 通过WebSocket实时推送通知（包含通知ID）
             try {
-                webSocketNotificationService.sendToUser(userId, notificationType, "系统通知", message);
+                webSocketNotificationService.sendToUser(userId, notification.getId(), notificationType, title != null ? title : notificationType, message);
             } catch (Exception wsEx) {
                 log.warn("WebSocket推送失败，不影响数据库通知: {}", wsEx.getMessage());
             }
         } catch (Exception e) {
             log.error("通知插入失败: userId={}, type={}, error={}", userId, notificationType, e.getMessage(), e);
+            throw new RuntimeException("通知插入失败: " + e.getMessage(), e);
         }
-        
-        log.info("=== notifyUser 结束 ===");
     }
 
     @Override
@@ -76,15 +74,56 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public void notifyAllUsers(String notificationType, String message) {
-        log.info("发送系统通知: type={}, message={}", notificationType, message);
+        notifyAllUsers(notificationType, "系统通知", message);
+    }
+
+    /**
+     * 发送系统通知给所有用户（带标题）
+     * 使用批量插入优化性能，每批500条，并通过WebSocket广播
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void notifyAllUsers(String notificationType, String title, String message) {
+        log.info("发送系统公告通知: type={}, title={}", notificationType, title);
         try {
             List<Long> allUserIds = userMapper.selectAllIds();
-            for (Long userId : allUserIds) {
-                notifyUser(userId, notificationType, "系统通知", message);
+            if (allUserIds.isEmpty()) {
+                log.info("没有用户需要通知");
+                return;
             }
-            log.info("系统通知发送完成，共通知{}个用户", allUserIds.size());
+
+            LocalDateTime now = LocalDateTime.now();
+            int batchSize = 500;
+            int totalInserted = 0;
+
+            // 分批构建通知对象并批量插入
+            for (int i = 0; i < allUserIds.size(); i += batchSize) {
+                List<Long> batchIds = allUserIds.subList(i, Math.min(i + batchSize, allUserIds.size()));
+                List<Notification> batchNotifications = new ArrayList<>(batchIds.size());
+
+                for (Long userId : batchIds) {
+                    Notification notification = new Notification();
+                    notification.setUserId(userId);
+                    notification.setActivityId(0L);
+                    notification.setType(notificationType);
+                    notification.setTitle(title);
+                    notification.setContent(message);
+                    notification.setIsRead(false);
+                    notification.setCreateTime(now);
+                    batchNotifications.add(notification);
+                }
+
+                notificationMapper.batchInsert(batchNotifications);
+                totalInserted += batchNotifications.size();
+            }
+
+            // 通过WebSocket广播通知
+            webSocketNotificationService.broadcast(notificationType, title, message);
+
+            log.info("系统公告通知发送完成，共通知{}个用户", totalInserted);
         } catch (Exception e) {
-            log.error("发送系统通知失败: {}", e.getMessage(), e);
+            log.error("发送系统公告通知失败: {}", e.getMessage(), e);
+            throw new RuntimeException("发送系统公告通知失败: " + e.getMessage(), e);
         }
     }
 
@@ -168,5 +207,49 @@ public class NotificationServiceImpl implements NotificationService {
         } catch (Exception e) {
             log.error("删除通知失败: notificationId={}, userId={}, error={}", notificationId, userId, e.getMessage(), e);
         }
+    }
+
+    /**
+     * 获取所有通知列表（管理员用，分页）
+     *
+     * @param page 页码
+     * @param size 每页数量
+     * @return 通知分页响应
+     */
+    @Override
+    public NotificationPageResponse getAllNotifications(int page, int size) {
+        int offset = (page - 1) * size;
+        List<Notification> notifications = notificationMapper.selectAllRecent(offset, size);
+        Long total = notificationMapper.countAll();
+        Long totalPages = (long) Math.ceil((double) total / size);
+
+        // 将 Notification 实体转换为 NotificationResponse DTO
+        List<com.campus.activity.dto.NotificationResponse> responses = notifications.stream()
+                .map(n -> new com.campus.activity.dto.NotificationResponse(
+                        n.getId(), n.getActivityId(), n.getTitle(), n.getType(),
+                        n.getContent(), n.getIsRead(), n.getCreateTime()))
+                .collect(java.util.stream.Collectors.toList());
+
+        return new NotificationPageResponse(responses, total, totalPages, (long) page);
+    }
+
+    /**
+     * 获取去重后的系统公告列表
+     * 按title+content分组，每条公告只显示一条记录
+     */
+    @Override
+    public NotificationPageResponse getDistinctAnnouncements(String type, int page, int size) {
+        int offset = (page - 1) * size;
+        List<Notification> notifications = notificationMapper.selectDistinctByType(type, offset, size);
+        Long total = notificationMapper.countDistinctByType(type);
+        Long totalPages = (long) Math.ceil((double) total / size);
+
+        List<com.campus.activity.dto.NotificationResponse> responses = notifications.stream()
+                .map(n -> new com.campus.activity.dto.NotificationResponse(
+                        n.getId(), n.getActivityId(), n.getTitle(), n.getType(),
+                        n.getContent(), n.getIsRead(), n.getCreateTime()))
+                .collect(java.util.stream.Collectors.toList());
+
+        return new NotificationPageResponse(responses, total, totalPages, (long) page);
     }
 }

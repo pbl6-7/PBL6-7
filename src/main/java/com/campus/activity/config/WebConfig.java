@@ -1,26 +1,12 @@
 package com.campus.activity.config;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
 /**
- * Web配置类
- * 负责静态资源映射，CORS配置统一在WebMvcConfig中管理
+ * Web配置类（已废弃）
+ * 静态资源映射和CORS配置统一在 WebMvcConfig 中管理
+ * 此类保留仅为兼容性，不再注册任何配置
  */
-@Configuration
-public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${file.upload.path:uploads}")
-    private String uploadPath;
-
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String absolutePath = new java.io.File(uploadPath).getAbsolutePath();
-        String pathWithSlash = absolutePath.replace("\\", "/") + "/";
-
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + pathWithSlash);
-    }
+//@Configuration  // 已注释，避免与 WebMvcConfig 重复注册资源处理器
+public class WebConfig {
+    // 所有配置已迁移到 com.campus.core.config.WebMvcConfig
 }

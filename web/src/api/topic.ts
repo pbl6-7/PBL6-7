@@ -1,40 +1,58 @@
-import request from '@/utils/request'
+import apiClient from './client';
+import type { ApiResponse } from '@/types/common';
 
+/** 话题响应接口 */
 export interface TopicResponse {
-  id: number
-  activityId: number
-  title: string
-  creatorId: number
-  creatorName: string
-  createdAt: string
-  updatedAt: string
+  /** 话题ID */
+  id: number;
+  /** 活动ID */
+  activityId: number;
+  /** 话题标题 */
+  title: string;
+  /** 创建者ID */
+  creatorId: number;
+  /** 创建者名称 */
+  creatorName: string;
+  /** 创建时间 */
+  createdAt: string;
+  /** 更新时间 */
+  updatedAt: string;
 }
 
+/** 话题创建请求接口 */
 export interface TopicCreateRequest {
-  activityId: number
-  title: string
+  /** 活动ID */
+  activityId: number;
+  /** 话题标题 */
+  title: string;
 }
 
+/** 话题更新请求接口 */
 export interface TopicUpdateRequest {
-  title: string
+  /** 话题标题 */
+  title: string;
 }
 
-export const createTopic = (data: TopicCreateRequest) => {
-  return request.post<any, { data: TopicResponse }>('/topics', data)
-}
+/** 创建话题 */
+export const createTopic = (data: TopicCreateRequest) =>
+  apiClient.post<ApiResponse<TopicResponse>>('/topics', data);
 
-export const getTopicsByActivityId = (activityId: number) => {
-  return request.get<any, { data: TopicResponse[] }>(`/topics/activity/${activityId}`)
-}
+/** 根据活动ID获取话题列表 */
+export const getTopicsByActivityId = (activityId: number) =>
+  apiClient.get<ApiResponse<TopicResponse[]>>(`/topics/activity/${activityId}`);
 
-export const getTopicById = (id: number) => {
-  return request.get<any, { data: TopicResponse }>(`/topics/${id}`)
-}
+/** 根据ID获取话题 */
+export const getTopicById = (id: number) =>
+  apiClient.get<ApiResponse<TopicResponse>>(`/topics/${id}`);
 
-export const updateTopic = (id: number, data: TopicUpdateRequest) => {
-  return request.put<any, { data: TopicResponse }>(`/topics/${id}`, data)
-}
+/** 更新话题 */
+export const updateTopic = (id: number, data: TopicUpdateRequest) =>
+  apiClient.put<ApiResponse<TopicResponse>>(`/topics/${id}`, data);
 
-export const deleteTopic = (id: number) => {
-  return request.delete<any, { data: null }>(`/topics/${id}`)
-}
+/** 删除话题 */
+export const deleteTopic = (id: number) =>
+  apiClient.delete<ApiResponse<void>>(`/topics/${id}`);
+
+/** 获取所有话题 */
+export const getAllTopics = () =>
+  apiClient.get<ApiResponse<TopicResponse[]>>('/topics');

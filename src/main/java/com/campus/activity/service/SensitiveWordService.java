@@ -70,6 +70,11 @@ public class SensitiveWordService {
         if (sensitiveWord.getWord() == null || sensitiveWord.getWord().trim().isEmpty()) {
             throw new IllegalArgumentException("敏感词内容不能为空");
         }
+        // 检查是否已存在相同敏感词
+        SensitiveWord existing = sensitiveWordMapper.selectByWord(sensitiveWord.getWord().trim());
+        if (existing != null) {
+            throw new IllegalArgumentException("敏感词已存在: " + sensitiveWord.getWord());
+        }
         // 设置默认值
         if (sensitiveWord.getIsWhitelist() == null) {
             sensitiveWord.setIsWhitelist(0);
@@ -122,6 +127,36 @@ public class SensitiveWordService {
         sensitiveWordMapper.batchDelete(ids);
         refreshSensitiveWordTree();
         log.info("批量删除敏感词: ids={}", ids);
+    }
+
+    /**
+     * 批量添加敏感词
+     *
+     * @param words 敏感词列表，每个元素包含word和可选的level
+     * @return 成功添加的敏感词数量
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public int batchAddSensitiveWords(List<SensitiveWord> words) {
+        int added = 0;
+        for (SensitiveWord word : words) {
+            if (word.getWord() == null || word.getWord().trim().isEmpty()) {
+                continue;
+            }
+            SensitiveWord existing = sensitiveWordMapper.selectByWord(word.getWord().trim());
+            if (existing != null) {
+                continue;
+            }
+            if (word.getIsWhitelist() == null) {
+                word.setIsWhitelist(0);
+            }
+            sensitiveWordMapper.insert(word);
+            added++;
+        }
+        if (added > 0) {
+            refreshSensitiveWordTree();
+        }
+        log.info("批量添加敏感词: 请求{}个，成功添加{}个", words.size(), added);
+        return added;
     }
 
     /**

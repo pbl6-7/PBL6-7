@@ -480,11 +480,11 @@ class TestSpecialFeatures(unittest.TestCase):
             "words": [f"批量词A_{ts}", f"批量词B_{ts}"]
         }
         resp = requests.post(
-            f"{BASE_URL}/api/v1/admin/sensitive-words/batch",
+            f"{BASE_URL}/api/admin/sensitive-words/batch",
             headers=self._admin_headers(),
             json=data
         )
-        self._assert_ok(resp, "POST /api/v1/admin/sensitive-words/batch (简单列表)", allowed_codes=[400, 500])
+        self._assert_ok(resp, "POST /api/admin/sensitive-words/batch (简单列表)", allowed_codes=[400, 500])
 
     def test_11_batch_add_sensitive_words_with_level(self):
         """批量添加敏感词（带级别信息）"""

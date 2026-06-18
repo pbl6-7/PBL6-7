@@ -27,6 +27,12 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectByWord" resultMap="BaseResultMap">
+        SELECT id, word, is_whitelist, category, created_at FROM sensitive_word
+        WHERE word = #{word}
+        LIMIT 1
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO sensitive_word (word, is_whitelist, category, enabled, created_at, updated_at)
         VALUES (#{word}, #{isWhitelist}, #{type}, 1, NOW(), NOW())

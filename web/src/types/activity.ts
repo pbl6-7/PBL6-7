@@ -19,6 +19,8 @@ export interface Activity {
   typeId: number;
   activityTypeName: string;
   maxParticipants: number;
+  /** 当前参与人数 */
+  currentParticipants?: number;
   tags: TagResponse[];
   createdAt: string;
   updatedAt: string;

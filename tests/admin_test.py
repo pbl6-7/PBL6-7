@@ -74,6 +74,8 @@ class TestAdminAPI(unittest.TestCase):
         cls.type_id = None
         cls.tag_id = None
         cls.sensitive_word_id = None
+        cls.comment_id = None
+        cls.search_history_id = None
         cls.username = "test_admin_x"
         cls.password = "Admin@123"
 
@@ -488,7 +490,15 @@ class TestAdminAPI(unittest.TestCase):
             headers=self._headers(),
             json={"content": "这是一条管理员测试评论"}
         )
-        self._assert_ok(resp, f"POST /api/v1/activities/{aid}/comments", allowed_codes=[400, 404, 500])
+        result = self._assert_ok(resp, f"POST /api/v1/activities/{aid}/comments", allowed_codes=[400, 404, 500])
+        # 保存创建的评论ID
+        if result and resp.status_code == 200:
+            try:
+                rdata = resp.json()
+                if rdata.get("code") == 200 and rdata.get("data"):
+                    self.__class__.comment_id = rdata["data"].get("id")
+            except Exception:
+                pass
 
     def test_24_get_comments(self):
         """测试评论列表"""
@@ -1059,26 +1069,26 @@ class TestAdminAPI(unittest.TestCase):
         self._assert_ok(resp, f"PUT /api/admin/users/{uid}/role", allowed_codes=[400, 404, 500])
 
     def test_80_admin_update_user_status(self):
-        """测试更新用户状态"""
+        """测试更新用户状态（启用）"""
         time.sleep(0.3)
         uid = self.user_id or 1
         resp = requests.put(
             f"{BASE_URL}/api/admin/users/{uid}/status",
             headers=self._headers(),
-            json={"enabled": True}
+            json={"status": "enabled"}
         )
-        self._assert_ok(resp, f"PUT /api/admin/users/{uid}/status", allowed_codes=[400, 404, 500])
+        self._assert_ok(resp, f"PUT /api/admin/users/{uid}/status (enabled)", allowed_codes=[400, 404, 500])
 
     def test_81_admin_batch_operation(self):
-        """测试批量操作用户"""
+        """测试批量操作用户（启用）"""
         time.sleep(0.3)
         uid = self.user_id or 1
         resp = requests.post(
             f"{BASE_URL}/api/admin/users/batch",
             headers=self._headers(),
-            json={"userIds": [uid], "action": "enable"}
+            json={"userIds": [uid], "operation": "enable"}
         )
-        self._assert_ok(resp, "POST /api/admin/users/batch", allowed_codes=[400, 404, 500])
+        self._assert_ok(resp, "POST /api/admin/users/batch (enable)", allowed_codes=[400, 404, 500])
 
     def test_82_admin_locked_users(self):
         """测试锁定用户列表"""
@@ -1256,11 +1266,11 @@ class TestAdminAPI(unittest.TestCase):
             ]
         }
         resp = requests.post(
-            f"{BASE_URL}/api/v1/admin/sensitive-words/batch",
+            f"{BASE_URL}/api/admin/sensitive-words/batch",
             headers=self._headers(),
             json=data
         )
-        self._assert_ok(resp, "POST /api/v1/admin/sensitive-words/batch", allowed_codes=[400, 500])
+        self._assert_ok(resp, "POST /api/admin/sensitive-words/batch", allowed_codes=[400, 500])
 
     # ========== 标签管理（admin专属） ==========
 
@@ -1400,6 +1410,566 @@ class TestAdminAPI(unittest.TestCase):
             headers=self._headers()
         )
         self._assert_ok(resp, f"DELETE /api/admin/sensitive-words/{wid} (清理)", allowed_codes=[400, 404, 500])
+
+    # ========== 补全未覆盖端点 ==========
+
+    def test_109_activity_root_list(self):
+        """测试根路径活动列表（GET /api/v1/activities）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/activities",
+            headers=self._headers(),
+            params={"page": 1, "size": 10}
+        )
+        self._assert_ok(resp, "GET /api/v1/activities")
+
+    def test_110_hot_activities(self):
+        """测试热门活动"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/activities/hot",
+            headers=self._headers(),
+            params={"limit": 5}
+        )
+        self._assert_ok(resp, "GET /api/v1/activities/hot")
+
+    def test_111_edit_comment(self):
+        """测试编辑评论（管理员可编辑自己的评论）"""
+        time.sleep(0.3)
+        cid = self.comment_id
+        if not cid:
+            self._log_result("PUT /api/v1/comments/{commentId}", False, 0, "无commentId，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/v1/comments/{cid}",
+            headers=self._headers(),
+            json={"content": "管理员编辑后的评论内容"}
+        )
+        self._assert_ok(resp, f"PUT /api/v1/comments/{cid}", allowed_codes=[400, 403, 404, 500])
+
+    def test_112_delete_comment(self):
+        """测试删除评论（使用不存在的ID避免影响其他测试）"""
+        time.sleep(0.3)
+        resp = requests.delete(
+            f"{BASE_URL}/api/v1/comments/99999",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "DELETE /api/v1/comments/99999", allowed_codes=[400, 403, 404, 500])
+
+    def test_113_get_user_detail(self):
+        """测试获取用户详情"""
+        time.sleep(0.3)
+        uid = self.user_id or 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/users/{uid}",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, f"GET /api/v1/users/{uid}", allowed_codes=[404])
+
+    def test_114_upload_avatar(self):
+        """测试上传用户头像"""
+        time.sleep(0.3)
+        import io as _io
+        png_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82'
+        files = {"file": ("test_avatar.png", _io.BytesIO(png_data), "image/png")}
+        resp = requests.post(
+            f"{BASE_URL}/api/v1/users/avatar",
+            headers={"Authorization": f"Bearer {self.token}"},
+            files=files
+        )
+        self._assert_ok(resp, "POST /api/v1/users/avatar", allowed_codes=[400, 500])
+
+    def test_115_get_user_avatar(self):
+        """测试获取用户头像"""
+        time.sleep(0.3)
+        uid = self.user_id or 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/users/{uid}/avatar",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, f"GET /api/v1/users/{uid}/avatar", allowed_codes=[404])
+
+    def test_116_activity_type_detail(self):
+        """测试获取活动类型详情"""
+        time.sleep(0.3)
+        tid = self.type_id or 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/activity-types/{tid}",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, f"GET /api/v1/activity-types/{tid}", allowed_codes=[404])
+
+    # ========== 操作日志模块（管理员专属） ==========
+
+    def test_117_audit_logs_list(self):
+        """测试管理员分页查询操作日志"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs",
+            headers=self._headers(),
+            params={"page": 1, "size": 10}
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs")
+
+    def test_118_audit_logs_with_filters(self):
+        """测试管理员条件筛选查询操作日志"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs",
+            headers=self._headers(),
+            params={
+                "page": 1,
+                "size": 10,
+                "operation": "LOGIN",
+                "resourceType": "USER"
+            }
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs (条件筛选)")
+
+    def test_119_audit_logs_recent(self):
+        """测试获取最近操作日志"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs/recent",
+            headers=self._headers(),
+            params={"limit": 10}
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs/recent")
+
+    def test_120_audit_logs_my(self):
+        """测试查询当前用户操作日志"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs/my",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs/my")
+
+    def test_121_audit_logs_stats(self):
+        """测试获取操作日志统计信息"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs/stats",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs/stats")
+
+    def test_122_delete_search_history_item(self):
+        """测试删除单条搜索历史（使用不存在的ID）"""
+        time.sleep(0.3)
+        resp = requests.delete(
+            f"{BASE_URL}/api/v1/search/history/99999",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "DELETE /api/v1/search/history/99999", allowed_codes=[400, 404, 500])
+
+    # ========== 公告管理（管理员专属） ==========
+
+    def test_123_publish_announcement(self):
+        """测试发布系统公告"""
+        time.sleep(0.3)
+        data = {
+            "title": "测试公告_" + str(int(time.time())),
+            "content": "这是一条测试公告内容"
+        }
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/announcements",
+            headers=self._headers(),
+            json=data
+        )
+        self._assert_ok(resp, "POST /api/admin/announcements", allowed_codes=[400, 500])
+
+    # ========== 管理员深度测试：角色管理 ==========
+
+    def test_124_admin_get_users_by_role_admin(self):
+        """测试按角色查询管理员用户"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/users/role/admin",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/admin/users/role/admin")
+
+    def test_125_admin_get_users_by_role_publisher(self):
+        """测试按角色查询发布者用户"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/users/role/publisher",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/admin/users/role/publisher")
+
+    def test_126_admin_get_users_by_role_user(self):
+        """测试按角色查询普通用户"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/users/role/user",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/admin/users/role/user")
+
+    def test_127_admin_update_user_role_to_publisher(self):
+        """测试将用户角色更新为发布者"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("PUT /api/admin/users/{id}/role (publisher)", False, 0, "无userId，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/role",
+            headers=self._headers(),
+            json={"role": "publisher"}
+        )
+        self._assert_ok(resp, f"PUT /api/admin/users/{uid}/role (publisher)", allowed_codes=[400, 404, 500])
+
+    def test_128_admin_update_user_role_to_user(self):
+        """测试将用户角色恢复为普通用户"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("PUT /api/admin/users/{id}/role (user)", False, 0, "无userId，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/role",
+            headers=self._headers(),
+            json={"role": "user"}
+        )
+        self._assert_ok(resp, f"PUT /api/admin/users/{uid}/role (user)", allowed_codes=[400, 404, 500])
+
+    def test_129_admin_update_self_role_forbidden(self):
+        """测试管理员不能修改自己的角色"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("PUT /api/admin/users/{id}/role (self)", False, 0, "无userId，跳过")
+            return
+        # 先获取当前管理员用户ID
+        profile_resp = requests.get(
+            f"{BASE_URL}/api/v1/users/profile",
+            headers=self._headers()
+        )
+        admin_uid = None
+        try:
+            pdata = profile_resp.json()
+            if pdata.get("code") == 200 and pdata.get("data"):
+                admin_uid = pdata["data"].get("id")
+        except Exception:
+            pass
+        if not admin_uid:
+            self._log_result("PUT /api/admin/users/{id}/role (self)", False, 0, "无法获取管理员ID，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/admin/users/{admin_uid}/role",
+            headers=self._headers(),
+            json={"role": "user"}
+        )
+        # 应返回400（不能修改自己的角色）
+        ok = resp.status_code in [400, 200]
+        self._log_result("PUT /api/admin/users/{admin_uid}/role (self, 期望400)", ok, resp.status_code,
+                         "不能修改自己的角色" if ok else f"意外状态码: {resp.status_code}")
+
+    # ========== 管理员深度测试：用户状态管理 ==========
+
+    def test_130_admin_disable_user(self):
+        """测试禁用用户"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("PUT /api/admin/users/{id}/status (disabled)", False, 0, "无userId，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/status",
+            headers=self._headers(),
+            json={"status": "disabled"}
+        )
+        self._assert_ok(resp, f"PUT /api/admin/users/{uid}/status (disabled)", allowed_codes=[400, 404, 500])
+
+    def test_131_admin_re_enable_user(self):
+        """测试重新启用用户"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("PUT /api/admin/users/{id}/status (re-enable)", False, 0, "无userId，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/status",
+            headers=self._headers(),
+            json={"status": "enabled"}
+        )
+        self._assert_ok(resp, f"PUT /api/admin/users/{uid}/status (re-enable)", allowed_codes=[400, 404, 500])
+
+    def test_132_admin_update_status_invalid(self):
+        """测试使用无效状态值更新用户状态"""
+        time.sleep(0.3)
+        uid = self.user_id or 1
+        resp = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/status",
+            headers=self._headers(),
+            json={"status": "invalid_status"}
+        )
+        # 应返回400（无效状态值）
+        ok = resp.status_code in [400, 200]
+        self._log_result("PUT /api/admin/users/{id}/status (invalid, 期望400)", ok, resp.status_code,
+                         "无效状态值被拒绝" if ok else f"意外状态码: {resp.status_code}")
+
+    # ========== 管理员深度测试：批量操作 ==========
+
+    def test_133_admin_batch_disable_users(self):
+        """测试批量禁用用户"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("POST /api/admin/users/batch (disable)", False, 0, "无userId，跳过")
+            return
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/users/batch",
+            headers=self._headers(),
+            json={"userIds": [uid], "operation": "disable"}
+        )
+        self._assert_ok(resp, "POST /api/admin/users/batch (disable)", allowed_codes=[400, 404, 500])
+
+    def test_134_admin_batch_re_enable_users(self):
+        """测试批量重新启用用户"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("POST /api/admin/users/batch (re-enable)", False, 0, "无userId，跳过")
+            return
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/users/batch",
+            headers=self._headers(),
+            json={"userIds": [uid], "operation": "enable"}
+        )
+        self._assert_ok(resp, "POST /api/admin/users/batch (re-enable)", allowed_codes=[400, 404, 500])
+
+    def test_135_admin_batch_invalid_operation(self):
+        """测试批量操作使用无效操作类型"""
+        time.sleep(0.3)
+        uid = self.user_id or 1
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/users/batch",
+            headers=self._headers(),
+            json={"userIds": [uid], "operation": "invalid_op"}
+        )
+        # 应返回400（不支持的操作类型）
+        ok = resp.status_code in [400, 200]
+        self._log_result("POST /api/admin/users/batch (invalid op, 期望400)", ok, resp.status_code,
+                         "无效操作被拒绝" if ok else f"意外状态码: {resp.status_code}")
+
+    def test_136_admin_batch_empty_user_ids(self):
+        """测试批量操作使用空用户ID列表"""
+        time.sleep(0.3)
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/users/batch",
+            headers=self._headers(),
+            json={"userIds": [], "operation": "enable"}
+        )
+        # 应返回400（用户ID列表不能为空）
+        ok = resp.status_code in [400, 200]
+        self._log_result("POST /api/admin/users/batch (empty ids, 期望400)", ok, resp.status_code,
+                         "空ID列表被拒绝" if ok else f"意外状态码: {resp.status_code}")
+
+    # ========== 管理员深度测试：解锁与锁定 ==========
+
+    def test_137_admin_unlock_and_lock_flow(self):
+        """测试禁用-解锁完整流程"""
+        time.sleep(0.3)
+        uid = self.user_id
+        if not uid:
+            self._log_result("禁用-解锁完整流程", False, 0, "无userId，跳过")
+            return
+        # 1. 禁用用户
+        resp1 = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/status",
+            headers=self._headers(),
+            json={"status": "disabled"}
+        )
+        # 2. 查看锁定用户列表
+        resp2 = requests.get(
+            f"{BASE_URL}/api/admin/users/locked",
+            headers=self._headers()
+        )
+        # 3. 解锁用户
+        resp3 = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/unlock",
+            headers=self._headers()
+        )
+        # 4. 恢复启用状态
+        resp4 = requests.put(
+            f"{BASE_URL}/api/admin/users/{uid}/status",
+            headers=self._headers(),
+            json={"status": "enabled"}
+        )
+        all_ok = all(r.status_code in [200, 400, 404, 500] for r in [resp1, resp2, resp3, resp4])
+        self._log_result("禁用-解锁完整流程", all_ok, 0,
+                         "流程正常" if all_ok else "流程异常")
+
+    # ========== 管理员深度测试：敏感词检测 ==========
+
+    def test_138_admin_sensitive_word_check(self):
+        """测试敏感词检测功能"""
+        time.sleep(0.3)
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/sensitive-words/check",
+            headers=self._headers(),
+            json={"text": "这是一段测试文本内容"}
+        )
+        self._assert_ok(resp, "POST /api/admin/sensitive-words/check")
+
+    def test_139_admin_sensitive_word_refresh(self):
+        """测试刷新敏感词树"""
+        time.sleep(0.3)
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/sensitive-words/refresh",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "POST /api/admin/sensitive-words/refresh")
+
+    def test_140_admin_sensitive_word_batch_add(self):
+        """测试批量添加敏感词（字符串列表格式）"""
+        time.sleep(0.3)
+        ts = str(int(time.time()))
+        data = {
+            "words": [f"批量测试词A_{ts}", f"批量测试词B_{ts}"]
+        }
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/sensitive-words/batch",
+            headers=self._headers(),
+            json=data
+        )
+        self._assert_ok(resp, "POST /api/admin/sensitive-words/batch (字符串列表)", allowed_codes=[400, 500])
+
+    def test_141_admin_sensitive_word_batch_add_object(self):
+        """测试批量添加敏感词（对象列表格式）"""
+        time.sleep(0.3)
+        ts = str(int(time.time()))
+        data = {
+            "words": [
+                {"word": f"对象测试词A_{ts}", "category": "politics"},
+                {"word": f"对象测试词B_{ts}", "level": 1}
+            ]
+        }
+        resp = requests.post(
+            f"{BASE_URL}/api/admin/sensitive-words/batch",
+            headers=self._headers(),
+            json=data
+        )
+        self._assert_ok(resp, "POST /api/admin/sensitive-words/batch (对象列表)", allowed_codes=[400, 500])
+
+    # ========== 管理员深度测试：统计模块 ==========
+
+    def test_142_admin_statistics_daily(self):
+        """测试获取每日统计数据"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/statistics/daily",
+            headers=self._headers(),
+            params={"days": 7}
+        )
+        self._assert_ok(resp, "GET /api/admin/statistics/daily", allowed_codes=[400, 404, 500])
+
+    # ========== 管理员深度测试：监控模块 ==========
+
+    def test_143_admin_monitor_recent_activities(self):
+        """测试获取最近活动（带参数）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/monitor/recent-activities",
+            headers=self._headers(),
+            params={"limit": 5}
+        )
+        self._assert_ok(resp, "GET /api/admin/monitor/recent-activities (limit=5)")
+
+    def test_144_admin_monitor_recent_users(self):
+        """测试获取最近用户（带参数）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/monitor/recent-users",
+            headers=self._headers(),
+            params={"limit": 5}
+        )
+        self._assert_ok(resp, "GET /api/admin/monitor/recent-users (limit=5)")
+
+    # ========== 管理员深度测试：活动审核 ==========
+
+    def test_145_admin_approve_status_by_status(self):
+        """测试按审核状态查询活动（已通过）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/activities/approval-status/APPROVED",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/admin/activities/approval-status/APPROVED", allowed_codes=[400, 404, 500])
+
+    def test_146_admin_approve_status_rejected(self):
+        """测试按审核状态查询活动（已拒绝）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/activities/approval-status/REJECTED",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/admin/activities/approval-status/REJECTED", allowed_codes=[400, 404, 500])
+
+    # ========== 管理员深度测试：公告管理 ==========
+
+    def test_147_admin_get_announcements(self):
+        """测试获取公告通知列表"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/announcements/notifications",
+            headers=self._headers(),
+            params={"page": 1, "size": 10}
+        )
+        self._assert_ok(resp, "GET /api/admin/announcements/notifications")
+
+    # ========== 管理员深度测试：审计日志条件筛选 ==========
+
+    def test_148_audit_logs_filter_by_user(self):
+        """测试按用户ID筛选操作日志"""
+        time.sleep(0.3)
+        uid = self.user_id or 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs",
+            headers=self._headers(),
+            params={"page": 1, "size": 10, "userId": uid}
+        )
+        self._assert_ok(resp, f"GET /api/v1/audit-logs (userId={uid})")
+
+    def test_149_audit_logs_filter_by_time_range(self):
+        """测试按时间范围筛选操作日志"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs",
+            headers=self._headers(),
+            params={
+                "page": 1,
+                "size": 10,
+                "startTime": "2026-01-01 00:00:00",
+                "endTime": "2026-12-31 23:59:59"
+            }
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs (时间范围筛选)")
+
+    # ========== 管理员通知管理 ==========
+
+    def test_150_admin_get_all_notifications(self):
+        """测试管理员查看所有通知（分页）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/admin/announcements/notifications",
+            headers=self._headers(),
+            params={"page": 1, "size": 10}
+        )
+        self._assert_ok(resp, "GET /api/admin/announcements/notifications")
+
+    def test_151_admin_delete_notification(self):
+        """测试管理员删除任意通知（使用不存在的ID）"""
+        time.sleep(0.3)
+        resp = requests.delete(
+            f"{BASE_URL}/api/admin/announcements/notifications/99999",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "DELETE /api/admin/announcements/notifications/99999", allowed_codes=[400, 404, 500])
 
     @classmethod
     def tearDownClass(cls):

@@ -133,10 +133,18 @@ export interface OverviewStatistics {
   totalUsers: number;
   totalActivities: number;
   totalRegistrations: number;
-  totalComments: number;
-  todayNewUsers: number;
-  todayNewActivities: number;
-  todayNewRegistrations: number;
+  todayActivities: number;
+  todayRegistrations: number;
+  newActivities7Days: number;
+  newRegistrations7Days: number;
+  newUsers7Days: number;
+  pendingActivities: number;
+  newActivities30Days: number;
+  newUsers30Days: number;
+  newRegistrations30Days: number;
+  activeUsers: number;
+  systemHealthScore: number;
+  updateTime: string;
 }
 
 // 活动统计
@@ -145,24 +153,39 @@ export interface ActivityStatistics {
   publishedActivities: number;
   draftActivities: number;
   cancelledActivities: number;
-  statusDistribution?: Record<string, number>;
+  endedActivities: number;
+  totalViews: number;
+  totalParticipants: number;
+  statusDistribution: Record<string, number>;
+  approvalStatusDistribution: Record<string, number>;
+  typeDistribution: Record<string, number>;
+  averageRegistrations: number;
+  averageViewCount: number;
 }
 
 // 用户统计
 export interface UserStatistics {
-  total: number;
-  active: number;
-  newToday: number;
-  newThisWeek: number;
-  newThisMonth: number;
+  totalUsers: number;
+  activeUsers: number;
+  newUsersToday: number;
+  totalRegistrations: number;
+  roleDistribution: Record<string, number>;
+  inactiveUsers: number;
+  newUsers7Days: number;
+  newUsers30Days: number;
+  averageRegistrationsPerUser: number;
 }
 
 // 报名统计
 export interface RegistrationStatistics {
-  total: number;
-  pending: number;
-  confirmed: number;
-  cancelled: number;
+  totalRegistrations: number;
+  pendingRegistrations: number;
+  approvedRegistrations: number;
+  rejectedRegistrations: number;
+  registrations7Days: number;
+  registrations30Days: number;
+  confirmationRate: number;
+  averageRegistrationsPerActivity: number;
 }
 
 // 趋势数据
@@ -192,12 +215,14 @@ export interface SensitiveWord {
 export interface SensitiveWordCreateRequest {
   word: string;
   level?: number;
+  type?: string;
 }
 
 // 敏感词更新请求
 export interface SensitiveWordUpdateRequest {
   word: string;
   level?: number;
+  type?: string;
 }
 
 // 敏感词批量请求

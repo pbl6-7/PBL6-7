@@ -245,6 +245,10 @@ public class AdminStatisticsService {
         Long totalUsers = userMapper.countAllUsers();
         Long totalRegistrations = registrationMapper.countAll();
         Long pendingActivities = activityMapper.countByApprovalStatus("pending");
+
+        // 今日统计
+        Long todayActivities = activityMapper.countTodayActivities();
+        Long todayRegistrations = registrationMapper.countTodayRegistrations();
         
         // 时间范围统计
         Long newActivities7Days = activityMapper.countByTimeRange(sevenDaysAgo, now);
@@ -267,6 +271,8 @@ public class AdminStatisticsService {
                 .totalActivities(totalActivities)
                 .totalUsers(totalUsers)
                 .totalRegistrations(totalRegistrations)
+                .todayActivities(todayActivities)
+                .todayRegistrations(todayRegistrations)
                 .pendingActivities(pendingActivities)
                 .newActivities7Days(newActivities7Days)
                 .newUsers7Days(newUsers7Days)
@@ -307,9 +313,14 @@ public class AdminStatisticsService {
                 .publishedActivities(statusDistribution.getOrDefault("published", 0L))
                 .draftActivities(statusDistribution.getOrDefault("draft", 0L))
                 .cancelledActivities(statusDistribution.getOrDefault("cancelled", 0L))
+                .endedActivities(statusDistribution.getOrDefault("ended", 0L))
+                .totalViews(activityMapper.sumViewCount())
+                .totalParticipants(activityMapper.sumTotalParticipants())
                 .statusDistribution(statusDistribution)
                 .approvalStatusDistribution(approvalStatusDistribution)
                 .typeDistribution(typeDistribution)
+                .averageRegistrations(activityMapper.selectAverageRegistrations())
+                .averageViewCount(activityMapper.selectAverageViewCount())
                 .build();
     }
 
@@ -540,6 +551,8 @@ public class AdminStatisticsService {
             activityData = activityMapper.selectHotActivitiesByRegistration(limit);
         } else if ("collection".equals(sortBy)) {
             activityData = activityMapper.selectHotActivitiesByCollection(limit);
+        } else if ("view".equals(sortBy)) {
+            activityData = activityMapper.selectHotActivitiesByView(limit);
         } else {
             activityData = activityMapper.selectHotActivitiesByRegistration(limit);
         }

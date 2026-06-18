@@ -70,6 +70,23 @@ public class SearchController {
     }
 
     /**
+     * 删除单条搜索历史
+     *
+     * @param request HTTP请求对象，用于获取当前用户ID
+     * @param id 搜索历史记录ID
+     * @return 操作结果
+     */
+    @DeleteMapping("/history/{id}")
+    @ApiOperation("删除单条搜索历史")
+    public Result<Void> deleteSearchHistoryItem(
+            HttpServletRequest request,
+            @PathVariable Long id) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        searchHistoryService.deleteSearchHistoryItem(userId, id);
+        return Result.success(null, "搜索历史已删除");
+    }
+
+    /**
      * 获取当前用户搜索历史
      *
      * @param request HTTP请求对象，用于获取当前用户ID
@@ -99,10 +116,18 @@ public class SearchController {
 
         ActivityQueryRequest queryRequest = new ActivityQueryRequest();
         queryRequest.setKeyword(keyword);
-        queryRequest.setType(type);
         queryRequest.setStatus(status);
         queryRequest.setPage(page);
         queryRequest.setSize(size);
+        // 将type参数映射为typeId（活动类型ID）
+        if (type != null && !type.trim().isEmpty()) {
+            try {
+                queryRequest.setTypeId(Long.parseLong(type.trim()));
+            } catch (NumberFormatException e) {
+                // type不是数字时，保留为type字段用于模糊匹配
+                queryRequest.setType(type);
+            }
+        }
 
         ActivityPageResponse results = searchService.searchActivities(queryRequest, userId);
 

@@ -66,6 +66,14 @@ export const getPendingActivities = () =>
 export const getActivitiesByApprovalStatus = (status: string) =>
   adminApiClient.get<ApiResponse<Activity[]>>(`/admin/activities/approval-status/${status}`);
 
+/** 按活动状态获取活动 */
+export const getActivitiesByStatus = (status: string) =>
+  adminApiClient.get<ApiResponse<Activity[]>>(`/admin/activities/status/${status}`);
+
+/** 删除活动（管理员） */
+export const deleteActivityAdmin = (id: number) =>
+  adminApiClient.delete<ApiResponse<void>>(`/admin/activities/${id}`);
+
 /** 审核通过 */
 export const approveActivity = (id: number) =>
   adminApiClient.put<ApiResponse<Activity>>(`/admin/activities/${id}/approve`);
@@ -107,25 +115,25 @@ export const getUsersByRole = (role: string) =>
 export const updateUserRole = (id: number, data: UpdateRoleRequest) =>
   adminApiClient.put<ApiResponse<void>>(`/admin/users/${id}/role`, data);
 
-/** 启用用户 */
+/** 启用用户 - 后端使用 PUT /{id}/status */
 export const enableUser = (id: number) =>
-  adminApiClient.post<ApiResponse<void>>(`/admin/users/${id}/enable`);
+  adminApiClient.put<ApiResponse<void>>(`/admin/users/${id}/status`, { status: 'enabled' });
 
-/** 禁用用户 */
+/** 禁用用户 - 后端使用 PUT /{id}/status */
 export const disableUser = (id: number) =>
-  adminApiClient.post<ApiResponse<void>>(`/admin/users/${id}/disable`);
+  adminApiClient.put<ApiResponse<void>>(`/admin/users/${id}/status`, { status: 'disabled' });
 
-/** 批量启用用户 */
+/** 批量操作用户 - 后端使用 POST /admin/users/batch */
 export const batchEnableUsers = (data: BatchOperationRequest) =>
-  adminApiClient.post<ApiResponse<BatchOperationResponse>>('/admin/users/batch/enable', data);
+  adminApiClient.post<ApiResponse<BatchOperationResponse>>('/admin/users/batch', { ...data, action: 'enable' });
 
-/** 批量禁用用户 */
+/** 批量禁用用户 - 后端使用 POST /admin/users/batch */
 export const batchDisableUsers = (data: BatchOperationRequest) =>
-  adminApiClient.post<ApiResponse<BatchOperationResponse>>('/admin/users/batch/disable', data);
+  adminApiClient.post<ApiResponse<BatchOperationResponse>>('/admin/users/batch', { ...data, action: 'disable' });
 
-/** 获取禁用用户列表 */
+/** 获取锁定用户列表 - 后端路径 /admin/users/locked */
 export const getDisabledUsers = (params: UserPageRequest) =>
-  adminApiClient.get<ApiResponse<UserPageResponse>>('/admin/users/disabled', { params });
+  adminApiClient.get<ApiResponse<UserPageResponse>>('/admin/users/locked', { params });
 
 /** 获取统计概览 */
 export const getOverviewStatistics = () =>
@@ -171,41 +179,37 @@ export const getRecentActivities = () =>
 export const getRecentUsers = () =>
   adminApiClient.get<ApiResponse<UserResponse[]>>('/admin/monitor/recent-users');
 
-/** 获取缓存统计 */
+/** 获取缓存统计 - 后端路径 /admin/monitor/cache */
 export const getCacheStats = () =>
-  adminApiClient.get<ApiResponse<any>>('/admin/cache/stats');
+  adminApiClient.get<ApiResponse<any>>('/admin/monitor/cache');
 
-/** 获取缓存名称列表 */
+/** 获取缓存名称列表 - 从缓存信息接口获取 */
 export const getCacheNames = () =>
-  adminApiClient.get<ApiResponse<string[]>>('/admin/cache/names');
+  adminApiClient.get<ApiResponse<string[]>>('/admin/monitor/cache');
 
-/** 清空所有缓存 */
+/** 清空所有缓存 - 后端使用 DELETE */
 export const clearAllCache = () =>
-  adminApiClient.post<ApiResponse<void>>('/admin/cache/clear');
+  adminApiClient.delete<ApiResponse<void>>('/admin/monitor/cache/clear');
 
-/** 清空指定缓存 */
+/** 清空指定缓存 - 后端使用 DELETE */
 export const clearCacheByName = (name: string) =>
-  adminApiClient.post<ApiResponse<void>>(`/admin/cache/clear/${name}`);
+  adminApiClient.delete<ApiResponse<void>>(`/admin/monitor/cache/clear/${name}`);
 
-/** 获取锁定列表 */
-export const getLockList = (page = 1, size = 10) =>
-  adminApiClient.get<ApiResponse<LoginLockPageResponse>>('/admin/login-lock/list', { params: { page, size } });
+/** 获取锁定用户列表 - 后端返回 List<Map>，无分页 */
+export const getLockList = () =>
+  adminApiClient.get<ApiResponse<any[]>>('/admin/login-lock/list');
 
-/** 获取用户锁定信息 */
-export const getUserLockInfo = (username: string) =>
-  adminApiClient.get<ApiResponse<LoginLock>>(`/admin/login-lock/user/${username}`);
-
-/** 解锁用户 */
+/** 解锁用户 - 后端使用 DELETE */
 export const unlockUser = (username: string) =>
-  adminApiClient.post<ApiResponse<void>>(`/admin/login-lock/unlock/${username}`);
+  adminApiClient.delete<ApiResponse<void>>(`/admin/login-lock/${username}`);
 
-/** 获取用户锁定历史 */
-export const getUserLockHistory = (username: string, page = 1, size = 10) =>
-  adminApiClient.get<ApiResponse<LoginLockPageResponse>>(`/admin/login-lock/history/${username}`, { params: { page, size } });
+/** 获取所有敏感词 - 后端返回 List<SensitiveWord>，无分页 */
+export const getSensitiveWords = () =>
+  adminApiClient.get<ApiResponse<SensitiveWord[]>>('/admin/sensitive-words');
 
-/** 获取敏感词列表 */
-export const getSensitiveWords = (params?: any) =>
-  adminApiClient.get<ApiResponse<SensitiveWordPageResponse>>('/admin/sensitive-words', { params });
+/** 按类型获取敏感词 - 后端路径 /type/{type} */
+export const getSensitiveWordsByType = (type: string) =>
+  adminApiClient.get<ApiResponse<SensitiveWord[]>>(`/admin/sensitive-words/type/${type}`);
 
 /** 获取敏感词详情 */
 export const getSensitiveWordById = (id: number) =>
@@ -223,21 +227,25 @@ export const updateSensitiveWord = (id: number, data: SensitiveWordUpdateRequest
 export const deleteSensitiveWord = (id: number) =>
   adminApiClient.delete<ApiResponse<void>>(`/admin/sensitive-words/${id}`);
 
+/** 批量删除敏感词 - 后端使用 DELETE /batch */
+export const batchDeleteSensitiveWords = (ids: number[]) =>
+  adminApiClient.delete<ApiResponse<void>>('/admin/sensitive-words/batch', { data: ids });
+
 /** 批量添加敏感词 */
 export const batchCreateSensitiveWords = (data: SensitiveWordBatchRequest) =>
   adminApiClient.post<ApiResponse<number>>('/admin/sensitive-words/batch', data);
 
-/** 重新加载敏感词库 */
+/** 重新加载敏感词库 - 后端路径 /refresh */
 export const reloadSensitiveWords = () =>
-  adminApiClient.post<ApiResponse<void>>('/admin/sensitive-words/reload');
+  adminApiClient.post<ApiResponse<void>>('/admin/sensitive-words/refresh');
 
-/** 获取敏感词库统计信息 */
+/** 获取敏感词库统计信息 - 后端路径 /stats */
 export const getSensitiveWordStatistics = () =>
-  adminApiClient.get<ApiResponse<SensitiveWordStatistics>>('/admin/sensitive-words/statistics');
+  adminApiClient.get<ApiResponse<SensitiveWordStatistics>>('/admin/sensitive-words/stats');
 
-/** 检查文本是否包含敏感词 */
+/** 检查文本是否包含敏感词 - 后端使用 POST + RequestBody */
 export const checkSensitiveWord = (text: string) =>
-  adminApiClient.get<ApiResponse<SensitiveWordCheckResult>>('/admin/sensitive-words/check', { params: { text } });
+  adminApiClient.post<ApiResponse<SensitiveWordCheckResult>>('/admin/sensitive-words/check', { text });
 
 /** 获取用户自定义权限 */
 export const getUserPermissions = (userId: number) =>
@@ -246,3 +254,23 @@ export const getUserPermissions = (userId: number) =>
 /** 更新用户自定义权限 */
 export const updateUserPermissions = (userId: number, permissions: string[]) =>
   adminApiClient.put<ApiResponse<void>>(`/admin/users/${userId}/permissions`, { permissions });
+
+/** 解锁用户（管理员用户管理） - 后端路径 PUT /admin/users/{id}/unlock */
+export const unlockUserAccount = (id: number) =>
+  adminApiClient.put<ApiResponse<void>>(`/admin/users/${id}/unlock`);
+
+/** 获取权限列表 - 后端路径 GET /admin/users/permissions */
+export const getPermissions = () =>
+  adminApiClient.get<ApiResponse<any[]>>('/admin/users/permissions');
+
+/** 发布系统公告 - 后端路径 POST /admin/announcements */
+export const publishAnnouncement = (data: { title: string; content: string }) =>
+  adminApiClient.post<ApiResponse<string>>('/admin/announcements', data);
+
+/** 获取所有通知列表（管理员） */
+export const getAdminNotifications = (page = 1, size = 20) =>
+  adminApiClient.get<ApiResponse<any>>('/admin/announcements/notifications', { params: { page, size } });
+
+/** 管理员删除通知 */
+export const deleteAdminNotification = (id: number) =>
+  adminApiClient.delete<ApiResponse<void>>(`/admin/announcements/notifications/${id}`);

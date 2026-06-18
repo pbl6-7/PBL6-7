@@ -39,8 +39,8 @@ jwt:
   secret: ${JWT_SECRET_KEY:Q2FtcHVzQWN0aXZpdHlTZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb24yMDI0TXVzdEJlTG9uZ0Vub3VnaA==}
   expiration: 86400000
   key:
-    # 是否启用密钥管理功能（暂时禁用，使用配置文件密钥）
-    management-enabled: false
+    # 是否启用密钥管理功能
+    management-enabled: true
     # 密钥轮换周期（天）
     rotation-days: 30
     # 旧密钥保留时间（天）
@@ -123,7 +123,28 @@ rate-limit:
   # 时间窗口（秒）
   window-seconds: 60
   # 最大请求数
-  max-requests: 100
+  max-requests: 200
+
+# 应用自定义配置
+app:
+  file-upload:
+    max-size: 5
+    allowed-types: jpg,jpeg,png,gif,pdf
+    upload-path: /uploads
+  activity:
+    max-tags: 10
+    max-participants: 100000
+    hot-activity-cache-seconds: 300
+  comment:
+    max-length: 500
+    max-reply-depth: 3
+    sensitive-word-filter-enabled: true
+  cache:
+    enabled: true
+    default-ttl-seconds: 3600
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
 
 # 登录锁定配置
 login-lock:

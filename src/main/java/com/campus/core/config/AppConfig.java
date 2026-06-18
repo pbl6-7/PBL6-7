@@ -111,10 +111,15 @@ public class AppConfig {
     }
 
     /**
+     * 分页配置
+     */
+    private PaginationConfig pagination = new PaginationConfig();
+
+    /**
      * 获取分页配置
      */
     public PaginationConfig getPagination() {
-        return new PaginationConfig();
+        return pagination;
     }
 
     /**

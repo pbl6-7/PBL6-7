@@ -19,9 +19,9 @@ export const getProfile = () =>
 export const updateProfile = (data: UpdateProfileRequest) =>
   apiClient.put<ApiResponse<void>>('/users/profile', data);
 
-/** 修改密码 */
+/** 修改密码 - 后端使用 PUT /users/password */
 export const changePassword = (data: ChangePasswordRequest) =>
-  apiClient.post<ApiResponse<void>>('/users/change-password', data);
+  apiClient.put<ApiResponse<void>>('/users/password', data);
 
 /** 获取用户信息 */
 export const getUserById = (id: number) =>
@@ -35,6 +35,10 @@ export const uploadAvatar = (file: File) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+/** 获取用户头像 */
+export const getUserAvatar = (id: number) =>
+  apiClient.get<ApiResponse<any>>(`/users/${id}/avatar`);
 
 /** 获取密保问题列表 */
 export const getSecurityQuestions = () =>
@@ -52,9 +56,9 @@ export const getSecurityQuestionByUsername = (username: string) =>
 export const setSecurity = (data: SetSecurityRequest) =>
   apiClient.post<ApiResponse<void>>('/users/security/set', data);
 
-/** 验证密保 */
+/** 验证密保 - 后端返回验证结果 Map */
 export const verifySecurity = (data: VerifySecurityRequest) =>
-  apiClient.post<ApiResponse<void>>('/users/security/verify', data);
+  apiClient.post<ApiResponse<any>>('/users/security/verify', data);
 
 /** 重置密码 */
 export const resetPassword = (data: ResetPasswordRequest) =>

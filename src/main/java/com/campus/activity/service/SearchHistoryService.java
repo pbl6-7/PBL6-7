@@ -72,7 +72,7 @@ public class SearchHistoryService {
      */
     public List<String> getHotKeywords(int days, int limit) {
         try {
-            List<SearchHistory> recentSearches = searchHistoryMapper.selectByUserId(null, limit * 10);
+            List<SearchHistory> recentSearches = searchHistoryMapper.selectAllRecent(limit * 10);
             return recentSearches.stream()
                     .filter(h -> h.getSearchTime() != null &&
                             h.getSearchTime().isAfter(LocalDateTime.now().minusDays(days)))
@@ -95,5 +95,21 @@ public class SearchHistoryService {
      */
     public void clearUserHistory(Long userId) {
         searchHistoryMapper.deleteByUserId(userId);
+    }
+
+    /**
+     * 删除单条搜索历史（需验证归属）
+     *
+     * @param userId 用户ID
+     * @param historyId 搜索历史记录ID
+     */
+    public void deleteSearchHistoryItem(Long userId, Long historyId) {
+        List<SearchHistory> histories = searchHistoryMapper.selectByUserId(userId, Integer.MAX_VALUE);
+        boolean owned = histories.stream().anyMatch(h -> h.getId().equals(historyId));
+        if (!owned) {
+            throw new com.campus.core.common.BusinessException(
+                    com.campus.core.common.ResultCode.FORBIDDEN, "无权删除此搜索记录");
+        }
+        searchHistoryMapper.deleteById(historyId);
     }
 }

@@ -34,4 +34,9 @@
         SELECT COUNT(*) FROM activity_subscription WHERE activity_id = #{activityId}
     </select>
 
+    <!-- 查询订阅了指定活动的用户ID列表 -->
+    <select id="selectUserIdsByActivityId" resultType="java.lang.Long">
+        SELECT user_id FROM activity_subscription WHERE activity_id = #{activityId}
+    </select>
+
 </mapper>

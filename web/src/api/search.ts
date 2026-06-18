@@ -21,3 +21,17 @@ export const getSearchHistory = () =>
 /** 清除搜索历史 */
 export const clearSearchHistory = () =>
   apiClient.delete<ApiResponse<number>>('/search/history');
+
+/** 删除单条搜索历史 */
+export const deleteSearchHistoryItem = (id: number) =>
+  apiClient.delete<ApiResponse<void>>(`/search/history/${id}`);
+
+/** 执行搜索 */
+export const executeSearch = (params: {
+  keyword: string;
+  type?: string;
+  status?: string;
+  page?: number;
+  size?: number;
+}) =>
+  apiClient.get<ApiResponse<any>>('/search/execute', { params });

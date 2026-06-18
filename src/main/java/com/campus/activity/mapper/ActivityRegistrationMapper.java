@@ -166,4 +166,10 @@ public interface ActivityRegistrationMapper {
      * 获取活动的已报名用户ID列表
      */
     List<Long> selectRegisteredUserIdsByActivityId(@Param("activityId") Long activityId);
+
+    /**
+     * 统计今日报名数量
+     * @return 今日报名数
+     */
+    Long countTodayRegistrations();
 }

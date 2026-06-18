@@ -9,6 +9,7 @@ import com.campus.activity.mapper.ActivityShareMapper;
 import com.campus.activity.service.ActivityAlbumService;
 import com.campus.activity.service.ActivityService;
 import com.campus.activity.service.CacheService;
+import com.campus.activity.util.FileUploadUtil;
 import com.campus.core.common.BusinessException;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
@@ -21,6 +22,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,7 @@ public class ActivityController {
     private final CacheService cacheService;
     private final ActivityAlbumService activityAlbumService;
     private final ActivityShareMapper activityShareMapper;
+    private final FileUploadUtil fileUploadUtil;
 
     @PostMapping
     @ApiOperation("发布活动")
@@ -85,10 +89,11 @@ public class ActivityController {
             HttpServletRequest request,
             @PathVariable Long id) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        String role = (String) request.getAttribute("currentUserRole");
         if (userId == null) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
         }
-        activityService.deleteActivity(id, userId);
+        activityService.deleteActivity(id, userId, role);
         return Result.success(null, "活动删除成功");
     }
 
@@ -108,6 +113,29 @@ public class ActivityController {
             HttpServletRequest request,
             @ModelAttribute ActivityQueryRequest queryRequest) {
         return getActivityList(request, queryRequest);
+    }
+
+    /**
+     * 获取热门活动列表（普通用户可访问）
+     */
+    @GetMapping("/hot")
+    @ApiOperation("获取热门活动列表")
+    public Result<List<Map<String, Object>>> getHotActivities(
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) Integer limit,
+            @RequestParam(defaultValue = "registration") String sortBy) {
+        // 参数校验
+        if (!"registration".equals(sortBy) && !"collection".equals(sortBy) && !"view".equals(sortBy)) {
+            sortBy = "registration";
+        }
+        List<Map<String, Object>> hotActivities;
+        if ("registration".equals(sortBy)) {
+            hotActivities = activityService.getHotActivitiesByRegistration(limit);
+        } else if ("collection".equals(sortBy)) {
+            hotActivities = activityService.getHotActivitiesByCollection(limit);
+        } else {
+            hotActivities = activityService.getHotActivitiesByView(limit);
+        }
+        return Result.success(hotActivities);
     }
 
     /**
@@ -275,28 +303,15 @@ public class ActivityController {
         if (userId == null) {
             throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
         }
-        if (file.isEmpty()) {
-            return Result.error(ResultCode.BAD_REQUEST, "请选择要上传的图片");
-        }
         try {
-            String uploadPath = "uploads/albums";
-            java.io.File uploadDir = new java.io.File(uploadPath);
-            if (!uploadDir.exists()) {
-                uploadDir.mkdirs();
-            }
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = id + "_" + System.currentTimeMillis() + extension;
-            java.io.File dest = new java.io.File(uploadDir, filename);
-            file.transferTo(dest);
-            String imageUrl = "/uploads/albums/" + filename;
+            // 使用 FileUploadUtil 统一安全上传（含类型白名单、Magic Number校验、路径遍历防护）
+            String imageUrl = fileUploadUtil.uploadImageToSubDir(file, "albums", String.valueOf(id));
             AlbumResponse response = activityAlbumService.addAlbum(id, imageUrl, null, description, sortOrder, userId, userRole);
             return Result.success(response, "图片上传成功");
+        } catch (IllegalArgumentException e) {
+            return Result.error(ResultCode.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
-            return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "图片上传失败: " + e.getMessage());
+            return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "图片上传失败");
         }
     }
 

@@ -20,6 +20,8 @@ public class ActivityResponse {
     private Long typeId;
     private String activityTypeName;
     private Integer maxParticipants;
+    /** 当前已报名人数 */
+    private Long currentParticipants;
     private Integer viewCount;
     private List<TagResponse> tags;
     private LocalDateTime createdAt;

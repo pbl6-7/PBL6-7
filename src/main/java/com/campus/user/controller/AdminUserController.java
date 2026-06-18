@@ -164,13 +164,16 @@ public class AdminUserController {
 
     /**
      * 获取锁定用户列表
+     * 返回被禁用（锁定）的用户列表
      */
     @GetMapping("/locked")
     @ApiOperation("获取锁定用户列表")
-    public Result<List<UserResponse>> getLockedUsers(HttpServletRequest request) {
+    public Result<UserPageResponse> getLockedUsers(
+            HttpServletRequest request,
+            @ModelAttribute UserPageRequest pageRequest) {
         validateAdmin(request);
-        // 返回被禁用的用户列表
-        List<UserResponse> users = adminUserService.getUsersByRole("USER");
+        Long adminId = (Long) request.getAttribute("currentUserId");
+        UserPageResponse users = adminUserService.getDisabledUsers(pageRequest, adminId);
         return Result.success(users);
     }
 

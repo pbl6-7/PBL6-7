@@ -16,6 +16,7 @@ public class ActivityStatisticsDTO {
     private Long publishedActivities;
     private Long draftActivities;
     private Long cancelledActivities;
+    private Long endedActivities;
     private Long totalViews;
     private Long totalParticipants;
     private Map<String, Long> statusDistribution;

@@ -26,6 +26,8 @@ class TestUserAPI(unittest.TestCase):
         cls.token = None
         cls.activity_id = None
         cls.type_id = None
+        cls.comment_id = None
+        cls.search_history_id = None
         cls.username = "test_user_x"
         cls.password = "User@123"
 
@@ -442,7 +444,14 @@ class TestUserAPI(unittest.TestCase):
             headers=self._headers(),
             json={"content": "这是一条测试评论"}
         )
-        self._assert_ok(resp, f"POST /api/v1/activities/{aid}/comments", allowed_codes=[400, 404, 500])
+        result = self._assert_ok(resp, f"POST /api/v1/activities/{aid}/comments", allowed_codes=[400, 404, 500])
+        if result and resp.status_code == 200:
+            try:
+                rdata = resp.json()
+                if rdata.get("code") == 200 and rdata.get("data"):
+                    self.__class__.comment_id = rdata["data"].get("id")
+            except Exception:
+                pass
 
     def test_24_get_comments(self):
         """测试评论列表"""
@@ -806,6 +815,144 @@ class TestUserAPI(unittest.TestCase):
             headers=self._headers()
         )
         self._assert_forbidden(resp, "PUT /api/admin/activities/1/approve (期望403)")
+
+    # ========== 补全未覆盖端点 ==========
+
+    def test_59_activity_root_list(self):
+        """测试根路径活动列表（GET /api/v1/activities）"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/activities",
+            headers=self._headers(),
+            params={"page": 1, "size": 10}
+        )
+        self._assert_ok(resp, "GET /api/v1/activities")
+
+    def test_60_hot_activities(self):
+        """测试热门活动"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/activities/hot",
+            headers=self._headers(),
+            params={"limit": 5}
+        )
+        self._assert_ok(resp, "GET /api/v1/activities/hot")
+
+    def test_61_edit_comment(self):
+        """测试编辑评论（仅评论所有者可编辑）"""
+        time.sleep(0.3)
+        cid = self.comment_id
+        if not cid:
+            self._log_result("PUT /api/v1/comments/{commentId}", False, 0, "无commentId，跳过")
+            return
+        resp = requests.put(
+            f"{BASE_URL}/api/v1/comments/{cid}",
+            headers=self._headers(),
+            json={"content": "用户编辑后的评论内容"}
+        )
+        self._assert_ok(resp, f"PUT /api/v1/comments/{cid}", allowed_codes=[400, 403, 404, 500])
+
+    def test_62_delete_comment(self):
+        """测试删除评论（使用不存在的ID避免影响其他测试）"""
+        time.sleep(0.3)
+        resp = requests.delete(
+            f"{BASE_URL}/api/v1/comments/99999",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "DELETE /api/v1/comments/99999", allowed_codes=[400, 403, 404, 500])
+
+    def test_63_get_user_detail(self):
+        """测试获取用户详情"""
+        time.sleep(0.3)
+        uid = 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/users/{uid}",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, f"GET /api/v1/users/{uid}", allowed_codes=[404])
+
+    def test_64_upload_avatar(self):
+        """测试上传用户头像"""
+        time.sleep(0.3)
+        import io as _io
+        png_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N\x00\x00\x00\x00IEND\xaeB`\x82'
+        files = {"file": ("test_avatar.png", _io.BytesIO(png_data), "image/png")}
+        resp = requests.post(
+            f"{BASE_URL}/api/v1/users/avatar",
+            headers={"Authorization": f"Bearer {self.token}"},
+            files=files
+        )
+        self._assert_ok(resp, "POST /api/v1/users/avatar", allowed_codes=[400, 500])
+
+    def test_65_get_user_avatar(self):
+        """测试获取用户头像"""
+        time.sleep(0.3)
+        uid = 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/users/{uid}/avatar",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, f"GET /api/v1/users/{uid}/avatar", allowed_codes=[404])
+
+    def test_66_activity_type_detail(self):
+        """测试获取活动类型详情"""
+        time.sleep(0.3)
+        tid = self.type_id or 1
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/activity-types/{tid}",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, f"GET /api/v1/activity-types/{tid}", allowed_codes=[404])
+
+    # ========== 操作日志模块 ==========
+
+    def test_67_audit_log_my(self):
+        """测试查询当前用户操作日志"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs/my",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "GET /api/v1/audit-logs/my")
+
+    def test_68_delete_search_history_item(self):
+        """测试删除单条搜索历史（使用不存在的ID）"""
+        time.sleep(0.3)
+        resp = requests.delete(
+            f"{BASE_URL}/api/v1/search/history/99999",
+            headers=self._headers()
+        )
+        self._assert_ok(resp, "DELETE /api/v1/search/history/99999", allowed_codes=[400, 404, 500])
+
+    # ========== 审计日志权限控制（普通用户不应访问管理员接口） ==========
+
+    def test_69_audit_logs_forbidden(self):
+        """测试管理员审计日志查询接口应返回403"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs",
+            headers=self._headers(),
+            params={"page": 1, "size": 10}
+        )
+        self._assert_forbidden(resp, "GET /api/v1/audit-logs (期望403)")
+
+    def test_70_audit_logs_recent_forbidden(self):
+        """测试获取最近操作日志接口应返回403"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs/recent",
+            headers=self._headers()
+        )
+        self._assert_forbidden(resp, "GET /api/v1/audit-logs/recent (期望403)")
+
+    def test_71_audit_logs_stats_forbidden(self):
+        """测试日志统计信息接口应返回403"""
+        time.sleep(0.3)
+        resp = requests.get(
+            f"{BASE_URL}/api/v1/audit-logs/stats",
+            headers=self._headers()
+        )
+        self._assert_forbidden(resp, "GET /api/v1/audit-logs/stats (期望403)")
 
     @classmethod
     def tearDownClass(cls):

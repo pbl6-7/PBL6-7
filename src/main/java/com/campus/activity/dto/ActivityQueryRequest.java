@@ -26,13 +26,13 @@ public class ActivityQueryRequest {
     /**
      * 活动状态
      */
-    @Pattern(regexp = "^(PUBLISHED|DRAFT|CANCELLED|ONGOING|ENDED)$", message = "活动状态只能是PUBLISHED、DRAFT、CANCELLED、ONGOING或ENDED")
+    @Pattern(regexp = "^(?i)(PUBLISHED|DRAFT|CANCELLED|ONGOING|ENDED)$", message = "活动状态只能是PUBLISHED、DRAFT、CANCELLED、ONGOING或ENDED")
     private String status;
 
     /**
      * 审批状态
      */
-    @Pattern(regexp = "^(PENDING|APPROVED|REJECTED)$", message = "审批状态只能是PENDING、APPROVED或REJECTED")
+    @Pattern(regexp = "^(?i)(PENDING|APPROVED|REJECTED)$", message = "审批状态只能是PENDING、APPROVED或REJECTED")
     private String approvalStatus;
 
     /**
