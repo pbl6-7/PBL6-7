@@ -213,6 +213,8 @@ public class UserSecurityService {
 
     /**
      * 密码加密
+     * @param password 原始密码
+     * @return 加密后的密码
      */
     private String hashPassword(String password) {
         return passwordEncoder.encode(password);

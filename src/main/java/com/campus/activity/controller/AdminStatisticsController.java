@@ -25,7 +25,7 @@ import java.util.Map;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/admin/statistics")
+@RequestMapping("/api/v1/admin/statistics")
 @RequiredArgsConstructor
 @Api(tags = "管理员-数据统计")
 public class AdminStatisticsController {

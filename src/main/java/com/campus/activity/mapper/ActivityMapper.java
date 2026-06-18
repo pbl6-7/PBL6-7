@@ -32,6 +32,13 @@ public interface ActivityMapper {
     List<Activity> selectByPublisherId(@Param("publisherId") Long publisherId);
 
     /**
+     * 根据ID列表批量查询活动
+     * @param ids ID列表
+     * @return 活动列表
+     */
+    List<Activity> selectByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 更新活动
      * @param activity 活动
      * @return 更新的记录数
@@ -98,8 +105,6 @@ public interface ActivityMapper {
             @Param("startTimeFrom") LocalDateTime startTimeFrom,
             @Param("startTimeTo") LocalDateTime startTimeTo
     );
-
-    List<Activity> selectByIds(@Param("ids") List<Long> ids);
 
     /**
      * 查询待审核活动列表

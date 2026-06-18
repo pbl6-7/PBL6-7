@@ -85,3 +85,7 @@ CREATE TABLE IF NOT EXISTS `notification` (
     KEY `idx_activity_id` (`activity_id`),
     KEY `idx_is_read` (`is_read`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知表';
+
+-- 插入测试用户 (密码: 123456, SHA-256加密)
+INSERT INTO user_info (username, password, real_name, role, contact) VALUES
+('testuser', 'jZae727K08KaOmKSgOaGzww/XVqGr/PKEgIMkjrcbJI=', '测试用户', 'user', 'testuser@campus.edu');

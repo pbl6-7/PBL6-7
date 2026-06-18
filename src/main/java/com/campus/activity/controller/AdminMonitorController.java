@@ -23,7 +23,7 @@ import java.util.Map;
  * 所有接口需要管理员权限
  */
 @RestController
-@RequestMapping("/api/admin/monitor")
+@RequestMapping("/api/v1/admin/monitor")
 @RequiredArgsConstructor
 @Api(tags = "管理员-系统监控")
 @Slf4j

@@ -27,7 +27,7 @@ import java.util.Map;
  * 所有接口需要管理员权限
  */
 @RestController
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
 @Api(tags = "管理员-用户管理")
 public class AdminUserController {
