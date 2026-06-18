@@ -21,6 +21,7 @@ export interface CommentResponse {
   activityId: number;
   userId: number;
   username: string;
+  realName?: string;
   content: string;
   replyToId: number | null;
   replyToUsername: string | null;

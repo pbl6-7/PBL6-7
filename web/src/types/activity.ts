@@ -19,6 +19,8 @@ export interface Activity {
   typeId: number;
   activityTypeName: string;
   maxParticipants: number;
+  /** 当前参与人数 */
+  currentParticipants?: number;
   tags: TagResponse[];
   createdAt: string;
   updatedAt: string;
@@ -157,4 +159,15 @@ export interface ActivityApprovalStatistics {
 /** 审核请求 */
 export interface ActivityApprovalRequest {
   reason?: string;
+}
+
+/** 报名记录 */
+export interface Registration {
+  id: number;
+  activityId: number;
+  activityTitle?: string;
+  location?: string;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  createdAt: string;
+  updatedAt?: string;
 }

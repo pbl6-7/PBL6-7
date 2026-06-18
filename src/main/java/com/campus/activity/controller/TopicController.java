@@ -8,6 +8,7 @@ import com.campus.activity.mapper.ActivityMapper;
 import com.campus.activity.service.ActivityTopicService;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.constants.UserRoleConstants;
 import com.campus.core.validation.group.CreateGroup;
 import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
@@ -25,10 +26,18 @@ import java.util.List;
 @Api(tags = "活动话题管理")
 public class TopicController {
 
-    private static final String ROLE_ADMIN = "admin";
-
     private final ActivityTopicService activityTopicService;
     private final ActivityMapper activityMapper;
+
+    /**
+     * 获取所有话题列表
+     */
+    @GetMapping
+    @ApiOperation("获取所有话题列表")
+    public Result<List<TopicResponse>> getAllTopics() {
+        List<TopicResponse> topics = activityTopicService.getAllTopics();
+        return Result.success(topics);
+    }
 
     /**
      * 创建话题
@@ -51,7 +60,7 @@ public class TopicController {
         }
 
         boolean isPublisher = activity.getPublisherId().equals(userId);
-        boolean isAdmin = ROLE_ADMIN.equals(role);
+        boolean isAdmin = UserRoleConstants.ADMIN.equals(role);
 
         if (!isPublisher && !isAdmin) {
             return Result.error(ResultCode.FORBIDDEN, "只有活动发布者或管理员才能创建话题");

@@ -10,29 +10,24 @@
     </resultMap>
 
     <insert id="insert" parameterType="com.campus.activity.entity.ActivityCollect" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO activity_collect (user_id, activity_id, create_time)
-        VALUES (#{userId}, #{activityId}, NOW())
+        INSERT INTO activity_collect (user_id, activity_id)
+        VALUES (#{userId}, #{activityId})
     </insert>
 
     <delete id="deleteByUserIdAndActivityId">
-        DELETE FROM activity_collect
-        WHERE user_id = #{userId} AND activity_id = #{activityId}
+        DELETE FROM activity_collect WHERE user_id = #{userId} AND activity_id = #{activityId}
     </delete>
 
     <select id="selectByUserIdAndActivityId" resultMap="BaseResultMap">
-        SELECT * FROM activity_collect
-        WHERE user_id = #{userId} AND activity_id = #{activityId}
+        SELECT * FROM activity_collect WHERE user_id = #{userId} AND activity_id = #{activityId}
     </select>
 
     <select id="selectByUserId" resultMap="BaseResultMap">
-        SELECT * FROM activity_collect
-        WHERE user_id = #{userId}
-        ORDER BY create_time DESC
+        SELECT * FROM activity_collect WHERE user_id = #{userId} ORDER BY create_time DESC
     </select>
 
     <select id="countByActivityId" resultType="int">
-        SELECT COUNT(*) FROM activity_collect
-        WHERE activity_id = #{activityId}
+        SELECT COUNT(*) FROM activity_collect WHERE activity_id = #{activityId}
     </select>
 
 </mapper>

@@ -5,6 +5,7 @@ import com.campus.activity.dto.ActivityTypeResponse;
 import com.campus.activity.service.ActivityTypeService;
 import com.campus.core.common.Result;
 import com.campus.core.common.ResultCode;
+import com.campus.core.constants.UserRoleConstants;
 import com.campus.core.validation.group.CreateGroup;
 import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
@@ -22,8 +23,6 @@ import java.util.List;
 @Api(tags = "活动类型管理")
 public class ActivityTypeController {
 
-    private static final String ROLE_ADMIN = "admin";
-
     private final ActivityTypeService activityTypeService;
 
     /**
@@ -39,7 +38,7 @@ public class ActivityTypeController {
         if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        if (!ROLE_ADMIN.equals(currentUserRole)) {
+        if (!UserRoleConstants.ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能创建活动类型");
         }
 
@@ -75,7 +74,7 @@ public class ActivityTypeController {
         if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        if (!ROLE_ADMIN.equals(currentUserRole)) {
+        if (!UserRoleConstants.ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能更新活动类型");
         }
 
@@ -96,7 +95,7 @@ public class ActivityTypeController {
         if (currentUserRole == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        if (!ROLE_ADMIN.equals(currentUserRole)) {
+        if (!UserRoleConstants.ADMIN.equals(currentUserRole)) {
             return Result.error(ResultCode.FORBIDDEN, "只有管理员才能删除活动类型");
         }
 

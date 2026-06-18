@@ -6,7 +6,7 @@ ${project.build.directory}/
 *.war
 *.ear
 *.log
-
+docs/
 
 # IDE
 .idea/
@@ -36,7 +36,6 @@ logs/
 .github/
 .trae/
 _bmad*/
-*
 
 *.xlsx
 *.xls
@@ -49,3 +48,6 @@ web/*.local
 .env
 .env.local
 .env.*.local
+*.md
+*.csv
+*.txt

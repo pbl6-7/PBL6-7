@@ -15,29 +15,28 @@
     </insert>
 
     <delete id="deleteByUserIdAndActivityId">
-        DELETE FROM activity_subscription
-        WHERE user_id = #{userId} AND activity_id = #{activityId}
+        DELETE FROM activity_subscription WHERE user_id = #{userId} AND activity_id = #{activityId}
+    </delete>
+
+    <delete id="deleteByActivityId">
+        DELETE FROM activity_subscription WHERE activity_id = #{activityId}
     </delete>
 
     <select id="selectByUserIdAndActivityId" resultMap="BaseResultMap">
-        SELECT * FROM activity_subscription
-        WHERE user_id = #{userId} AND activity_id = #{activityId}
+        SELECT * FROM activity_subscription WHERE user_id = #{userId} AND activity_id = #{activityId}
     </select>
 
     <select id="selectByUserId" resultMap="BaseResultMap">
-        SELECT * FROM activity_subscription
-        WHERE user_id = #{userId}
-        ORDER BY create_time DESC
+        SELECT * FROM activity_subscription WHERE user_id = #{userId} ORDER BY create_time DESC
     </select>
 
     <select id="countByActivityId" resultType="int">
-        SELECT COUNT(*) FROM activity_subscription
-        WHERE activity_id = #{activityId}
+        SELECT COUNT(*) FROM activity_subscription WHERE activity_id = #{activityId}
     </select>
 
+    <!-- 查询订阅了指定活动的用户ID列表 -->
     <select id="selectUserIdsByActivityId" resultType="java.lang.Long">
-        SELECT user_id FROM activity_subscription
-        WHERE activity_id = #{activityId}
+        SELECT user_id FROM activity_subscription WHERE activity_id = #{activityId}
     </select>
 
 </mapper>

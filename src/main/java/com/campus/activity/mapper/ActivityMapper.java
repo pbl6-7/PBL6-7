@@ -120,6 +120,13 @@ public interface ActivityMapper {
     List<Activity> selectByApprovalStatus(@Param("approvalStatus") String approvalStatus);
 
     /**
+     * 按活动状态查询活动
+     * @param status 活动状态（draft/published/cancelled/ended）
+     * @return 活动列表
+     */
+    List<Activity> selectByStatus(@Param("status") String status);
+
+    /**
      * 统计各审核状态的数量
      * @param approvalStatus 审核状态
      * @return 数量
@@ -183,15 +190,22 @@ public interface ActivityMapper {
     // ==================== 定时任务相关方法 ====================
 
     /**
-     * 查询即将开始的活动（用于活动提醒定时任务）
-     * @param startTimeFrom 开始时间范围起点
-     * @param startTimeTo 开始时间范围终点
-     * @return 活动列表
+     * 查询即将开始的活动
      */
-    List<Activity> selectUpcomingActivities(
-            @Param("startTimeFrom") LocalDateTime startTimeFrom,
-            @Param("startTimeTo") LocalDateTime startTimeTo
-    );
+    List<Map<String, Object>> selectUpcomingActivities(@Param("now") java.time.LocalDateTime now,
+                                                        @Param("oneHourLater") java.time.LocalDateTime oneHourLater);
+
+    /**
+     * 自动结束已过期活动
+     */
+    int autoEndExpiredActivities(@Param("now") java.time.LocalDateTime now);
+
+    /**
+     * 查询已过期但仍为published状态的活动（用于自动结束前发送通知）
+     * @param now 当前时间
+     * @return 即将被自动结束的活动列表
+     */
+    List<Map<String, Object>> selectExpiredButActiveActivities(@Param("now") java.time.LocalDateTime now);
 
     /**
      * 查询已结束的活动（用于状态更新定时任务）
@@ -273,6 +287,13 @@ public interface ActivityMapper {
     List<Map<String, Object>> selectHotActivitiesByCollection(@Param("limit") Integer limit);
 
     /**
+     * 查询热门活动（按浏览量排序）
+     * @param limit 返回数量限制
+     * @return 活动列表（包含浏览量）
+     */
+    List<Map<String, Object>> selectHotActivitiesByView(@Param("limit") Integer limit);
+
+    /**
      * 统计平均报名人数
      * @return 平均报名人数
      */
@@ -341,4 +362,22 @@ public interface ActivityMapper {
      * @return 有效报名数量
      */
     Long countConfirmedRegistrations(@Param("activityId") Long activityId);
+
+    /**
+     * 统计今日创建的活动数量
+     * @return 今日活动数
+     */
+    Long countTodayActivities();
+
+    /**
+     * 统计所有活动的总浏览量
+     * @return 总浏览量
+     */
+    Long sumViewCount();
+
+    /**
+     * 统计所有活动的总参与人数（已确认报名数）
+     * @return 总参与人数
+     */
+    Long sumTotalParticipants();
 }

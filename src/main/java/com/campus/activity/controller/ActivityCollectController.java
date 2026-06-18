@@ -18,7 +18,6 @@ import java.util.Map;
 /**
  * 活动收藏控制器
  * 提供活动收藏相关的API接口
- * 修复问题3：统一使用拦截器注入的用户信息，与其他控制器保持一致
  */
 @Api(tags = "活动收藏管理")
 @RestController
@@ -34,7 +33,7 @@ public class ActivityCollectController {
      */
     @PostMapping("/{activityId}")
     @ApiOperation("收藏活动")
-    public Result<Map<String, Object>> collect(
+    public Result<Map<String, Object>> collectActivity(
             HttpServletRequest request,
             @PathVariable Long activityId) {
         Long userId = (Long) request.getAttribute("currentUserId");
@@ -42,12 +41,13 @@ public class ActivityCollectController {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
         log.info("用户 {} 收藏活动 {}", userId, activityId);
-        
+
         activityCollectService.collectActivity(userId, activityId);
-        
+
         Map<String, Object> data = new HashMap<>();
         data.put("activityId", activityId);
         data.put("collected", true);
+        data.put("collectCount", activityCollectService.getCollectCount(activityId));
         return Result.success(data, "收藏成功");
     }
 
@@ -56,7 +56,7 @@ public class ActivityCollectController {
      */
     @DeleteMapping("/{activityId}")
     @ApiOperation("取消收藏")
-    public Result<Map<String, Object>> uncollect(
+    public Result<Map<String, Object>> uncollectActivity(
             HttpServletRequest request,
             @PathVariable Long activityId) {
         Long userId = (Long) request.getAttribute("currentUserId");
@@ -64,36 +64,38 @@ public class ActivityCollectController {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
         log.info("用户 {} 取消收藏活动 {}", userId, activityId);
-        
+
         activityCollectService.uncollectActivity(userId, activityId);
-        
+
         Map<String, Object> data = new HashMap<>();
         data.put("activityId", activityId);
         data.put("collected", false);
+        data.put("collectCount", activityCollectService.getCollectCount(activityId));
         return Result.success(data, "取消收藏成功");
     }
 
     /**
-     * 获取用户收藏列表
+     * 获取我的收藏列表
      */
     @GetMapping("/my")
     @ApiOperation("获取我的收藏列表")
-    public Result<List<CollectDetailResponse>> getMyCollects(HttpServletRequest request) {
+    public Result<List<CollectDetailResponse>> getMyCollects(
+            HttpServletRequest request) {
         Long userId = (Long) request.getAttribute("currentUserId");
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
         log.info("用户 {} 查询收藏列表", userId);
-        
+
         List<CollectDetailResponse> collects = activityCollectService.getUserCollectDetails(userId);
         return Result.success(collects);
     }
 
     /**
-     * 检查是否已收藏
+     * 检查收藏状态
      */
     @GetMapping("/{activityId}/status")
-    @ApiOperation("检查是否已收藏")
+    @ApiOperation("检查收藏状态")
     public Result<Map<String, Object>> checkCollectStatus(
             HttpServletRequest request,
             @PathVariable Long activityId) {
@@ -101,10 +103,10 @@ public class ActivityCollectController {
         if (userId == null) {
             return Result.error(ResultCode.UNAUTHORIZED);
         }
-        
+
         boolean collected = activityCollectService.isCollected(userId, activityId);
         int collectCount = activityCollectService.getCollectCount(activityId);
-        
+
         Map<String, Object> data = new HashMap<>();
         data.put("collected", collected);
         data.put("collectCount", collectCount);

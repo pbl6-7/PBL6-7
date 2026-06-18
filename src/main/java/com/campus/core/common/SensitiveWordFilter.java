@@ -132,13 +132,38 @@ public class SensitiveWordFilter {
         if (word == null || word.trim().isEmpty()) {
             return;
         }
-        
+
         if (isWhitelist) {
             whitelistWords.remove(word.toLowerCase());
         } else {
-            // 从DFA树中移除需要重建树，这里简化处理：标记需要重建
+            // 从DFA树中移除：将结束标记改为非结束，如果没有子节点则删除
+            removeFromTree(word.toLowerCase());
             log.info("移除敏感词: {}, 是否白名单: {}", word, isWhitelist);
         }
+    }
+
+    /**
+     * 从DFA树中移除敏感词
+     * @param word 要移除的词（小写）
+     */
+    private void removeFromTree(String word) {
+        if (word == null || word.isEmpty()) {
+            return;
+        }
+        // 简化实现：将结束标记改为非结束
+        Map<String, Object> currentMap = sensitiveWordMap;
+        for (int i = 0; i < word.length(); i++) {
+            String key = String.valueOf(word.charAt(i));
+            Object obj = currentMap.get(key);
+            if (obj == null) {
+                return; // 词不在树中
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> nextMap = (Map<String, Object>) obj;
+            currentMap = nextMap;
+        }
+        // 将结束标记改为非结束
+        currentMap.put(END_FLAG, NOT_END_VALUE);
     }
 
     /**

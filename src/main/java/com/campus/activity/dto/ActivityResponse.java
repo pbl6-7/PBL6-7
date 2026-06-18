@@ -20,6 +20,9 @@ public class ActivityResponse {
     private Long typeId;
     private String activityTypeName;
     private Integer maxParticipants;
+    /** 当前已报名人数 */
+    private Long currentParticipants;
+    private Integer viewCount;
     private List<TagResponse> tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -41,6 +44,7 @@ public class ActivityResponse {
         response.setApprovalStatus(activity.getApprovalStatus());
         response.setTypeId(activity.getTypeId());
         response.setMaxParticipants(activity.getMaxParticipants());
+        response.setViewCount(activity.getViewCount());
         response.setCreatedAt(activity.getCreatedAt());
         response.setUpdatedAt(activity.getUpdatedAt());
         return response;

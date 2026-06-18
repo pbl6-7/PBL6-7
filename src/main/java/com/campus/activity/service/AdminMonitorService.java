@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +24,7 @@ public class AdminMonitorService {
     private final ActivityMapper activityMapper;
     private final ActivityRegistrationMapper registrationMapper;
     private final UserMapper userMapper;
+    private final CacheService cacheService;
 
     private Map<Long, User> batchGetUsers(Set<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
@@ -88,5 +90,16 @@ public class AdminMonitorService {
         return users.stream()
             .map(UserResponse::fromEntity)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取缓存信息
+     */
+    public Map<String, Object> getCacheInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("cacheSize", cacheService.size());
+        info.put("maxCacheSize", 1000);
+        info.put("usagePercent", String.format("%.1f%%", cacheService.size() * 100.0 / 1000));
+        return info;
     }
 }

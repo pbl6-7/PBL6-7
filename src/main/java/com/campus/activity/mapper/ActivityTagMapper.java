@@ -85,8 +85,9 @@ public interface ActivityTagMapper {
     /**
      * 插入活动与标签的关联关系
      * @param activityId 活动ID
-     * @param tagId 标签ID
+     * @param tagName 标签名称
+     * @param color 标签颜色
      * @return 插入的记录数
      */
-    int insertRelation(@Param("activityId") Long activityId, @Param("tagId") Long tagId);
+    int insertRelation(@Param("activityId") Long activityId, @Param("tagName") String tagName, @Param("color") String color);
 }

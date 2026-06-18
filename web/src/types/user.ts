@@ -1,5 +1,5 @@
 /** 用户角色枚举 */
-export type UserRole = 'user' | 'admin' | 'publisher';
+export type UserRole = 'USER' | 'ADMIN' | 'PUBLISHER';
 
 /** 用户状态 */
 export type UserStatus = 'enabled' | 'disabled';
@@ -42,6 +42,28 @@ export interface LoginResponse {
   realName: string;
   /** 角色 */
   role: string;
+}
+
+/** 用户响应接口 */
+export interface UserResponse {
+  /** 用户ID */
+  id: number;
+  /** 用户名 */
+  username: string;
+  /** 真实姓名 */
+  realName: string;
+  /** 角色 */
+  role: UserRole;
+  /** 状态 */
+  status: UserStatus;
+  /** 头像URL */
+  avatar: string | null;
+  /** 联系方式 */
+  contact: string | null;
+  /** 创建时间 */
+  createdAt: string;
+  /** 更新时间 */
+  updatedAt: string;
 }
 
 /** 登录请求接口 */

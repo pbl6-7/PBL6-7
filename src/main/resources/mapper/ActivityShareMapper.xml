@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.ActivityShareMapper">
+
+    <insert id="insertShare">
+        INSERT INTO activity_share (activity_id, user_id, created_at)
+        VALUES (#{activityId}, #{userId}, NOW())
+    </insert>
+
+    <select id="countByActivityId" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_share WHERE activity_id = #{activityId}
+    </select>
+
+    <select id="checkUserShared" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM activity_share
+        WHERE activity_id = #{activityId} AND user_id = #{userId}
+    </select>
+
+</mapper>

@@ -37,7 +37,15 @@ import java.util.stream.Collectors;
  */
 @Service
 @Slf4j
-public class RegistrationService extends BaseService {
+public class RegistrationService extends BaseService<ActivityRegistration> {
+
+    /**
+     * 获取当前实体类型
+     */
+    @Override
+    protected Class<ActivityRegistration> getEntityClass() {
+        return ActivityRegistration.class;
+    }
 
     @Autowired
     private ActivityRegistrationMapper registrationMapper;
@@ -84,9 +92,7 @@ public class RegistrationService extends BaseService {
         log.info("用户 {} 报名活动 {} 成功: registrationId={}", userId, activityId, registration.getId());
 
         // 记录审计日志（报名成功）
-        User user = userMapper.selectById(userId);
-        String username = user != null ? user.getUsername() : null;
-        auditService.quickRecord(userId, username, AuditOperationConstants.REGISTRATION_CREATE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.REGISTRATION_CREATE,
                 AuditResourceTypeConstants.REGISTRATION, registration.getId(), 200, "报名活动成功: " + activity.getTitle());
 
         RegistrationResponse response = buildRegistrationResponse(registration, activity, userId);
@@ -186,19 +192,27 @@ public class RegistrationService extends BaseService {
      * @param isNew 是否为新报名
      */
     private void sendRegistrationNotifications(Long userId, Activity activity, boolean isNew) {
+        log.info("=== sendRegistrationNotifications 开始 ===");
+        log.info("userId: {}, activityId: {}, isNew: {}", userId, activity.getId(), isNew);
+        
         User user = userMapper.selectById(userId);
         String userName = user != null ? user.getRealName() : "用户" + userId;
+        log.info("userName: {}", userName);
 
         String userMessage = isNew
                 ? "您已成功报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加"
                 : "您已重新报名活动《" + activity.getTitle() + "》，请在活动开始前准时参加";
+        log.info("发送通知给用户: userId={}, message={}", userId, userMessage);
         notificationService.notifyUser(userId, NotificationTypeConstants.APPROVAL_RESULT, userMessage);
 
         String publisherMessage = "用户【" + userName + "】"
                 + (isNew ? "报名了您的活动" : "重新报名了您的活动")
                 + "《" + activity.getTitle() + "》";
+        log.info("发送通知给发布者: publisherId={}, message={}", activity.getPublisherId(), publisherMessage);
         notificationService.notifyUser(activity.getPublisherId(),
                 NotificationTypeConstants.SUBSCRIPTION_STATUS, publisherMessage);
+        
+        log.info("=== sendRegistrationNotifications 结束 ===");
     }
 
     /**
@@ -225,15 +239,15 @@ public class RegistrationService extends BaseService {
 
         // 使用 BatchQueryUtils 批量获取活动信息
         Map<Long, Activity> activityMap = BatchQueryUtils.batchQueryToMap(
-                ids -> activityMapper.selectByIds(ids),
                 activityIds,
+                (ids) -> activityMapper.selectByIds(ids),
                 Activity::getId
         );
 
         // 使用 BatchQueryUtils 批量获取用户信息
         Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
-                ids -> userMapper.selectBatchIds(ids),
                 userIds,
+                (ids) -> userMapper.selectBatchIds(ids),
                 User::getId
         );
 
@@ -282,8 +296,8 @@ public class RegistrationService extends BaseService {
 
         // 使用 BatchQueryUtils 批量获取用户信息
         Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
-                ids -> userMapper.selectBatchIds(ids),
                 userIds,
+                (ids) -> userMapper.selectBatchIds(ids),
                 User::getId
         );
 
@@ -403,11 +417,9 @@ public class RegistrationService extends BaseService {
                 userId, activityId, registration.getId());
 
         // 记录审计日志（取消报名）
-        User user = userMapper.selectById(userId);
-        String username = user != null ? user.getUsername() : null;
         Activity activity = activityMapper.selectById(activityId);
         String activityTitle = activity != null ? activity.getTitle() : "未知活动";
-        auditService.quickRecord(userId, username, AuditOperationConstants.REGISTRATION_CANCEL,
+        auditService.quickRecord(userId, null, AuditOperationConstants.REGISTRATION_CANCEL,
                 AuditResourceTypeConstants.REGISTRATION, registration.getId(), 200, "取消报名: " + activityTitle);
 
         sendCancellationNotification(userId, activityId);

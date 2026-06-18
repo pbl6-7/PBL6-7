@@ -11,6 +11,7 @@ import com.campus.user.dto.LoginResponse;
 import com.campus.user.dto.UpdateProfileRequest;
 import com.campus.user.entity.User;
 import com.campus.user.service.UserService;
+import com.campus.activity.util.FileUploadUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -26,6 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 public class UserController {
 
     private final UserService userService;
+    private final FileUploadUtil fileUploadUtil;
 
     @PostMapping("/login")
     @ApiOperation("用户登录")
@@ -96,5 +100,49 @@ public class UserController {
         }
         userService.updateProfile(userId, updateRequest.getRealName(), updateRequest.getContact());
         return Result.success(null, "个人资料修改成功");
+    }
+
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/avatar")
+    @ApiOperation("上传用户头像")
+    public Result<Map<String, Object>> uploadAvatar(
+            HttpServletRequest request,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        Long userId = (Long) request.getAttribute("currentUserId");
+        if (userId == null) {
+            throw new BusinessException(ResultCode.UNAUTHORIZED, "请先登录");
+        }
+
+        try {
+            // 使用 FileUploadUtil 统一安全上传（含类型白名单、Magic Number校验、路径遍历防护）
+            String avatarUrl = fileUploadUtil.uploadImageToSubDir(file, "avatars", String.valueOf(userId));
+            userService.updateAvatar(userId, avatarUrl);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("avatarUrl", avatarUrl);
+            return Result.success(data, "头像上传成功");
+        } catch (IllegalArgumentException e) {
+            return Result.error(ResultCode.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            return Result.error(ResultCode.INTERNAL_SERVER_ERROR, "头像上传失败");
+        }
+    }
+
+    /**
+     * 获取用户头像
+     */
+    @GetMapping("/{id}/avatar")
+    @ApiOperation("获取用户头像")
+    public Result<Map<String, Object>> getUserAvatar(@PathVariable Long id) {
+        User user = userService.getUserById(id);
+        if (user == null) {
+            return Result.error(ResultCode.USER_NOT_FOUND);
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", id);
+        data.put("avatarUrl", user.getAvatar());
+        return Result.success(data);
     }
 }

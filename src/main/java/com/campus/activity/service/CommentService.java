@@ -24,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,7 +119,7 @@ public class CommentService {
         }
 
         // 记录审计日志（评论发布）
-        auditService.quickRecord(userId, user.getUsername(), AuditOperationConstants.COMMENT_CREATE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.COMMENT_CREATE,
                 AuditResourceTypeConstants.COMMENT, comment.getId(), 200, "发布评论成功");
 
         CommentResponse response = CommentResponse.fromEntity(comment);
@@ -174,13 +173,13 @@ public class CommentService {
     }
 
     /**
-     * 获取活动的评论列表
-     * 修复问题7：优化N+1查询问题，批量预加载评论和用户信息
+     * 获取活动的评论列表（无限嵌套树形结构）
+     * 一次查询全部评论，在内存中构建树形结构，支持任意深度嵌套
      *
      * @param activityId 活动ID
-     * @param page 页码
-     * @param size 每页数量
-     * @return 评论响应列表
+     * @param page 页码（对根评论分页）
+     * @param size 每页数量（根评论数量）
+     * @return 根评论列表，每条根评论的 replies 递归包含所有层级的子回复
      */
     public List<CommentResponse> getCommentList(Long activityId, Integer page, Integer size) {
         PageUtils.PageParams params = PageUtils.validateAndNormalize(
@@ -188,149 +187,128 @@ public class CommentService {
                 appConfig.getPagination().getDefaultPageSize(),
                 appConfig.getPagination().getMaxPageSize());
 
-        List<Comment> rootComments = commentMapper.selectRootCommentsByActivityId(
-                activityId, params.getOffset(), params.getSize());
-
-        if (rootComments.isEmpty()) {
+        // 一次查询该活动的全部评论
+        List<Comment> allComments = commentMapper.selectAllByActivityId(activityId);
+        if (allComments.isEmpty()) {
             return new ArrayList<>();
         }
 
-        List<Long> rootIds = rootComments.stream()
-                .map(Comment::getId)
-                .collect(Collectors.toList());
-
-        // 批量获取所有回复，避免N+1查询
-        List<Comment> allReplies = commentMapper.selectRepliesByParentIds(rootIds);
-
-        // 构建评论ID到评论对象的映射
-        Map<Long, Comment> commentMap = buildCommentMap(rootComments, allReplies);
-
-        // 构建回复数量映射
-        Map<Long, Long> replyCountMap = buildReplyCountMap(allReplies);
-
-        // 一次性收集所有需要的用户ID
-        Set<Long> allUserIds = collectAllUserIds(rootComments, allReplies, commentMap);
-
-        // 使用 BatchQueryUtils 批量获取用户信息
+        // 批量获取所有用户信息
+        Set<Long> allUserIds = allComments.stream()
+                .map(Comment::getUserId)
+                .collect(Collectors.toSet());
         Map<Long, User> userMap = BatchQueryUtils.batchQueryToMap(
-                ids -> userMapper.selectBatchIds(ids),
                 allUserIds,
+                ids -> userMapper.selectBatchIds(ids),
                 User::getId
         );
 
-        // 构建回复按父评论分组的映射
-        Map<Long, List<Comment>> repliesByParent = groupRepliesByParent(allReplies);
-
-        // 构建响应列表
-        return buildCommentResponses(rootComments, repliesByParent, userMap, commentMap, replyCountMap);
-    }
-
-    /**
-     * 构建评论ID到评论对象的映射
-     *
-     * @param rootComments 根评论列表
-     * @param allReplies 所有回复列表
-     * @return 评论映射Map
-     */
-    private Map<Long, Comment> buildCommentMap(List<Comment> rootComments, List<Comment> allReplies) {
-        Map<Long, Comment> commentMap = new HashMap<>();
-        for (Comment root : rootComments) {
-            commentMap.put(root.getId(), root);
+        // 将所有评论转为 CommentResponse，并按 ID 索引
+        // 同时构建评论ID到评论实体的映射，用于查找被回复人
+        Map<Long, Comment> commentEntityMap = new HashMap<>();
+        for (Comment comment : allComments) {
+            commentEntityMap.put(comment.getId(), comment);
         }
-        for (Comment reply : allReplies) {
-            commentMap.put(reply.getId(), reply);
-        }
-        return commentMap;
-    }
 
-    /**
-     * 构建回复数量映射
-     *
-     * @param allReplies 所有回复列表
-     * @return 回复数量映射
-     */
-    private Map<Long, Long> buildReplyCountMap(List<Comment> allReplies) {
-        Map<Long, Long> replyCountMap = new HashMap<>();
-        for (Comment reply : allReplies) {
-            Long parentId = reply.getReplyToId();
-            replyCountMap.merge(parentId, 1L, Long::sum);
-        }
-        return replyCountMap;
-    }
-
-    /**
-     * 收集所有用户ID
-     *
-     * @param rootComments 根评论列表
-     * @param allReplies 所有回复列表
-     * @param commentMap 评论映射
-     * @return 用户ID集合
-     */
-    private Set<Long> collectAllUserIds(
-            List<Comment> rootComments, List<Comment> allReplies, Map<Long, Comment> commentMap) {
-        Set<Long> allUserIds = new HashSet<>();
-        for (Comment root : rootComments) {
-            allUserIds.add(root.getUserId());
-        }
-        for (Comment reply : allReplies) {
-            allUserIds.add(reply.getUserId());
-            if (reply.getReplyToId() != null && commentMap.containsKey(reply.getReplyToId())) {
-                allUserIds.add(commentMap.get(reply.getReplyToId()).getUserId());
+        Map<Long, CommentResponse> responseMap = new HashMap<>();
+        for (Comment comment : allComments) {
+            CommentResponse response = CommentResponse.fromEntity(comment);
+            User user = userMap.get(comment.getUserId());
+            if (user != null) {
+                response.setUsername(user.getRealName());
             }
-        }
-        return allUserIds;
-    }
-
-    /**
-     * 将回复按父评论分组
-     *
-     * @param allReplies 所有回复列表
-     * @return 父评论ID到回复列表的映射
-     */
-    private Map<Long, List<Comment>> groupRepliesByParent(List<Comment> allReplies) {
-        Map<Long, List<Comment>> repliesByParent = new HashMap<>();
-        for (Comment reply : allReplies) {
-            repliesByParent.computeIfAbsent(reply.getReplyToId(), k -> new ArrayList<>()).add(reply);
-        }
-        return repliesByParent;
-    }
-
-    /**
-     * 构建评论响应列表
-     *
-     * @param rootComments 根评论列表
-     * @param repliesByParent 回复分组映射
-     * @param userMap 用户映射
-     * @param commentMap 评论映射
-     * @param replyCountMap 回复数量映射
-     * @return 评论响应列表
-     */
-    private List<CommentResponse> buildCommentResponses(
-            List<Comment> rootComments,
-            Map<Long, List<Comment>> repliesByParent,
-            Map<Long, User> userMap,
-            Map<Long, Comment> commentMap,
-            Map<Long, Long> replyCountMap) {
-        List<CommentResponse> responses = new ArrayList<>();
-        for (Comment root : rootComments) {
-            CommentResponse rootResponse = buildCommentResponse(root, userMap, replyCountMap);
-
-            List<Comment> replies = repliesByParent.getOrDefault(root.getId(), new ArrayList<>());
-            List<CommentResponse> replyResponses = new ArrayList<>();
-            for (Comment reply : replies) {
-                CommentResponse replyResponse = buildCommentResponse(reply, userMap, null);
-                if (reply.getReplyToId() != null && commentMap.containsKey(reply.getReplyToId())) {
-                    Comment replyToComment = commentMap.get(reply.getReplyToId());
-                    User replyToUser = userMap.get(replyToComment.getUserId());
-                    replyResponse.setReplyToUsername(replyToUser != null ? replyToUser.getRealName() : null);
+            // 设置被回复人的用户名
+            if (comment.getReplyToId() != null) {
+                Comment parentComment = commentEntityMap.get(comment.getReplyToId());
+                if (parentComment != null) {
+                    User parentUser = userMap.get(parentComment.getUserId());
+                    response.setReplyToUsername(parentUser != null ? parentUser.getRealName() : null);
                 }
-                replyResponses.add(replyResponse);
             }
-            rootResponse.setReplyCount(replyResponses.size());
-            rootResponse.setReplies(replyResponses);
-            responses.add(rootResponse);
+            response.setReplies(new ArrayList<>());
+            responseMap.put(comment.getId(), response);
         }
-        return responses;
+
+        // 构建树形结构：将每条回复挂到其父评论的 replies 列表中
+        List<CommentResponse> rootComments = new ArrayList<>();
+        for (Comment comment : allComments) {
+            CommentResponse response = responseMap.get(comment.getId());
+            if (comment.getReplyToId() == null) {
+                // 根评论
+                rootComments.add(response);
+            } else {
+                // 回复：挂到父评论的 replies 中
+                CommentResponse parentResponse = responseMap.get(comment.getReplyToId());
+                if (parentResponse != null) {
+                    parentResponse.getReplies().add(response);
+                } else {
+                    // 父评论已被删除，作为根评论展示
+                    rootComments.add(response);
+                }
+            }
+        }
+
+        // 计算每条评论的回复数（递归统计直接子回复数）
+        for (CommentResponse response : responseMap.values()) {
+            if (response.getReplies() != null) {
+                response.setReplyCount(response.getReplies().size());
+            }
+        }
+
+        // 对根评论按时间倒序排列
+        rootComments.sort((a, b) -> {
+            if (a.getCreatedAt() == null || b.getCreatedAt() == null) return 0;
+            return b.getCreatedAt().compareTo(a.getCreatedAt());
+        });
+
+        // 对根评论分页
+        int offset = params.getOffset();
+        int limit = params.getSize();
+        int total = rootComments.size();
+        if (offset >= total) {
+            return new ArrayList<>();
+        }
+        int end = Math.min(offset + limit, total);
+        return rootComments.subList(offset, end);
+    }
+
+    /**
+     * 编辑评论内容
+     *
+     * @param commentId 评论ID
+     * @param userId 用户ID
+     * @param newContent 新内容
+     * @return 更新后的评论响应
+     * @throws BusinessException 当评论不存在或无权编辑时抛出异常
+     */
+    @Transactional
+    public CommentResponse updateComment(Long commentId, Long userId, String newContent) {
+        log.info("用户 {} 开始编辑评论: commentId={}", userId, commentId);
+
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND, "评论不存在");
+        }
+
+        if (!comment.getUserId().equals(userId)) {
+            throw new BusinessException(ResultCode.FORBIDDEN, "只能编辑自己的评论");
+        }
+
+        validateCommentContent(newContent, userId);
+
+        comment.setContent(newContent);
+        commentMapper.updateContent(commentId, newContent);
+
+        // 记录审计日志
+        auditService.quickRecord(userId, null, AuditOperationConstants.COMMENT_CREATE,
+                AuditResourceTypeConstants.COMMENT, commentId, 200, "编辑评论成功");
+
+        User user = userMapper.selectById(userId);
+        CommentResponse response = CommentResponse.fromEntity(comment);
+        if (user != null) {
+            response.setUsername(user.getRealName());
+        }
+        return response;
     }
 
     /**
@@ -368,8 +346,7 @@ public class CommentService {
         log.info("用户 {} 成功删除评论: commentId={}, 删除总数={}", userId, commentId, idsToDelete.size());
 
         // 记录审计日志（评论删除）
-        String username = user != null ? user.getUsername() : null;
-        auditService.quickRecord(userId, username, AuditOperationConstants.COMMENT_DELETE,
+        auditService.quickRecord(userId, null, AuditOperationConstants.COMMENT_DELETE,
                 AuditResourceTypeConstants.COMMENT, commentId, 200, "删除评论成功，删除总数: " + idsToDelete.size());
     }
 
@@ -425,24 +402,4 @@ public class CommentService {
         }
     }
 
-    /**
-     * 构建评论响应对象
-     *
-     * @param comment 评论对象
-     * @param userMap 用户映射
-     * @param replyCountMap 回复数量映射
-     * @return 评论响应对象
-     */
-    private CommentResponse buildCommentResponse(
-            Comment comment, Map<Long, User> userMap, Map<Long, Long> replyCountMap) {
-        CommentResponse response = CommentResponse.fromEntity(comment);
-        User user = userMap.get(comment.getUserId());
-        if (user != null) {
-            response.setUsername(user.getRealName());
-        }
-        if (replyCountMap != null && replyCountMap.containsKey(comment.getId())) {
-            response.setReplyCount(replyCountMap.get(comment.getId()).intValue());
-        }
-        return response;
-    }
 }

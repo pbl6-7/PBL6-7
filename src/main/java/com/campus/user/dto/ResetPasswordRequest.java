@@ -30,6 +30,13 @@ public class ResetPasswordRequest {
     private String securityAnswer;
 
     /**
+     * 密保验证Token
+     * 验证密保答案后获取的一次性Token，用于关联验证和重置流程
+     */
+    @NotBlank(message = "密保验证Token不能为空")
+    private String verifyToken;
+
+    /**
      * 新密码
      */
     @NotBlank(message = "新密码不能为空", groups = {UpdateGroup.class})

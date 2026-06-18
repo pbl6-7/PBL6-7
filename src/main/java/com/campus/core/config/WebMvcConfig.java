@@ -1,10 +1,12 @@
 package com.campus.core.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -22,20 +24,23 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final RateLimitInterceptor rateLimitInterceptor;
     private final PermissionInterceptor permissionInterceptor;
 
+    @Value("${file.upload.path:D:/PBL6-7/uploads}")
+    private String uploadPath;
+
     @Override
     public void configurePathMatch(PathMatchConfigurer configurer) {
         configurer.setUseSuffixPatternMatch(false);
     }
 
     @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173", "http://localhost:8080")
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .allowCredentials(true)
-                .maxAge(3600);
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 映射 uploads 目录到 /uploads/** URL
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:" + uploadPath + "/");
     }
+
+    // CORS 配置已迁移到 CorsConfig 中使用 CorsFilter 方式注册
+    // CorsFilter 优先级高于拦截器，确保 OPTIONS 预检请求正确处理
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {

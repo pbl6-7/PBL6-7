@@ -54,7 +54,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 OVERVIEW_CACHE_KEY, 
                 OverviewStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取概览统计数据");
@@ -84,7 +84,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 ACTIVITY_CACHE_KEY, 
                 ActivityStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取活动统计数据");
@@ -114,7 +114,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 USER_CACHE_KEY, 
                 UserStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取用户统计数据");
@@ -144,7 +144,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 REGISTRATION_CACHE_KEY, 
                 RegistrationStatisticsDTO.class
-        ).orElse(null);
+        );
         
         if (cachedStats != null) {
             log.info("从缓存获取报名统计数据");
@@ -206,7 +206,7 @@ public class AdminStatisticsService {
                 "statisticsCache", 
                 cacheKey, 
                 List.class
-        ).orElse(null);
+        );
         
         if (cachedActivities != null) {
             log.info("从缓存获取热门活动数据");
@@ -245,6 +245,10 @@ public class AdminStatisticsService {
         Long totalUsers = userMapper.countAllUsers();
         Long totalRegistrations = registrationMapper.countAll();
         Long pendingActivities = activityMapper.countByApprovalStatus("pending");
+
+        // 今日统计
+        Long todayActivities = activityMapper.countTodayActivities();
+        Long todayRegistrations = registrationMapper.countTodayRegistrations();
         
         // 时间范围统计
         Long newActivities7Days = activityMapper.countByTimeRange(sevenDaysAgo, now);
@@ -267,6 +271,8 @@ public class AdminStatisticsService {
                 .totalActivities(totalActivities)
                 .totalUsers(totalUsers)
                 .totalRegistrations(totalRegistrations)
+                .todayActivities(todayActivities)
+                .todayRegistrations(todayRegistrations)
                 .pendingActivities(pendingActivities)
                 .newActivities7Days(newActivities7Days)
                 .newUsers7Days(newUsers7Days)
@@ -302,40 +308,19 @@ public class AdminStatisticsService {
                 activityMapper.selectTypeDistribution()
         );
         
-        // 月度趋势（最近12个月）
-        LocalDateTime now = LocalDateTime.now();
-        String startMonth = now.minusMonths(12).format(DateTimeFormatter.ofPattern("yyyy-MM"));
-        String endMonth = now.format(DateTimeFormatter.ofPattern("yyyy-MM"));
-        List<TrendDataDTO> monthlyTrend = convertTrendList(
-                activityMapper.selectMonthlyTrend(startMonth, endMonth)
-        );
-        
-        // 周度趋势（最近12周）
-        String startWeek = calculateWeekString(now.minusWeeks(12));
-        String endWeek = calculateWeekString(now);
-        List<TrendDataDTO> weeklyTrend = convertTrendList(
-                activityMapper.selectWeeklyTrend(startWeek, endWeek)
-        );
-        
-        // 热门活动
-        List<HotActivityDTO> hotActivitiesByRegistration = calculateHotActivities(10, "registration");
-        List<HotActivityDTO> hotActivitiesByCollection = calculateHotActivities(10, "collection");
-        
-        // 平均值统计
-        Double averageRegistrations = activityMapper.selectAverageRegistrations();
-        Double averageViewCount = activityMapper.selectAverageViewCount();
-        
         return ActivityStatisticsDTO.builder()
                 .totalActivities(totalActivities)
+                .publishedActivities(statusDistribution.getOrDefault("published", 0L))
+                .draftActivities(statusDistribution.getOrDefault("draft", 0L))
+                .cancelledActivities(statusDistribution.getOrDefault("cancelled", 0L))
+                .endedActivities(statusDistribution.getOrDefault("ended", 0L))
+                .totalViews(activityMapper.sumViewCount())
+                .totalParticipants(activityMapper.sumTotalParticipants())
                 .statusDistribution(statusDistribution)
                 .approvalStatusDistribution(approvalStatusDistribution)
                 .typeDistribution(typeDistribution)
-                .monthlyTrend(monthlyTrend)
-                .weeklyTrend(weeklyTrend)
-                .hotActivitiesByRegistration(hotActivitiesByRegistration)
-                .hotActivitiesByCollection(hotActivitiesByCollection)
-                .averageRegistrations(averageRegistrations != null ? averageRegistrations : 0.0)
-                .averageViewCount(averageViewCount != null ? averageViewCount : 0.0)
+                .averageRegistrations(activityMapper.selectAverageRegistrations())
+                .averageViewCount(activityMapper.selectAverageViewCount())
                 .build();
     }
 
@@ -566,6 +551,8 @@ public class AdminStatisticsService {
             activityData = activityMapper.selectHotActivitiesByRegistration(limit);
         } else if ("collection".equals(sortBy)) {
             activityData = activityMapper.selectHotActivitiesByCollection(limit);
+        } else if ("view".equals(sortBy)) {
+            activityData = activityMapper.selectHotActivitiesByView(limit);
         } else {
             activityData = activityMapper.selectHotActivitiesByRegistration(limit);
         }
@@ -580,7 +567,7 @@ public class AdminStatisticsService {
                     .collectionCount(toLong(data.getOrDefault("collectionCount", 0)))
                     .viewCount(toLong(data.getOrDefault("viewCount", 0)))
                     .status(toStr(data.get("status")))
-                    .startTime(toStr(data.get("startTime")))
+                    .startTime(parseDateTime(toStr(data.get("startTime"))))
                     .location(toStr(data.get("location")))
                     .hotScore(calculateHotScore(data))
                     .build();
@@ -717,6 +704,36 @@ public class AdminStatisticsService {
             return null;
         }
         return obj.toString();
+    }
+
+    /**
+     * 安全地解析日期时间字符串
+     * 支持多种格式：ISO格式(含T)、标准格式(空格)、LocalDateTime.toString()输出
+     *
+     * @param dateStr 日期时间字符串
+     * @return LocalDateTime对象，解析失败返回null
+     */
+    private LocalDateTime parseDateTime(String dateStr) {
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // 尝试ISO格式（含T分隔符）
+            return LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (Exception e1) {
+            try {
+                // 尝试标准格式（空格分隔符）
+                return LocalDateTime.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            } catch (Exception e2) {
+                try {
+                    // 尝试直接解析（LocalDateTime.toString()输出格式）
+                    return LocalDateTime.parse(dateStr);
+                } catch (Exception e3) {
+                    log.warn("无法解析日期时间: {}", dateStr);
+                    return null;
+                }
+            }
+        }
     }
 
     // ==================== 旧方法保留（兼容性） ====================

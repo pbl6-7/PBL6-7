@@ -11,6 +11,7 @@ import com.campus.core.validation.group.UpdateGroup;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 @RequestMapping("/api/v1/registrations")
 @RequiredArgsConstructor
 @Api(tags = "活动报名")
+@Slf4j
 public class RegistrationController {
 
     private final RegistrationService registrationService;
@@ -30,7 +32,9 @@ public class RegistrationController {
             HttpServletRequest request,
             @Validated({CreateGroup.class}) @RequestBody RegistrationRequest regRequest) {
         Long userId = (Long) request.getAttribute("currentUserId");
+        log.info("=== Controller: registerForActivity === userId: {}, activityId: {}", userId, regRequest.getActivityId());
         RegistrationResponse response = registrationService.registerForActivity(userId, regRequest.getActivityId());
+        log.info("=== Controller: registerForActivity 完成 ===");
         return Result.success(response, "报名成功");
     }
 

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.activity.mapper.SensitiveWordMapper">
+
+    <resultMap id="BaseResultMap" type="com.campus.activity.entity.SensitiveWord">
+        <id column="id" property="id"/>
+        <result column="word" property="word"/>
+        <result column="is_whitelist" property="isWhitelist"/>
+        <result column="category" property="type"/>
+        <result column="created_at" property="createdAt"/>
+    </resultMap>
+
+    <select id="selectAll" resultMap="BaseResultMap">
+        SELECT id, word, is_whitelist, category, created_at FROM sensitive_word
+        WHERE deleted_at IS NULL AND enabled = 1
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT id, word, is_whitelist, category, created_at FROM sensitive_word
+        WHERE id = #{id} AND deleted_at IS NULL
+    </select>
+
+    <select id="selectByType" resultMap="BaseResultMap">
+        SELECT id, word, is_whitelist, category, created_at FROM sensitive_word
+        WHERE category = #{type} AND deleted_at IS NULL AND enabled = 1
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByWord" resultMap="BaseResultMap">
+        SELECT id, word, is_whitelist, category, created_at FROM sensitive_word
+        WHERE word = #{word}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO sensitive_word (word, is_whitelist, category, enabled, created_at, updated_at)
+        VALUES (#{word}, #{isWhitelist}, #{type}, 1, NOW(), NOW())
+    </insert>
+
+    <update id="updateById">
+        UPDATE sensitive_word
+        <set>
+            <if test="word != null">word = #{word},</if>
+            <if test="isWhitelist != null">is_whitelist = #{isWhitelist},</if>
+            <if test="type != null">category = #{type},</if>
+            updated_at = NOW(),
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        UPDATE sensitive_word SET deleted_at = NOW(), enabled = 0 WHERE id = #{id}
+    </delete>
+
+    <delete id="batchDelete">
+        UPDATE sensitive_word SET deleted_at = NOW(), enabled = 0 WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="countByType" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM sensitive_word WHERE category = #{type} AND deleted_at IS NULL
+    </select>
+
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM sensitive_word WHERE deleted_at IS NULL
+    </select>
+
+</mapper>

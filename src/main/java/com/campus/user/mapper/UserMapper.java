@@ -102,6 +102,19 @@ public interface UserMapper {
     Long countAllUsers();
 
     /**
+     * 统计所有用户数量（未删除）
+     * @return 用户总数
+     */
+    Long countAll();
+
+    /**
+     * 按状态统计用户数量
+     * @param status 用户状态
+     * @return 用户数量
+     */
+    Long countByStatus(@Param("status") String status);
+
+    /**
      * 按角色统计用户数量
      * @param role 用户角色
      * @return 用户数量

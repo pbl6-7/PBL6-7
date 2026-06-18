@@ -18,6 +18,11 @@
         VALUES (#{userId}, #{activityId}, #{title}, #{type}, #{content}, #{isRead}, NOW())
     </insert>
 
+    <insert id="insertWithoutActivity" parameterType="com.campus.activity.entity.Notification" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO notification (user_id, title, type, content, is_read, create_time)
+        VALUES (#{userId}, #{title}, #{type}, #{content}, #{isRead}, NOW())
+    </insert>
+
     <!--
         批量插入通知
         优化说明：
@@ -85,5 +90,60 @@
         ORDER BY id DESC
         LIMIT #{size}
     </select>
+
+    <!--
+        标记用户所有通知为已读
+    -->
+    <update id="updateAllReadByUserId">
+        UPDATE notification
+        SET is_read = 1
+        WHERE user_id = #{userId} AND is_read = 0
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM notification WHERE id = #{id}
+    </delete>
+
+    <delete id="deleteOldNotifications">
+        DELETE FROM notification WHERE is_read = 1 AND create_time &lt; #{cutoff}
+    </delete>
+
+    <!-- 查询所有通知（管理员用，分页） -->
+    <select id="selectAllRecent" resultMap="BaseResultMap">
+        SELECT * FROM notification
+        ORDER BY create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 统计通知总数 -->
+    <select id="countAll" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM notification
+    </select>
+
+    <!-- 查询去重后的系统公告列表（按title+content分组） -->
+    <select id="selectDistinctByType" resultMap="BaseResultMap">
+        SELECT n.* FROM notification n
+        INNER JOIN (
+            SELECT MIN(id) AS id FROM notification
+            WHERE type = #{type}
+            GROUP BY title, content
+        ) grp ON n.id = grp.id
+        ORDER BY n.create_time DESC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <!-- 统计去重后的系统公告数量 -->
+    <select id="countDistinctByType" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM (
+            SELECT title, content FROM notification
+            WHERE type = #{type}
+            GROUP BY title, content
+        ) AS distinct_announcements
+    </select>
+
+    <!-- 根据标题和内容删除所有匹配的通知（删除公告时清理所有用户副本） -->
+    <delete id="deleteByTitleAndContent">
+        DELETE FROM notification WHERE title = #{title} AND content = #{content}
+    </delete>
 
 </mapper>

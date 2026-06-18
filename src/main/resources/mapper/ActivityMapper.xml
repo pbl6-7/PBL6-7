@@ -170,6 +170,13 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="selectByStatus" resultMap="BaseResultMap">
+        SELECT * FROM activity
+        WHERE status = #{status}
+        AND deleted_at IS NULL
+        ORDER BY created_at DESC
+    </select>
+
     <select id="countByApprovalStatus" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity
         WHERE approval_status = #{approvalStatus}
@@ -262,13 +269,28 @@
         2. 只查询已审核通过且已发布的活动
         3. 避免查询已取消或已结束的活动
     -->
-    <select id="selectUpcomingActivities" resultMap="BaseResultMap">
-        SELECT * FROM activity
+    <select id="selectUpcomingActivities" resultType="java.util.HashMap">
+        SELECT id, title, start_time, publisher_id
+        FROM activity
         WHERE deleted_at IS NULL
-        AND status = 'published'
-        AND approval_status = 'approved'
-        AND start_time BETWEEN #{startTimeFrom} AND #{startTimeTo}
-        ORDER BY start_time ASC
+          AND status = 'published'
+          AND start_time BETWEEN #{now} AND #{oneHourLater}
+    </select>
+
+    <update id="autoEndExpiredActivities">
+        UPDATE activity
+        SET status = 'ended'
+        WHERE deleted_at IS NULL
+          AND status = 'published'
+          AND end_time &lt; #{now}
+    </update>
+
+    <!-- 查询已过期但仍为published状态的活动（用于自动结束前发送通知） -->
+    <select id="selectExpiredButActiveActivities" resultType="java.util.Map">
+        SELECT id, title FROM activity
+        WHERE deleted_at IS NULL
+          AND status = 'published'
+          AND end_time &lt; #{now}
     </select>
 
     <!--
@@ -398,6 +420,23 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 查询热门活动（按浏览量排序） -->
+    <select id="selectHotActivitiesByView" resultType="java.util.Map">
+        SELECT
+            a.id as activityId,
+            a.title,
+            a.status,
+            a.start_time as startTime,
+            a.location,
+            at.name as activityType,
+            a.view_count as viewCount
+        FROM activity a
+        LEFT JOIN activity_type at ON a.type_id = at.id
+        WHERE a.deleted_at IS NULL
+        ORDER BY a.view_count DESC
+        LIMIT #{limit}
+    </select>
+
     <!-- 统计平均报名人数 -->
     <select id="selectAverageRegistrations" resultType="java.lang.Double">
         SELECT AVG(registration_count) FROM (
@@ -486,6 +525,25 @@
     <select id="countConfirmedRegistrations" resultType="java.lang.Long">
         SELECT COUNT(*) FROM activity_registration
         WHERE activity_id = #{activityId} AND status IN ('pending', 'confirmed')
+    </select>
+
+    <!-- 统计今日创建的活动数量 -->
+    <select id="countTodayActivities" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity
+        WHERE DATE(created_at) = CURDATE()
+        AND deleted_at IS NULL
+    </select>
+
+    <!-- 统计所有活动的总浏览量 -->
+    <select id="sumViewCount" resultType="java.lang.Long">
+        SELECT COALESCE(SUM(view_count), 0) FROM activity
+        WHERE deleted_at IS NULL
+    </select>
+
+    <!-- 统计所有活动的总参与人数（已确认报名数） -->
+    <select id="sumTotalParticipants" resultType="java.lang.Long">
+        SELECT COUNT(*) FROM activity_registration
+        WHERE status = 'confirmed'
     </select>
 
 </mapper>
